@@ -20,7 +20,7 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <toolWindow id="Revision Graph"
-                    anchor="bottom"
+                    anchor="right"
                     icon="/icons/revisionGraph.svg"
                     factoryClass="com.hunkontech.revgraph.RevisionGraphToolWindowFactory"/>
     </extensions>
