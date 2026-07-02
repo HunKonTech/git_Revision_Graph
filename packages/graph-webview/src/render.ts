@@ -68,6 +68,13 @@ export class GraphView {
    * onto a single point. Keyed by the edge object.
    */
   private rightAttach = new Map<LayoutEdge, { index: number; count: number }>();
+  /**
+   * For cross-lane edges (merge connectors and side-branch parent edges) that
+   * share a routing gutter: this edge's fan slot and how many slots the gutter
+   * uses, so several merges into the same lane run as distinct parallel lines
+   * instead of piling onto one shared vertical corridor. Keyed by the edge object.
+   */
+  private gutterFan = new Map<LayoutEdge, { slot: number; count: number }>();
   /** Bottom Y of each box, keyed by `"row:lane"` — for routing around boxes. */
   private boxBottom = new Map<string, number>();
 
@@ -338,6 +345,49 @@ export class GraphView {
       list.forEach((e, index) => this.rightAttach.set(e, { index, count: list.length }));
     }
 
+    // Fan out cross-lane edges (merge connectors, dangling side-branch parents)
+    // that share a routing gutter. Without this, every merge into a given lane
+    // draws its vertical run at the same x, so two branches merged into the trunk
+    // at different points collapse onto one corridor and read as a single line.
+    // We give each such edge its own x offset within the gutter: edges whose
+    // vertical spans overlap (or sit within a row of each other) get distinct
+    // slots via greedy interval colouring, so merges that would otherwise pile up
+    // become distinct parallel lines, while merges far apart reuse the centre.
+    this.gutterFan.clear();
+    const vSpan = (e: LayoutEdge): [number, number] => {
+      const a = this.rowBottom(e.fromRow) + ROW_GAP / 2;
+      const b = this.boxY(e.toRow) - ROW_GAP / 2;
+      return a <= b ? [a, b] : [b, a];
+    };
+    const byGutter = new Map<number, LayoutEdge[]>();
+    for (const e of this.layout.edges) {
+      if (e.isStash || e.isBranch || e.fromLane === e.toLane) continue;
+      const gutter = Math.max(e.fromLane, e.toLane);
+      const list = byGutter.get(gutter);
+      if (list) list.push(e);
+      else byGutter.set(gutter, [e]);
+    }
+    // Two edges in a gutter are treated as colliding when their vertical spans
+    // come within one box-row of each other, so near-collinear merges separate.
+    const FAN_PAD = CONTENT_H + ROW_GAP;
+    for (const list of byGutter.values()) {
+      if (list.length < 2) continue;
+      const spans = new Map(list.map((e) => [e, vSpan(e)] as const));
+      list.sort((a, b) => spans.get(a)![0] - spans.get(b)![0] || spans.get(a)![1] - spans.get(b)![1]);
+      const colorEnd: number[] = []; // bottom Y currently reserved by each colour
+      const slotOf = new Map<LayoutEdge, number>();
+      for (const e of list) {
+        const [top, bottom] = spans.get(e)!;
+        let slot = colorEnd.findIndex((end) => end + FAN_PAD <= top);
+        if (slot === -1) slot = colorEnd.length;
+        colorEnd[slot] = bottom;
+        slotOf.set(e, slot);
+      }
+      const count = colorEnd.length;
+      if (count < 2) continue; // all edges fit one column — no fan needed
+      for (const e of list) this.gutterFan.set(e, { slot: slotOf.get(e)!, count });
+    }
+
     // Bottom Y of every box keyed by "row:lane", so a horizontal branch/stash
     // connector can be dropped just below any box that sits between it and its
     // fork commit (keeping a clean straight line instead of crossing the box).
@@ -473,7 +523,19 @@ export class GraphView {
     const y1 = this.rowBottom(e.fromRow) + ROW_GAP / 2; // gap just below the child's row
     const y2 = this.boxY(e.toRow) - ROW_GAP / 2; // gap just above the parent's row
     const rightLane = Math.max(e.fromLane, e.toLane);
-    const xCorr = this.boxX(rightLane) - (LANE_W - BOX_W) / 2; // gutter left of the right column
+    // Gutter left of the right column, nudged by this edge's fan slot so several
+    // merges sharing the gutter run as distinct parallel lines. The whole fan is
+    // centred on the gutter midpoint and kept clear of the boxes on either side.
+    const fan = this.gutterFan.get(e);
+    let fanOffset = 0;
+    if (fan) {
+      // Spread the fan across at most ~30px (centred), so it always stays inside
+      // the box-free gutter; each extra line costs up to 14px until that budget
+      // forces them closer together.
+      const step = Math.min(14, 30 / (fan.count - 1));
+      fanOffset = (fan.slot - (fan.count - 1) / 2) * step;
+    }
+    const xCorr = this.boxX(rightLane) - (LANE_W - BOX_W) / 2 + fanOffset; // gutter left of the right column
 
     const pts: Array<[number, number]> = [
       [cx, cy],
