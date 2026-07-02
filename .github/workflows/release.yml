@@ -191,7 +191,7 @@ jobs:
             "| RevisionGraph-vs2022.vsix | Visual Studio 2022 extension |",
             "| RevisionGraph-vs2026.vsix | Visual Studio 2026 extension |",
             "| RevisionGraph-deveco.zip | Huawei DevEco Studio plugin (sideload) |",
-            "| RevisionGraph-jetbrains.zip | JetBrains IDEs plugin — IntelliJ IDEA, WebStorm, PyCharm, … (sideload, and JetBrains Marketplace) |"
+            "| RevisionGraph-jetbrains.zip | JetBrains IDEs plugin - IntelliJ IDEA, WebStorm, PyCharm, etc. (sideload, and JetBrains Marketplace) |"
           ) -join "`n"
 
           $headers = @{
