@@ -92,13 +92,14 @@ vscode/media/
 vs/webview/main.js
 vs/webview/main.css
 vs/webview/schematics/
-deveco/src/main/resources/webview/main.js
-deveco/src/main/resources/webview/main.css
-deveco/src/main/resources/webview/schematics/
+jetbrains/common/src/main/resources/webview/main.js
+jetbrains/common/src/main/resources/webview/main.css
+jetbrains/common/src/main/resources/webview/schematics/
 
-### Gradle (deveco/)
-deveco/.gradle/
-deveco/build/
+### Gradle (jetbrains/)
+jetbrains/.gradle/
+jetbrains/build/
+jetbrains/*/build/
 
 # Generated LICENSE copy for VS Code packaging
 vscode/LICENSE

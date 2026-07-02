@@ -69,8 +69,8 @@ Step "Közös web renderer + asset másolás"
 npm run build:core
 npm run build:webview
 npm run build:vscode        # VS Code extension bundle
-npm run build:vs-assets     # -> vs\webview\
-npm run build:deveco-assets # -> deveco\src\main\resources\webview\
+npm run build:vs-assets       # -> vs\webview\
+npm run build:jetbrains-assets # -> jetbrains\common\src\main\resources\webview\
 if ($LASTEXITCODE -ne 0) { Fail "Build sikertelen." }
 
 # ---------------------------------------------------------------------------
@@ -161,36 +161,44 @@ if (-not (Test-Path $vswhere)) {
 }
 
 # ---------------------------------------------------------------------------
-# 4. DevEco Studio plugin (IntelliJ Platform / Gradle)
-#    Nem publikáljuk a JetBrains Marketplace-re — csak a ZIP-et gyártjuk le
-#    és tesszük ki a GitHub Release-be (lásd deveco/BUILD.md).
+# 4. JetBrains-family pluginok (IntelliJ Platform / Gradle)
+#    Egy multi-project (jetbrains/) KÉT ZIP-et gyárt a közös kódból:
+#    :deveco (DevEco Studio) és :intellij (IntelliJ IDEA / JetBrains IDE-k).
+#    A `buildPlugin` mindkét al-projektre lefut. A Marketplace-publikálás az
+#    :intellij flavornál külön, opcionális lépés (lásd jetbrains/BUILD.md).
 # ---------------------------------------------------------------------------
-$devecoDir = Join-Path $root "deveco"
-$gradlew   = if ($IsWindows) { Join-Path $devecoDir "gradlew.bat" } else { Join-Path $devecoDir "gradlew" }
+$jetbrainsDir = Join-Path $root "jetbrains"
+$gradlew   = if ($IsWindows) { Join-Path $jetbrainsDir "gradlew.bat" } else { Join-Path $jetbrainsDir "gradlew" }
 $gradleCmd = if (Test-Path $gradlew) { $gradlew } elseif (Get-Command gradle -ErrorAction SilentlyContinue) { "gradle" } else { $null }
 
 if (-not $gradleCmd) {
-    Warn "Sem deveco/gradlew, sem rendszer-Gradle nem található — DevEco Studio plugin kihagyva."
-    Warn "Lásd deveco/BUILD.md: 'gradle wrapper --gradle-version 8.9' a deveco/ mappában."
+    Warn "Sem jetbrains/gradlew, sem rendszer-Gradle nem található — JetBrains pluginok kihagyva."
+    Warn "Lásd jetbrains/BUILD.md: 'gradle wrapper --gradle-version 8.9' a jetbrains/ mappában."
 } elseif (-not (Get-Command java -ErrorAction SilentlyContinue)) {
-    Warn "JDK nem található a PATH-on — DevEco Studio plugin kihagyva."
+    Warn "JDK nem található a PATH-on — JetBrains pluginok kihagyva."
 } else {
-    Step "DevEco Studio plugin fordítása (Gradle)"
-    Push-Location $devecoDir
+    Step "JetBrains pluginok fordítása (Gradle, mindkét flavor)"
+    Push-Location $jetbrainsDir
     try {
         & $gradleCmd buildPlugin --no-daemon
-        if ($LASTEXITCODE -ne 0) { Fail "DevEco Studio plugin build sikertelen." }
+        if ($LASTEXITCODE -ne 0) { Fail "JetBrains plugin build sikertelen." }
     } finally {
         Pop-Location
     }
-    $builtZip = Get-ChildItem "$devecoDir\build\distributions\*.zip" -ErrorAction SilentlyContinue |
-                Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    if ($builtZip) {
-        $dest = Join-Path $installers "RevisionGraph-deveco.zip"
-        Copy-Item $builtZip.FullName $dest -Force
-        Ok "DevEco Studio plugin: $($dest | Split-Path -Leaf)"
-    } else {
-        Warn "Nem található a build kimenete: $devecoDir\build\distributions\*.zip"
+    $flavors = @(
+        @{ Dir = "deveco";   Asset = "RevisionGraph-deveco.zip"   },
+        @{ Dir = "intellij"; Asset = "RevisionGraph-jetbrains.zip" }
+    )
+    foreach ($f in $flavors) {
+        $builtZip = Get-ChildItem "$jetbrainsDir\$($f.Dir)\build\distributions\*.zip" -ErrorAction SilentlyContinue |
+                    Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if ($builtZip) {
+            $dest = Join-Path $installers $f.Asset
+            Copy-Item $builtZip.FullName $dest -Force
+            Ok "JetBrains plugin ($($f.Dir)): $($dest | Split-Path -Leaf)"
+        } else {
+            Warn "Nem található a build kimenete: $jetbrainsDir\$($f.Dir)\build\distributions\*.zip"
+        }
     }
 }
 

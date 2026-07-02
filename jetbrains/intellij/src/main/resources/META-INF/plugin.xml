@@ -1,0 +1,27 @@
+<idea-plugin>
+    <id>com.hunkontech.revgraph</id>
+    <name>Revision Graph for Git (SVN style)</name>
+    <vendor url="https://github.com/HunKonTech/git_Revision_Graph">HunKonTech</vendor>
+
+    <description><![CDATA[
+        A TortoiseSVN-style revision graph for Git, right inside your JetBrains
+        IDE (IntelliJ IDEA, WebStorm, PyCharm, GoLand, …). Commits, local and
+        remote branches, and tags appear as connected, color-coded boxes.
+        Right-click a commit to branch, check out, merge, or copy its SHA.
+
+        A separate build targets Huawei DevEco Studio; both are produced from
+        the same shared codebase.
+    ]]></description>
+
+    <!-- Depends only on the platform module every IntelliJ-Platform IDE
+         provides, so one build installs across the whole JetBrains family. -->
+    <depends>com.intellij.modules.platform</depends>
+    <depends>Git4Idea</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow id="Revision Graph"
+                    anchor="bottom"
+                    icon="/icons/revisionGraph.svg"
+                    factoryClass="com.hunkontech.revgraph.RevisionGraphToolWindowFactory"/>
+    </extensions>
+</idea-plugin>

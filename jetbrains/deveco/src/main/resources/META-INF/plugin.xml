@@ -4,10 +4,14 @@
     <vendor url="https://github.com/HunKonTech/git_Revision_Graph">HunKonTech</vendor>
 
     <description><![CDATA[
-        A TortoiseSVN-style revision graph for Git, right inside DevEco Studio.
-        Commits, local and remote branches, and tags appear as connected,
-        color-coded boxes. Right-click a commit to branch, check out, merge,
-        or copy its SHA.
+        A TortoiseSVN-style revision graph for Git, right inside Huawei DevEco
+        Studio. Commits, local and remote branches, and tags appear as
+        connected, color-coded boxes. Right-click a commit to branch, check
+        out, merge, or copy its SHA.
+
+        This is the DevEco Studio build; a separate build targets mainstream
+        JetBrains IDEs (IntelliJ IDEA, WebStorm, PyCharm, …). Both are produced
+        from the same shared codebase.
     ]]></description>
 
     <!-- DevEco Studio is built on IntelliJ IDEA Community; no DevEco-specific

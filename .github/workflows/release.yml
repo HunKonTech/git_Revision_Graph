@@ -125,8 +125,8 @@ jobs:
           $xml.PackageManifest.Metadata.Identity.Version = $v
           $xml.Save($manifestPath)
 
-          # deveco/gradle.properties (pluginVersion=...)
-          $f = 'deveco/gradle.properties'
+          # jetbrains/gradle.properties (pluginVersion=..., shared by both flavors)
+          $f = 'jetbrains/gradle.properties'
           (Get-Content $f -Raw) -replace 'pluginVersion=.*', "pluginVersion=$v" | Set-Content $f -NoNewline
 
           Write-Host "Patched all version strings to $v"
@@ -190,7 +190,8 @@ jobs:
             "| rev-graph-vscode-$v.vsix | VS Code (engine ^1.85) |",
             "| RevisionGraph-vs2022.vsix | Visual Studio 2022 extension |",
             "| RevisionGraph-vs2026.vsix | Visual Studio 2026 extension |",
-            "| RevisionGraph-deveco.zip | Huawei DevEco Studio plugin (sideload, not yet on JetBrains Marketplace) |"
+            "| RevisionGraph-deveco.zip | Huawei DevEco Studio plugin (sideload) |",
+            "| RevisionGraph-jetbrains.zip | JetBrains IDEs plugin — IntelliJ IDEA, WebStorm, PyCharm, … (sideload, and JetBrains Marketplace) |"
           ) -join "`n"
 
           $headers = @{
@@ -535,12 +536,15 @@ jobs:
           Write-Host "Successfully published to Visual Studio Marketplace."
 
   # -------------------------------------------------------------------------
-  # Third job: build the Huawei DevEco Studio plugin (IntelliJ Platform /
-  # Gradle). Independent of the VS 2022 VSIX job — runs in parallel, also
-  # after `release` so the GitHub Release already exists. No marketplace
-  # publish step: this pass ships as a sideloadable ZIP only.
+  # Third job: build the JetBrains-family plugins (IntelliJ Platform / Gradle).
+  # ONE multi-project (jetbrains/) produces TWO distributions from the shared
+  # codebase: a DevEco Studio flavor (:deveco) and a mainstream IntelliJ IDEA /
+  # JetBrains-IDE flavor (:intellij). Independent of the VS VSIX job — runs in
+  # parallel, also after `release` so the GitHub Release already exists. Both
+  # ship as sideloadable ZIPs; Marketplace publishing of the :intellij flavor
+  # is a separate opt-in step (needs PUBLISH_TOKEN) not wired into CI here.
   # -------------------------------------------------------------------------
-  build-deveco-plugin:
+  build-jetbrains-plugins:
     needs: release
     runs-on: [self-hosted, Windows]
     if: success() || needs.release.result == 'success'
@@ -552,13 +556,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Patch version in deveco/gradle.properties
+      - name: Patch version in jetbrains/gradle.properties
         shell: powershell
         run: |
           $v = $env:NEW_VERSION
-          $f = 'deveco/gradle.properties'
+          $f = 'jetbrains/gradle.properties'
           (Get-Content $f -Raw) -replace 'pluginVersion=.*', "pluginVersion=$v" | Set-Content $f -NoNewline
-          Write-Host "Patched deveco/gradle.properties to $v"
+          Write-Host "Patched jetbrains/gradle.properties to $v"
 
       - name: Setup JDK 17
         uses: actions/setup-java@v4
@@ -571,50 +575,53 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Build web assets for DevEco Studio
+      - name: Build shared web assets for the JetBrains plugins
         shell: powershell
         run: |
           npm install
           npm run build:core
           npm run build:webview
-          npm run build:deveco-assets
+          npm run build:jetbrains-assets
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Build DevEco Studio plugin
+      - name: Build both JetBrains plugin flavors
         shell: powershell
-        working-directory: deveco
+        working-directory: jetbrains
         run: |
+          # buildPlugin aggregates across both subprojects (:deveco, :intellij),
+          # so this single call produces both distribution ZIPs.
           gradle buildPlugin --no-daemon
           if ($LASTEXITCODE -ne 0) { throw "Gradle buildPlugin failed ($LASTEXITCODE)" }
 
-      - name: Copy plugin ZIP to dist/installers
+      - name: Copy plugin ZIPs to dist/installers
         shell: powershell
         run: |
-          $zip = Get-ChildItem "deveco\build\distributions\*.zip" -ErrorAction SilentlyContinue |
-                 Sort-Object LastWriteTime -Descending | Select-Object -First 1
-          if (-not $zip) {
-            Write-Warning "No DevEco Studio plugin ZIP found - skipping."
-            exit 0
-          }
           New-Item -ItemType Directory -Force "dist\installers" | Out-Null
-          Copy-Item $zip.FullName "dist\installers\RevisionGraph-deveco.zip" -Force
-          Write-Host "DevEco Studio plugin ready."
+          $flavors = @(
+            @{ dir = 'deveco';   asset = 'RevisionGraph-deveco.zip'   },
+            @{ dir = 'intellij'; asset = 'RevisionGraph-jetbrains.zip' }
+          )
+          foreach ($f in $flavors) {
+            $zip = Get-ChildItem "jetbrains\$($f.dir)\build\distributions\*.zip" -ErrorAction SilentlyContinue |
+                   Sort-Object LastWriteTime -Descending | Select-Object -First 1
+            if (-not $zip) {
+              Write-Warning "No ZIP found for flavor '$($f.dir)' - skipping."
+              continue
+            }
+            Copy-Item $zip.FullName "dist\installers\$($f.asset)" -Force
+            Write-Host "$($f.dir) plugin ready -> $($f.asset)"
+          }
 
-      - name: Upload DevEco Studio plugin to GitHub Release
+      - name: Upload JetBrains plugins to GitHub Release
         shell: powershell
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-          $zipPath = "dist\installers\RevisionGraph-deveco.zip"
-          if (-not (Test-Path $zipPath)) {
-            Write-Warning "RevisionGraph-deveco.zip not found - skipping upload."
-            exit 0
-          }
           $v   = $env:NEW_VERSION
           $tag = "v$v"
           $headers = @{
@@ -625,21 +632,27 @@ jobs:
             -Uri "https://api.github.com/repos/$env:GITHUB_REPOSITORY/releases/tags/$tag" `
             -Headers $headers
           $uploadBase = $release.upload_url -replace '\{.*\}', ''
-          $name = "RevisionGraph-deveco.zip"
-          $existing = $release.assets | Where-Object { $_.name -eq $name }
-          if ($existing) {
-            Invoke-RestMethod -Method Delete `
-              -Uri "https://api.github.com/repos/$env:GITHUB_REPOSITORY/releases/assets/$($existing.id)" `
-              -Headers $headers | Out-Null
-            Write-Host "Removed old asset: $name"
+          foreach ($name in @('RevisionGraph-deveco.zip', 'RevisionGraph-jetbrains.zip')) {
+            $zipPath = "dist\installers\$name"
+            if (-not (Test-Path $zipPath)) {
+              Write-Warning "$name not found - skipping upload."
+              continue
+            }
+            $existing = $release.assets | Where-Object { $_.name -eq $name }
+            if ($existing) {
+              Invoke-RestMethod -Method Delete `
+                -Uri "https://api.github.com/repos/$env:GITHUB_REPOSITORY/releases/assets/$($existing.id)" `
+                -Headers $headers | Out-Null
+              Write-Host "Removed old asset: $name"
+            }
+            $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path $zipPath).Path)
+            Invoke-RestMethod -Method Post `
+              -Uri ($uploadBase + "?name=$name") `
+              -Headers $headers `
+              -Body $bytes `
+              -ContentType "application/octet-stream" | Out-Null
+            Write-Host "Uploaded: $name"
           }
-          $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path $zipPath).Path)
-          Invoke-RestMethod -Method Post `
-            -Uri ($uploadBase + "?name=$name") `
-            -Headers $headers `
-            -Body $bytes `
-            -ContentType "application/octet-stream" | Out-Null
-          Write-Host "Uploaded: $name"
 
   # -------------------------------------------------------------------------
   # Buffer release announcement (X / Twitter)
@@ -649,7 +662,7 @@ jobs:
     needs:
       - release
       - build-vs-vsix
-      - build-deveco-plugin
+      - build-jetbrains-plugins
     runs-on: ubuntu-latest
 
     steps:
