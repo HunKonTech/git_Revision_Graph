@@ -26,12 +26,26 @@ repositories {
     }
 }
 
+// Stamp the plugin version into a plain classpath resource so
+// WebViewHostPanel can cache-bust its extracted webview bundle without
+// touching @Internal plugin APIs (PluginManagerCore.getPlugin /
+// PluginManager.findEnabledPlugin, both flagged by the plugin verifier).
+val revGraphVersionDir = layout.buildDirectory.dir("generated/revgraph-resources")
+val writeRevGraphVersion by tasks.registering {
+    val versionValue = providers.gradleProperty("pluginVersion").get()
+    val outFile = revGraphVersionDir.map { it.file("revgraph-version.txt") }
+    inputs.property("version", versionValue)
+    outputs.file(outFile)
+    doLast { outFile.get().asFile.apply { parentFile.mkdirs(); writeText(versionValue) } }
+}
+
 sourceSets {
     named("main") {
         // Pull in the shared Kotlin + shared resources (webview bundle, icons)
         // from common/; only META-INF/plugin.xml is this flavor's own resource.
         java.srcDir(rootProject.projectDir.resolve("common/src/main/kotlin"))
         resources.srcDir(rootProject.projectDir.resolve("common/src/main/resources"))
+        resources.srcDir(revGraphVersionDir)
     }
 }
 
@@ -90,5 +104,6 @@ tasks {
         // common/ resources + this flavor's plugin.xml are merged; the shared
         // webview bundle is staged into common/ by `npm run build:jetbrains-assets`.
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        dependsOn(writeRevGraphVersion)
     }
 }

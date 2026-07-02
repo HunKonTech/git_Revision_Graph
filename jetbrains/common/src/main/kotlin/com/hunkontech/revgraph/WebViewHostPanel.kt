@@ -111,11 +111,16 @@ class WebViewHostPanel(private val project: Project) : Disposable {
     private fun ensureAssetsExtracted(): File? {
         // Keyed by plugin version so an update invalidates the cache instead
         // of silently keeping a stale bundle around forever.
-        // PluginManagerCore.getPlugin(PluginId) is marked @Internal. The public
-        // replacement is PluginManager.getInstance().findEnabledPlugin(PluginId).
-        val pluginVersion = com.intellij.ide.plugins.PluginManager.getInstance()
-            .findEnabledPlugin(com.intellij.openapi.extensions.PluginId.getId("com.hunkontech.revgraph"))
-            ?.version ?: "dev"
+        //
+        // The obvious ways to read our own version at runtime —
+        // PluginManagerCore.getPlugin(PluginId) and
+        // PluginManager.getInstance().findEnabledPlugin(PluginId) — are BOTH
+        // marked @Internal and get flagged by the plugin verifier. Instead
+        // each flavor's Gradle build stamps `pluginVersion` into a plain
+        // classpath resource (revgraph-version.txt), which we read here with
+        // zero platform API. Same trick as the per-flavor default-lang.txt.
+        val pluginVersion = javaClass.classLoader.getResource("revgraph-version.txt")
+            ?.readText()?.trim()?.ifEmpty { null } ?: "dev"
         val destDir = File(PathManager.getSystemPath(), "revgraph/webview/$pluginVersion")
         val indexFile = File(destDir, "index.html")
         if (indexFile.exists()) return indexFile
