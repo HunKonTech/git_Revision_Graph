@@ -19,6 +19,7 @@ import com.intellij.openapi.vfs.newvfs.events.VFileEvent
 import com.intellij.ui.JBColor
 import com.intellij.ui.jcef.JBCefApp
 import com.intellij.ui.jcef.JBCefBrowser
+import com.intellij.ui.jcef.JBCefBrowserBase
 import com.intellij.ui.jcef.JBCefJSQuery
 import com.intellij.util.Alarm
 import com.intellij.util.messages.MessageBusConnection
@@ -68,7 +69,10 @@ class WebViewHostPanel(private val project: Project) : Disposable {
         val b = JBCefBrowser()
         browser = b
 
-        val query = JBCefJSQuery.create(b)
+        // Use the JBCefBrowserBase overload: create(JBCefBrowser) is scheduled
+        // for removal. JBCefBrowser extends JBCefBrowserBase, so the upcast picks
+        // the supported overload.
+        val query = JBCefJSQuery.create(b as JBCefBrowserBase)
         postQuery = query
         query.addHandler { json ->
             handleWebviewMessage(json)
@@ -107,8 +111,10 @@ class WebViewHostPanel(private val project: Project) : Disposable {
     private fun ensureAssetsExtracted(): File? {
         // Keyed by plugin version so an update invalidates the cache instead
         // of silently keeping a stale bundle around forever.
-        val pluginVersion = com.intellij.ide.plugins.PluginManagerCore
-            .getPlugin(com.intellij.openapi.extensions.PluginId.getId("com.hunkontech.revgraph"))
+        // PluginManagerCore.getPlugin(PluginId) is marked @Internal. The public
+        // replacement is PluginManager.getInstance().findEnabledPlugin(PluginId).
+        val pluginVersion = com.intellij.ide.plugins.PluginManager.getInstance()
+            .findEnabledPlugin(com.intellij.openapi.extensions.PluginId.getId("com.hunkontech.revgraph"))
             ?.version ?: "dev"
         val destDir = File(PathManager.getSystemPath(), "revgraph/webview/$pluginVersion")
         val indexFile = File(destDir, "index.html")
