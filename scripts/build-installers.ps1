@@ -162,10 +162,11 @@ if (-not (Test-Path $vswhere)) {
 
 # ---------------------------------------------------------------------------
 # 4. JetBrains-family pluginok (IntelliJ Platform / Gradle)
-#    Egy multi-project (jetbrains/) KÉT ZIP-et gyárt a közös kódból:
-#    :deveco (DevEco Studio) és :intellij (IntelliJ IDEA / JetBrains IDE-k).
-#    A `buildPlugin` mindkét al-projektre lefut. A Marketplace-publikálás az
-#    :intellij flavornál külön, opcionális lépés (lásd jetbrains/BUILD.md).
+#    Egy multi-project (jetbrains/) HÁROM ZIP-et gyárt a közös kódból:
+#    :deveco (DevEco Studio), :intellij (IntelliJ IDEA / JetBrains IDE-k) és
+#    :androidstudio (Android Studio). A `buildPlugin` mindhárom al-projektre
+#    lefut. A Marketplace-publikálás az :intellij/:androidstudio flavoroknál
+#    külön, opcionális lépés (lásd jetbrains/BUILD.md).
 # ---------------------------------------------------------------------------
 $jetbrainsDir = Join-Path $root "jetbrains"
 $gradlew   = if ($IsWindows) { Join-Path $jetbrainsDir "gradlew.bat" } else { Join-Path $jetbrainsDir "gradlew" }
@@ -186,8 +187,9 @@ if (-not $gradleCmd) {
         Pop-Location
     }
     $flavors = @(
-        @{ Dir = "deveco";   Asset = "RevisionGraph-deveco.zip"   },
-        @{ Dir = "intellij"; Asset = "RevisionGraph-jetbrains.zip" }
+        @{ Dir = "deveco";        Asset = "RevisionGraph-deveco.zip"        },
+        @{ Dir = "intellij";      Asset = "RevisionGraph-jetbrains.zip"      },
+        @{ Dir = "androidstudio"; Asset = "RevisionGraph-androidstudio.zip" }
     )
     foreach ($f in $flavors) {
         $builtZip = Get-ChildItem "$jetbrainsDir\$($f.Dir)\build\distributions\*.zip" -ErrorAction SilentlyContinue |

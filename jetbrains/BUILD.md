@@ -9,19 +9,20 @@
 > `vs/BUILD.md` already carries for the Visual Studio VSIX on non-Windows
 > machines.
 
-## One codebase, two builds
+## One codebase, three builds
 
-`jetbrains/` is a Gradle **multi-project** that produces **two** plugin
+`jetbrains/` is a Gradle **multi-project** that produces **three** plugin
 distributions from a single shared codebase:
 
 | Subproject | Targets | Distribution |
 |------------|---------|--------------|
-| `:deveco`   | Huawei DevEco Studio (built on IntelliJ IDEA Community) | sideloaded ZIP |
-| `:intellij` | Mainstream JetBrains IDEs — IntelliJ IDEA, WebStorm, PyCharm, GoLand, … | sideloaded ZIP + JetBrains Marketplace |
+| `:deveco`        | Huawei DevEco Studio (built on IntelliJ IDEA Community) | sideloaded ZIP + JetBrains Marketplace |
+| `:intellij`      | Mainstream JetBrains IDEs — IntelliJ IDEA, WebStorm, PyCharm, GoLand, … | sideloaded ZIP + JetBrains Marketplace |
+| `:androidstudio` | Google Android Studio (built on IntelliJ IDEA Community) | sideloaded ZIP + JetBrains Marketplace |
 
 ```
 jetbrains/
-  settings.gradle.kts        # includes :deveco and :intellij
+  settings.gradle.kts        # includes :deveco, :intellij, :androidstudio
   build.gradle.kts           # declares the IntelliJ Platform plugin (apply false)
   gradle.properties          # shared group + version (CI patches the version)
   common/                    # ← ALL the shared code lives here
@@ -35,23 +36,27 @@ jetbrains/
   intellij/
     build.gradle.kts         # IC 2024.1, since 231; JetBrains branding + Marketplace publish
     src/main/resources/META-INF/plugin.xml
+  androidstudio/
+    build.gradle.kts         # IC 2023.1.7, since 231; Android Studio branding + Marketplace publish
+    src/main/resources/META-INF/plugin.xml
 ```
 
-Both flavors compile the **exact same** Kotlin in `common/src/main/kotlin`
+All flavors compile the **exact same** Kotlin in `common/src/main/kotlin`
 (pulled in via `sourceSets { main { java.srcDir("$rootDir/common/…") } }`) and
 bundle the **exact same** shared web renderer. They differ only in the IntelliJ
 Platform version they build against and their `plugin.xml` branding — the DevEco
-Studio flavor stays on the older platform to keep its build-number range broad;
-the IntelliJ flavor builds against a current release and is wired for Marketplace
-publishing.
+Studio and Android Studio flavors stay on the older platform to keep their
+build-number ranges broad; the IntelliJ flavor builds against a current release.
+All three are wired for Marketplace publishing.
 
 ## Prerequisites
 - JDK 17.
 - Gradle 8.9+ (or `jetbrains/gradlew` once generated — see below).
 - Node.js 18+ (to build the shared web renderer).
 - Git on `PATH`.
-- DevEco Studio and/or a JetBrains IDE (IntelliJ IDEA Community is enough for
-  UI development) for manually installing/trying the built plugins.
+- DevEco Studio, Android Studio, and/or a JetBrains IDE (IntelliJ IDEA
+  Community is enough for UI development) for manually installing/trying the
+  built plugins.
 
 ## Steps
 1. Build the shared web renderer and stage it into the **shared** module:
@@ -73,40 +78,44 @@ publishing.
    ```
    From then on use `./gradlew` (or `gradlew.bat` on Windows).
 
-3. Build **both** plugin distribution ZIPs (one `buildPlugin` aggregates across
-   both subprojects):
+3. Build **all** plugin distribution ZIPs (one `buildPlugin` aggregates across
+   every subproject):
    ```
    ./gradlew buildPlugin
    ```
    Outputs:
-   - `jetbrains/deveco/build/distributions/*.zip`   (DevEco Studio flavor)
-   - `jetbrains/intellij/build/distributions/*.zip` (IntelliJ / JetBrains flavor)
+   - `jetbrains/deveco/build/distributions/*.zip`        (DevEco Studio flavor)
+   - `jetbrains/intellij/build/distributions/*.zip`      (IntelliJ / JetBrains flavor)
+   - `jetbrains/androidstudio/build/distributions/*.zip` (Android Studio flavor)
 
-   To build just one flavor: `./gradlew :deveco:buildPlugin` or
-   `./gradlew :intellij:buildPlugin`.
+   To build just one flavor: `./gradlew :deveco:buildPlugin`,
+   `./gradlew :intellij:buildPlugin`, or `./gradlew :androidstudio:buildPlugin`.
 
 4. To try a flavor interactively instead of sideloading its ZIP, use the
    IntelliJ Platform Gradle plugin's run task:
    ```
-   ./gradlew :deveco:runIde      # DevEco-Studio-compatible IDE (IC 2023.1)
-   ./gradlew :intellij:runIde    # mainstream IntelliJ IDEA (IC 2024.1)
+   ./gradlew :deveco:runIde         # DevEco-Studio-compatible IDE (IC 2023.1)
+   ./gradlew :intellij:runIde       # mainstream IntelliJ IDEA (IC 2024.1)
+   ./gradlew :androidstudio:runIde  # Android-Studio-compatible IDE (IC 2023.1)
    ```
    Each launches a sandboxed IDE at that flavor's pinned platform version with
    the plugin installed.
 
 ## Publishing to the JetBrains Marketplace
-**Both** flavors are Marketplace-ready — DevEco Studio has no separate Huawei
-plugin store of its own; it's built on the IntelliJ Platform, so its own
-Settings > Plugins > Marketplace panel is the same plugins.jetbrains.com
-Marketplace, just filtered to plugins whose build-number range covers DevEco
-Studio's platform build. Each flavor is therefore its own listing, under its
-own plugin id (`com.hunkontech.revgraph` for `:intellij`,
-`com.hunkontech.revgraph.deveco` for `:deveco`; see `pluginGroup` /
-`pluginGroupDeveco` in `jetbrains/gradle.properties`).
+**All** flavors are Marketplace-ready — neither DevEco Studio nor Android Studio
+has a separate plugin store of its own; both are built on the IntelliJ Platform,
+so their own Settings > Plugins > Marketplace panels are the same
+plugins.jetbrains.com Marketplace, just filtered to plugins whose build-number
+range covers that IDE's platform build. Each flavor is therefore its own listing,
+under its own plugin id (`com.hunkontech.revgraph` for `:intellij`,
+`com.hunkontech.revgraph.deveco` for `:deveco`,
+`com.hunkontech.revgraph.androidstudio` for `:androidstudio`; see `pluginGroup` /
+`pluginGroupDeveco` / `pluginGroupAndroidStudio` in `jetbrains/gradle.properties`).
 
-Set these env vars and run `./gradlew :intellij:publishPlugin` and/or
-`./gradlew :deveco:publishPlugin` (both flavors share the same credentials,
-since both listings live under the same Marketplace account):
+Set these env vars and run `./gradlew :intellij:publishPlugin`,
+`./gradlew :deveco:publishPlugin`, and/or `./gradlew :androidstudio:publishPlugin`
+(all flavors share the same credentials, since every listing lives under the
+same Marketplace account):
 - `PUBLISH_TOKEN` — a JetBrains Marketplace permanent token.
 - `CERTIFICATE_CHAIN`, `PRIVATE_KEY`, `PRIVATE_KEY_PASSWORD` — for signing
   (see the IntelliJ Platform plugin-signing docs).
@@ -116,10 +125,10 @@ succeed and just produce the sideloadable ZIPs.
 
 ### Automatic publishing from CI
 The `Build & Publish Extensions` GitHub Actions workflow
-(`.github/workflows/release.yml`) publishes both the `:intellij` and `:deveco`
-flavors to the Marketplace automatically on every release, right after it
-uploads the ZIPs to the GitHub Release. It only does so when the
-**`JETBRAINS_MARKETPLACE_TOKEN`** repository secret is set (both publish steps
+(`.github/workflows/release.yml`) publishes the `:intellij`, `:deveco`, and
+`:androidstudio` flavors to the Marketplace automatically on every release,
+right after it uploads the ZIPs to the GitHub Release. It only does so when the
+**`JETBRAINS_MARKETPLACE_TOKEN`** repository secret is set (all publish steps
 are skipped otherwise). Optional signing is read from the
 `JETBRAINS_CERTIFICATE_CHAIN`, `JETBRAINS_PRIVATE_KEY`, and
 `JETBRAINS_PRIVATE_KEY_PASSWORD` secrets; if they are absent the Marketplace
@@ -127,9 +136,10 @@ signs the upload itself.
 
 The Marketplace API can only push **updates** — each plugin listing (id
 `com.hunkontech.revgraph` for `:intellij`, `com.hunkontech.revgraph.deveco`
-for `:deveco`) must be created **once per flavor** by uploading its first
-build manually via <https://plugins.jetbrains.com/> and passing moderation
-before CI can publish subsequent versions of that flavor.
+for `:deveco`, `com.hunkontech.revgraph.androidstudio` for `:androidstudio`)
+must be created **once per flavor** by uploading its first build manually via
+<https://plugins.jetbrains.com/> and passing moderation before CI can publish
+subsequent versions of that flavor.
 
 ## Trying it
 - Open a project that is inside a Git repo.

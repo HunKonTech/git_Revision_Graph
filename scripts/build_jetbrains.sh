@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Builds the JetBrains-family plugin (both flavors: DevEco Studio + IntelliJ
-# IDEA/JetBrains IDEs) from the shared jetbrains/common/ Kotlin codebase and
-# copies the resulting ZIPs into dist/installers/. Cross-platform counterpart
+# Builds the JetBrains-family plugin (all flavors: DevEco Studio + IntelliJ
+# IDEA/JetBrains IDEs + Android Studio) from the shared jetbrains/common/ Kotlin
+# codebase and copies the resulting ZIPs into dist/installers/. Cross-platform counterpart
 # of the JetBrains section in scripts/build-installers.ps1 (which is
 # Windows/pwsh-only because it also builds the VS C# VSIX).
 #
@@ -39,7 +39,7 @@ if ! command -v java >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "==> Building both JetBrains plugin flavors (Gradle)"
+echo "==> Building all JetBrains plugin flavors (Gradle)"
 (cd "$JETBRAINS_DIR" && "$GRADLE_CMD" buildPlugin --no-daemon)
 
 copy_flavor_zip() {
@@ -56,6 +56,7 @@ copy_flavor_zip() {
 
 copy_flavor_zip "deveco" "RevisionGraph-deveco.zip"
 copy_flavor_zip "intellij" "RevisionGraph-jetbrains.zip"
+copy_flavor_zip "androidstudio" "RevisionGraph-androidstudio.zip"
 
 echo ""
-echo "Done: $OUT_DIR/RevisionGraph-deveco.zip, $OUT_DIR/RevisionGraph-jetbrains.zip"
+echo "Done: $OUT_DIR/RevisionGraph-deveco.zip, $OUT_DIR/RevisionGraph-jetbrains.zip, $OUT_DIR/RevisionGraph-androidstudio.zip"

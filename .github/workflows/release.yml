@@ -125,7 +125,7 @@ jobs:
           $xml.PackageManifest.Metadata.Identity.Version = $v
           $xml.Save($manifestPath)
 
-          # jetbrains/gradle.properties (pluginVersion=..., shared by both flavors)
+          # jetbrains/gradle.properties (pluginVersion=..., shared by all flavors)
           $f = 'jetbrains/gradle.properties'
           (Get-Content $f -Raw) -replace 'pluginVersion=.*', "pluginVersion=$v" | Set-Content $f -NoNewline
 
@@ -191,7 +191,8 @@ jobs:
             "| RevisionGraph-vs2022.vsix | Visual Studio 2022 extension |",
             "| RevisionGraph-vs2026.vsix | Visual Studio 2026 extension |",
             "| RevisionGraph-deveco.zip | Huawei DevEco Studio plugin (sideload, and JetBrains Marketplace) |",
-            "| RevisionGraph-jetbrains.zip | JetBrains IDEs plugin - IntelliJ IDEA, WebStorm, PyCharm, etc. (sideload, and JetBrains Marketplace) |"
+            "| RevisionGraph-jetbrains.zip | JetBrains IDEs plugin - IntelliJ IDEA, WebStorm, PyCharm, etc. (sideload, and JetBrains Marketplace) |",
+            "| RevisionGraph-androidstudio.zip | Google Android Studio plugin (sideload, and JetBrains Marketplace) |"
           ) -join "`n"
 
           $headers = @{
@@ -537,17 +538,18 @@ jobs:
 
   # -------------------------------------------------------------------------
   # Third job: build the JetBrains-family plugins (IntelliJ Platform / Gradle).
-  # ONE multi-project (jetbrains/) produces TWO distributions from the shared
-  # codebase: a DevEco Studio flavor (:deveco) and a mainstream IntelliJ IDEA /
-  # JetBrains-IDE flavor (:intellij). Independent of the VS VSIX job — runs in
-  # parallel, also after `release` so the GitHub Release already exists. Both
-  # ship as sideloadable ZIPs AND are published to the JetBrains Marketplace
-  # (DevEco Studio is itself an IntelliJ Platform IDE, so its Marketplace tab
-  # is the same JetBrains Marketplace — no separate Huawei publish channel)
-  # when the JETBRAINS_MARKETPLACE_TOKEN secret is set (both publish steps are
-  # skipped otherwise, so CI still succeeds without it). Each flavor has its
-  # own plugin id/listing (see pluginGroup / pluginGroupDeveco in
-  # jetbrains/gradle.properties).
+  # ONE multi-project (jetbrains/) produces THREE distributions from the shared
+  # codebase: a DevEco Studio flavor (:deveco), a mainstream IntelliJ IDEA /
+  # JetBrains-IDE flavor (:intellij), and an Android Studio flavor
+  # (:androidstudio). Independent of the VS VSIX job — runs in parallel, also
+  # after `release` so the GitHub Release already exists. All three ship as
+  # sideloadable ZIPs AND are published to the JetBrains Marketplace (DevEco
+  # Studio and Android Studio are themselves IntelliJ Platform IDEs, so their
+  # Marketplace tabs are the same JetBrains Marketplace — no separate Huawei /
+  # Google publish channel) when the JETBRAINS_MARKETPLACE_TOKEN secret is set
+  # (the publish steps are skipped otherwise, so CI still succeeds without it).
+  # Each flavor has its own plugin id/listing (see pluginGroup /
+  # pluginGroupDeveco / pluginGroupAndroidStudio in jetbrains/gradle.properties).
   # -------------------------------------------------------------------------
   build-jetbrains-plugins:
     needs: release
@@ -597,12 +599,12 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build both JetBrains plugin flavors
+      - name: Build all JetBrains plugin flavors
         shell: powershell
         working-directory: jetbrains
         run: |
-          # buildPlugin aggregates across both subprojects (:deveco, :intellij),
-          # so this single call produces both distribution ZIPs.
+          # buildPlugin aggregates across all subprojects (:deveco, :intellij,
+          # :androidstudio), so this single call produces every distribution ZIP.
           gradle buildPlugin --no-daemon
           if ($LASTEXITCODE -ne 0) { throw "Gradle buildPlugin failed ($LASTEXITCODE)" }
 
@@ -611,8 +613,9 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force "dist\installers" | Out-Null
           $flavors = @(
-            @{ dir = 'deveco';   asset = 'RevisionGraph-deveco.zip'   },
-            @{ dir = 'intellij'; asset = 'RevisionGraph-jetbrains.zip' }
+            @{ dir = 'deveco';        asset = 'RevisionGraph-deveco.zip'        },
+            @{ dir = 'intellij';      asset = 'RevisionGraph-jetbrains.zip'      },
+            @{ dir = 'androidstudio'; asset = 'RevisionGraph-androidstudio.zip' }
           )
           foreach ($f in $flavors) {
             $zip = Get-ChildItem "jetbrains\$($f.dir)\build\distributions\*.zip" -ErrorAction SilentlyContinue |
@@ -641,7 +644,7 @@ jobs:
             -Uri "https://api.github.com/repos/$env:GITHUB_REPOSITORY/releases/tags/$tag" `
             -Headers $headers
           $uploadBase = $release.upload_url -replace '\{.*\}', ''
-          foreach ($name in @('RevisionGraph-deveco.zip', 'RevisionGraph-jetbrains.zip')) {
+          foreach ($name in @('RevisionGraph-deveco.zip', 'RevisionGraph-jetbrains.zip', 'RevisionGraph-androidstudio.zip')) {
             $zipPath = "dist\installers\$name"
             if (-not (Test-Path $zipPath)) {
               Write-Warning "$name not found - skipping upload."
@@ -713,6 +716,31 @@ jobs:
           gradle :deveco:publishPlugin --no-daemon
           if ($LASTEXITCODE -ne 0) { throw "Gradle publishPlugin failed ($LASTEXITCODE)" }
           Write-Host "Published :deveco flavor to the JetBrains Marketplace."
+
+      # -----------------------------------------------------------------------
+      # Publish the :androidstudio flavor to the JetBrains Marketplace.
+      # Android Studio is itself built on the IntelliJ Platform, so it has no
+      # separate Google plugin store — its Settings > Plugins > Marketplace
+      # panel pulls from the same plugins.jetbrains.com Marketplace, just
+      # filtered to plugins whose build-number range covers Android Studio's
+      # platform build. Same guard/token/signing as the steps above; this is a
+      # distinct listing under the `com.hunkontech.revgraph.androidstudio`
+      # plugin id (see pluginGroupAndroidStudio in jetbrains/gradle.properties),
+      # which must likewise be created once via the web UI + approved before the
+      # API can push updates.
+      # -----------------------------------------------------------------------
+      - name: Publish Android Studio flavor to JetBrains Marketplace
+        if: ${{ env.PUBLISH_TOKEN != '' }}
+        shell: powershell
+        working-directory: jetbrains
+        env:
+          CERTIFICATE_CHAIN: ${{ secrets.JETBRAINS_CERTIFICATE_CHAIN }}
+          PRIVATE_KEY: ${{ secrets.JETBRAINS_PRIVATE_KEY }}
+          PRIVATE_KEY_PASSWORD: ${{ secrets.JETBRAINS_PRIVATE_KEY_PASSWORD }}
+        run: |
+          gradle :androidstudio:publishPlugin --no-daemon
+          if ($LASTEXITCODE -ne 0) { throw "Gradle publishPlugin failed ($LASTEXITCODE)" }
+          Write-Host "Published :androidstudio flavor to the JetBrains Marketplace."
 
   # -------------------------------------------------------------------------
   # Buffer release announcement (X / Twitter)

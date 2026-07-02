@@ -8,8 +8,9 @@ import java.util.regex.Pattern
 /**
  * Reads git history and performs branch/commit operations via the git CLI.
  * Mirrors vscode/src/gitData.ts and vs/Git/GitService.cs so all hosts feed the
- * same shape to the shared web renderer. Shared by both JetBrains flavors
- * (DevEco Studio and IntelliJ IDEA) — it is IDE-agnostic (pure git CLI + Gson).
+ * same shape to the shared web renderer. Shared by all JetBrains flavors
+ * (DevEco Studio, IntelliJ IDEA, Android Studio) — it is IDE-agnostic (pure git
+ * CLI + Gson).
  *
  * Reword/undo of a non-HEAD commit are implemented with pure git plumbing
  * (`commit-tree` + `update-ref`) instead of the VS host's PowerShell-scripted

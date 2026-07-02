@@ -10,20 +10,22 @@ After finishing a change, always `git commit` every file you modified — do not
 
 **Every feature must ship for ALL FOUR hosts: the VS Code extension, the Visual Studio 2022/2026 VSIX, the JetBrains-family plugin, and the browser demo.** Never finish a feature in only some hosts — a feature that exists in only some hosts is incomplete.
 
-The JetBrains host is **one shared Kotlin codebase that ships as two build flavors** — a Huawei DevEco Studio ZIP and a mainstream IntelliJ IDEA / JetBrains-IDE ZIP — so it counts as a single host for parity purposes (update it once, both flavors get the change).
+The JetBrains host is **one shared Kotlin codebase that ships as three build flavors** — a Huawei DevEco Studio ZIP, a mainstream IntelliJ IDEA / JetBrains-IDE ZIP, and a Google Android Studio ZIP — so it counts as a single host for parity purposes (update it once, all flavors get the change).
+
+**Keep this file in sync:** whenever a change touches the code or structure this file describes (a new host or build flavor, a moved/renamed data-layer file, a new build/publish step, a changed command), update the relevant part of CLAUDE.md in the same change — don't leave it describing the old layout.
 
 The renderer/protocol live in shared `packages/` (graph-core, graph-webview, protocol) and are consumed by all hosts automatically. But each host has its own data/message layer that must be updated in parallel:
 
 - **VS Code** (`vscode/`, TypeScript): `vscode/src/gitData.ts` (git ops), `vscode/src/panel.ts` (message handling).
 - **Visual Studio** (`vs/`, C#): `vs/Git/GitService.cs` (git ops), `vs/WebViewHostControl.xaml.cs` (message handling), `vs/Model/Dtos.cs` (hand-mirrored protocol types).
-- **JetBrains** (`jetbrains/`, Kotlin — IntelliJ Platform plugin). All the code is shared in `jetbrains/common/`: `jetbrains/common/src/main/kotlin/.../git/GitService.kt` (git ops), `jetbrains/common/.../WebViewHostPanel.kt` (message handling, JCEF host), `jetbrains/common/.../model/Dtos.kt` (hand-mirrored protocol types). Two thin flavor subprojects — `jetbrains/deveco/` (DevEco Studio) and `jetbrains/intellij/` (IntelliJ IDEA / other JetBrains IDEs) — compile that shared code against their own platform version and add only their own `META-INF/plugin.xml` branding.
+- **JetBrains** (`jetbrains/`, Kotlin — IntelliJ Platform plugin). All the code is shared in `jetbrains/common/`: `jetbrains/common/src/main/kotlin/.../git/GitService.kt` (git ops), `jetbrains/common/.../WebViewHostPanel.kt` (message handling, JCEF host), `jetbrains/common/.../model/Dtos.kt` (hand-mirrored protocol types). Three thin flavor subprojects — `jetbrains/deveco/` (DevEco Studio), `jetbrains/intellij/` (IntelliJ IDEA / other JetBrains IDEs), and `jetbrains/androidstudio/` (Android Studio) — compile that shared code against their own platform version and add only their own `META-INF/plugin.xml` branding.
 - **Browser demo** (`packages/graph-webview/harness/demo-host.js`): simulates git ops in-browser with mock data; the `handlers` object must mirror every `WebviewToHost` message type handled by the real hosts.
 - Any protocol change in `packages/protocol/src/index.ts` **must be mirrored by hand** into `vs/Model/Dtos.cs` AND `jetbrains/common/.../model/Dtos.kt` AND handled in `demo-host.js`.
-- The shared webview bundle is copied into each IDE host by the build (`vscode/media/`, `vs/webview/`, `jetbrains/common/src/main/resources/webview/` — one location shared by both JetBrains flavors).
+- The shared webview bundle is copied into each IDE host by the build (`vscode/media/`, `vs/webview/`, `jetbrains/common/src/main/resources/webview/` — one location shared by all JetBrains flavors).
 
 The VS C# VSIX is a legacy .NET Framework 4.7.2 + VS SDK project and can only be **compiled on Windows** (see [vs/BUILD.md](vs/BUILD.md)). On non-Windows machines, review the C# carefully but it cannot be built/run there.
 
-The JetBrains plugins need a JDK 17 + Gradle + IntelliJ Platform Gradle plugin toolchain (see [jetbrains/BUILD.md](jetbrains/BUILD.md)); one `buildPlugin` in `jetbrains/` produces both flavor ZIPs. Both flavors are additionally wired for JetBrains Marketplace publishing (opt-in, needs `PUBLISH_TOKEN`) — DevEco Studio has no separate Huawei plugin store; it's an IntelliJ Platform IDE, so its own Marketplace tab is the same JetBrains Marketplace, just under a distinct plugin id (`pluginGroup` vs `pluginGroupDeveco` in `jetbrains/gradle.properties`). Their git-plumbing-based reword/undo of non-HEAD commits intentionally diverges from the VS host's PowerShell-scripted `rebase -i` (these plugins are cross-platform); see the doc comments on `GitService.kt`'s `rewordCommit`/`undoCommit`.
+The JetBrains plugins need a JDK 17 + Gradle + IntelliJ Platform Gradle plugin toolchain (see [jetbrains/BUILD.md](jetbrains/BUILD.md)); one `buildPlugin` in `jetbrains/` produces all flavor ZIPs. Every flavor is additionally wired for JetBrains Marketplace publishing (opt-in, needs `PUBLISH_TOKEN`) — neither DevEco Studio nor Android Studio has a separate plugin store; both are IntelliJ Platform IDEs, so their Marketplace tabs are the same JetBrains Marketplace, just under distinct plugin ids (`pluginGroup` vs `pluginGroupDeveco` vs `pluginGroupAndroidStudio` in `jetbrains/gradle.properties`). Their git-plumbing-based reword/undo of non-HEAD commits intentionally diverges from the VS host's PowerShell-scripted `rebase -i` (these plugins are cross-platform); see the doc comments on `GitService.kt`'s `rewordCommit`/`undoCommit`.
 
 ## Commands
 
@@ -51,7 +53,7 @@ npm run build:jetbrains-assets # copies webview bundle into jetbrains/common/ (n
 Package for distribution:
 ```bash
 npm run package:vscode                    # → dist/installers/*.vsix (cross-platform)
-pwsh scripts/build-installers.ps1         # all installers: VS Code, VS 2022/2026, both JetBrains ZIPs (Windows only)
+pwsh scripts/build-installers.ps1         # all installers: VS Code, VS 2022/2026, all three JetBrains ZIPs (Windows only)
 ```
 
 **VS Code extension dev loop:** `npm run build` then press **F5** in VS Code (Extension Development Host). No watch mode is wired to F5 — rebuild manually after changes.
@@ -67,8 +69,9 @@ packages/graph-webview/ — SVG renderer + context menus + i18n (builds to one J
 vscode/src/            — VS Code extension: git data layer, webview panel, git CLI wrappers
 vs/                    — Visual Studio C# extension (WebView2 host, mirrors the TS protocol by hand)
 jetbrains/             — JetBrains-family plugin (Kotlin, IntelliJ Platform, JCEF host, mirrors the TS protocol by hand).
-                         Multi-project: shared code in jetbrains/common/, two flavor subprojects
-                         jetbrains/deveco/ (DevEco Studio) and jetbrains/intellij/ (IntelliJ IDEA / JetBrains IDEs)
+                         Multi-project: shared code in jetbrains/common/, three flavor subprojects
+                         jetbrains/deveco/ (DevEco Studio), jetbrains/intellij/ (IntelliJ IDEA / JetBrains IDEs),
+                         and jetbrains/androidstudio/ (Android Studio)
 ```
 
 ### Data flow
@@ -122,7 +125,7 @@ Key message types:
 4. Handle the message in `vscode/src/panel.ts: onMessage`.
 5. Implement the git operation in `vscode/src/gitData.ts`.
 6. Mirror the protocol change in `vs/` (C# side): `vs/WebViewHostControl.xaml.cs` + `vs/Git/GitService.cs` + `vs/Model/Dtos.cs`.
-7. Mirror the protocol change in `jetbrains/` (Kotlin side, shared by both flavors): `jetbrains/common/.../WebViewHostPanel.kt` + `jetbrains/common/.../git/GitService.kt` + `jetbrains/common/.../model/Dtos.kt`.
+7. Mirror the protocol change in `jetbrains/` (Kotlin side, shared by all flavors): `jetbrains/common/.../WebViewHostPanel.kt` + `jetbrains/common/.../git/GitService.kt` + `jetbrains/common/.../model/Dtos.kt`.
 8. Add a simulated handler in `packages/graph-webview/harness/demo-host.js` (`handlers` object) — the demo runs entirely in the browser with no real git, so every action needs its own mock implementation.
 
 ### Git operations pattern
