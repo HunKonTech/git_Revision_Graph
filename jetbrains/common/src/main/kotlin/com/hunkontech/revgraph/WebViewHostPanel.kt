@@ -25,6 +25,7 @@ import com.intellij.util.messages.MessageBusConnection
 import com.intellij.util.ui.UIUtil
 import org.cef.browser.CefBrowser
 import org.cef.handler.CefLoadHandlerAdapter
+import org.cef.network.CefRequest
 import java.awt.Color
 import java.awt.datatransfer.StringSelection
 import java.io.File
@@ -77,7 +78,7 @@ class WebViewHostPanel(private val project: Project) : Disposable {
         b.jbCefClient.addLoadHandler(object : CefLoadHandlerAdapter() {
             // Injected at load-start, before the page's own scripts run — the
             // JCEF equivalent of WebView2's AddScriptToExecuteOnDocumentCreatedAsync.
-            override fun onLoadStart(cefBrowser: CefBrowser, frame: org.cef.browser.CefFrame?, transitionType: Int) {
+            override fun onLoadStart(cefBrowser: CefBrowser, frame: org.cef.browser.CefFrame?, transitionType: CefRequest.TransitionType) {
                 cefBrowser.executeJavaScript(bridgeScript(query), cefBrowser.url, 0)
                 cefBrowser.executeJavaScript(themeScript(), cefBrowser.url, 0)
             }
