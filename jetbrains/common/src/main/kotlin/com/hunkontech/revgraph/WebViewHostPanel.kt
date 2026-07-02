@@ -80,6 +80,7 @@ class WebViewHostPanel(private val project: Project) : Disposable {
             // JCEF equivalent of WebView2's AddScriptToExecuteOnDocumentCreatedAsync.
             override fun onLoadStart(cefBrowser: CefBrowser, frame: org.cef.browser.CefFrame?, transitionType: CefRequest.TransitionType) {
                 cefBrowser.executeJavaScript(bridgeScript(query), cefBrowser.url, 0)
+                defaultLangScript()?.let { cefBrowser.executeJavaScript(it, cefBrowser.url, 0) }
                 cefBrowser.executeJavaScript(themeScript(), cefBrowser.url, 0)
             }
         }, b.cefBrowser)
@@ -146,6 +147,20 @@ class WebViewHostPanel(private val project: Project) : Disposable {
      */
     private fun bridgeScript(query: JBCefJSQuery): String =
         "(function(){window.__ideHostPostMessage__=function(msg){${query.inject("msg")}};})();"
+
+    /**
+     * Per-flavor default UI language. The DevEco Studio flavor ships a
+     * `revgraph/default-lang.txt` resource (containing e.g. "zh") in its own
+     * resource set; the mainstream IntelliJ flavor ships none, so this returns
+     * null there and the webview keeps its English default. Injected before the
+     * bundle's i18n module initializes (see i18n.ts hostDefaultLang), so it only
+     * sets the *default* — an explicit language the user picked still wins.
+     */
+    private fun defaultLangScript(): String? {
+        val lang = javaClass.classLoader.getResource("revgraph/default-lang.txt")
+            ?.readText()?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        return "window.__REV_GRAPH_DEFAULT_LANG__=${gson.toJson(lang)};"
+    }
 
     private fun handleWebviewMessage(json: String) {
         val msg = try { gson.fromJson(json, WebviewMessage::class.java) } catch (e: Exception) { null } ?: return

@@ -842,14 +842,34 @@ export type MsgKey = keyof Dict;
 
 const STORAGE_KEY = "revGraph.lang";
 
+function isLang(v: unknown): v is Lang {
+  return v === "en" || v === "hu" || v === "zh" || v === "ru";
+}
+
+/**
+ * The default language when the user hasn't picked one yet. A host may override
+ * it by defining `window.__REV_GRAPH_DEFAULT_LANG__` before the bundle loads
+ * (the DevEco Studio flavor sets it to "zh"); otherwise it's English. An
+ * explicit stored choice always wins over this — see load().
+ */
+function hostDefaultLang(): Lang {
+  try {
+    const v = (globalThis as { __REV_GRAPH_DEFAULT_LANG__?: unknown }).__REV_GRAPH_DEFAULT_LANG__;
+    if (isLang(v)) return v;
+  } catch {
+    /* ignore */
+  }
+  return DEFAULT_LANG;
+}
+
 function load(): Lang {
   try {
     const v = localStorage.getItem(STORAGE_KEY);
-    if (v === "en" || v === "hu" || v === "zh" || v === "ru") return v;
+    if (isLang(v)) return v;
   } catch {
-    /* localStorage may be unavailable; fall back to the default. */
+    /* localStorage may be unavailable; fall back to the host/default. */
   }
-  return DEFAULT_LANG;
+  return hostDefaultLang();
 }
 
 let current: Lang = load();
