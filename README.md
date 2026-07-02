@@ -9,9 +9,9 @@ using the host's native Git.
 real renderer in your browser with a sample repository; every action (create
 branch, checkout, copy SHA, stash, zoom & pan) works against mock data.
 
-![Example](RevisionGraph.png)
+![Example](docs/RevisionGraph.png)
 
-![VS Code / Visual Studio](RevisionGraph_vs_code.png)
+![VS Code / Visual Studio](docs/RevisionGraph_vs_code.png)
 
 ## What it does
 - Renders the git DAG as boxes-and-edges, with a column-per-branch layout.
@@ -127,9 +127,9 @@ valódi megjelenítő fut a böngésződben egy minta-repozitóriummal; minden f
 (ág létrehozása, checkout, SHA másolás, stash, nagyítás és mozgatás) működik a
 mock adatokon.
 
-![Example](RevisionGraph.png)
+![Example](docs/RevisionGraph.png)
 
-![VS Code / Visual Studio](RevisionGraph_vs_code.png)
+![VS Code / Visual Studio](docs/RevisionGraph_vs_code.png)
 
 ## Mit csinál
 - A git DAG-ot dobozok és élek formájában rajzolja ki, áganként egy oszloppal.

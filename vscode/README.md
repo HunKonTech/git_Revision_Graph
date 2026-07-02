@@ -5,7 +5,7 @@ Commits, local & remote branches, and tags are displayed as connected, color-cod
 
 **▶ [Try the live demo in your browser](https://hunkontech.github.io/git_Revision_Graph/)** — no install required; runs the real renderer on a sample repository.
 
-![Git Revision Graph](https://raw.githubusercontent.com/HunKonTech/git_Revision_Graph/main/RevisionGraph_vs_code.png)
+![Git Revision Graph](https://raw.githubusercontent.com/HunKonTech/git_Revision_Graph/main/docs/RevisionGraph_vs_code.png)
 
 ## How to open
 
@@ -44,7 +44,7 @@ A commitok, helyi és távoli ágak, valamint tagek összekötött, színkódolt
 
 **▶ [Próbáld ki az élő demót a böngésződben](https://hunkontech.github.io/git_Revision_Graph/)** — telepítés nélkül; a valódi megjelenítő fut egy minta-repozitóriummal.
 
-![Git Revision Graph](https://raw.githubusercontent.com/HunKonTech/git_Revision_Graph/main/RevisionGraph_vs_code.png)
+![Git Revision Graph](https://raw.githubusercontent.com/HunKonTech/git_Revision_Graph/main/docs/RevisionGraph_vs_code.png)
 
 ## Megnyitás
 

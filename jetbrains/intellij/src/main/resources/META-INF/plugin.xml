@@ -12,7 +12,7 @@
         <p><b>▶ <a href="https://hunkontech.github.io/git_Revision_Graph/">Try the live demo in your browser</a></b>
         — no install required; runs the real renderer on a sample repository.</p>
 
-        <p><img src="https://raw.githubusercontent.com/HunKonTech/git_Revision_Graph/main/RevisionGraph_vs_code.png" alt="Git Revision Graph" width="600"/></p>
+        <p><img src="https://raw.githubusercontent.com/HunKonTech/git_Revision_Graph/main/docs/RevisionGraph_vs_code.png" alt="Git Revision Graph" width="600"/></p>
 
         <h2>How to open</h2>
         <p>Open a project that is under Git version control, then either:</p>
@@ -51,7 +51,7 @@
         <p><b>▶ <a href="https://hunkontech.github.io/git_Revision_Graph/">Próbáld ki az élő demót a böngésződben</a></b>
         — telepítés nélkül; a valódi megjelenítő fut egy minta-repozitóriummal.</p>
 
-        <p><img src="https://raw.githubusercontent.com/HunKonTech/git_Revision_Graph/main/RevisionGraph_vs_code.png" alt="Git Revision Graph" width="600"/></p>
+        <p><img src="https://raw.githubusercontent.com/HunKonTech/git_Revision_Graph/main/docs/RevisionGraph_vs_code.png" alt="Git Revision Graph" width="600"/></p>
 
         <h2>Megnyitás</h2>
         <p>Nyiss meg egy Git verziókövetés alatt álló projektet, majd:</p>

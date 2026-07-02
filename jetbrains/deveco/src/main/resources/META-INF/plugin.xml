@@ -11,7 +11,7 @@
         <p><b>▶ <a href="https://hunkontech.github.io/git_Revision_Graph/">在浏览器中试用在线演示</a></b>
         — 无需安装；在示例仓库上运行真实的渲染器。</p>
 
-        <p><img src="https://raw.githubusercontent.com/HunKonTech/git_Revision_Graph/main/RevisionGraph_vs_code.png" alt="Git Revision Graph" width="600"/></p>
+        <p><img src="https://raw.githubusercontent.com/HunKonTech/git_Revision_Graph/main/docs/RevisionGraph_vs_code.png" alt="Git Revision Graph" width="600"/></p>
 
         <h2>打开方式</h2>
         <p>打开一个处于 Git 版本控制下的项目，然后：</p>
@@ -51,7 +51,7 @@
         <p><b>▶ <a href="https://hunkontech.github.io/git_Revision_Graph/">Try the live demo in your browser</a></b>
         — no install required; runs the real renderer on a sample repository.</p>
 
-        <p><img src="https://raw.githubusercontent.com/HunKonTech/git_Revision_Graph/main/RevisionGraph_vs_code.png" alt="Git Revision Graph" width="600"/></p>
+        <p><img src="https://raw.githubusercontent.com/HunKonTech/git_Revision_Graph/main/docs/RevisionGraph_vs_code.png" alt="Git Revision Graph" width="600"/></p>
 
         <h2>How to open</h2>
         <p>Open a project that is under Git version control, then either:</p>
