@@ -1,49 +1,9 @@
 <idea-plugin>
-    <id>com.hunkontech.revgraph</id>
+    <id>com.hunkontech.revgraph.deveco</id>
     <name>Revision Graph for Git (SVN style)</name>
     <vendor url="https://github.com/HunKonTech/git_Revision_Graph">HunKonTech</vendor>
 
     <description><![CDATA[
-        <p>一款用于 Git 的 <b>TortoiseSVN 风格版本图</b>，内置于
-        <b>华为 DevEco Studio</b>。提交、本地与远程分支以及标签会以相互连接、
-        按颜色区分的方框形式显示。</p>
-
-        <p><b>▶ <a href="https://hunkontech.github.io/git_Revision_Graph/">在浏览器中试用在线演示</a></b>
-        — 无需安装；在示例仓库上运行真实的渲染器。</p>
-
-        <p><img src="https://raw.githubusercontent.com/HunKonTech/git_Revision_Graph/main/docs/RevisionGraph_vs_code.png" alt="Git Revision Graph" width="600"/></p>
-
-        <h2>打开方式</h2>
-        <p>打开一个处于 Git 版本控制下的项目，然后：</p>
-        <ul>
-            <li>打开 <b>Tools</b>（工具）菜单并选择 <b>Revision Graph</b>，或</li>
-            <li>连按两次 <b>Shift</b>（<b>Search Everywhere</b> / 随处搜索）并输入 <b>"Revision Graph"</b>。</li>
-        </ul>
-        <p>版本图会作为一个整页标签在中央编辑器区域打开。</p>
-
-        <h2>功能</h2>
-        <ul>
-            <li><b>DAG 布局</b> — 提交按分支分列排列，并用连线相互连接。</li>
-            <li><b>彩色节点</b> — HEAD/当前分支（红色）、本地分支（绿色）、远程分支（蓝色）、标签（黄色）、普通提交（灰色）。</li>
-            <li><b>右键点击某个提交</b> → <em>"从此处创建分支…"</em> — 使用 Git 在该提交处创建一个新分支，然后刷新版本图。</li>
-            <li>直接在版本图中<b>检出（Checkout）</b>某个提交。</li>
-            <li><b>复制</b>任意提交的 <b>SHA</b>。</li>
-            <li>在版本图画布上<b>缩放与平移</b>。</li>
-        </ul>
-
-        <h2>源代码与许可证</h2>
-        <ul>
-            <li>源代码：<a href="https://github.com/HunKonTech/git_Revision_Graph">https://github.com/HunKonTech/git_Revision_Graph</a></li>
-            <li>许可证：<b><a href="https://github.com/HunKonTech/git_Revision_Graph/blob/main/LICENSE">Business Source License 1.1</a></b>
-            — 供个人、内部及非商业用途免费使用。不得出售、转售，或将本软件作为付费产品或服务提供。
-            每个版本发布四年后转为 MPL 2.0。</li>
-        </ul>
-
-        <p>这是 DevEco Studio 版本；另有一个版本面向主流 JetBrains IDE
-        （IntelliJ IDEA、WebStorm、PyCharm 等）。两者均由同一份共享代码构建。</p>
-
-        <hr/>
-
         <p>A <b>TortoiseSVN-style revision graph</b> for Git inside
         <b>Huawei DevEco Studio</b>. Commits, local &amp; remote branches, and
         tags are displayed as connected, color-coded boxes.</p>
@@ -81,6 +41,46 @@
 
         <p>This is the DevEco Studio build; a separate build targets mainstream JetBrains IDEs
         (IntelliJ IDEA, WebStorm, PyCharm, …). Both are produced from the same shared codebase.</p>
+
+        <hr/>
+
+        <p>一款用于 Git 的 <b>TortoiseSVN 风格版本图</b>，内置于
+        <b>华为 DevEco Studio</b>。提交、本地与远程分支以及标签会以相互连接、
+        按颜色区分的方框形式显示。</p>
+
+        <p><b>▶ <a href="https://hunkontech.github.io/git_Revision_Graph/">在浏览器中试用在线演示</a></b>
+        — 无需安装；在示例仓库上运行真实的渲染器。</p>
+
+        <p><img src="https://raw.githubusercontent.com/HunKonTech/git_Revision_Graph/main/docs/RevisionGraph_vs_code.png" alt="Git Revision Graph" width="600"/></p>
+
+        <h2>打开方式</h2>
+        <p>打开一个处于 Git 版本控制下的项目，然后：</p>
+        <ul>
+            <li>打开 <b>Tools</b>（工具）菜单并选择 <b>Revision Graph</b>，或</li>
+            <li>连按两次 <b>Shift</b>（<b>Search Everywhere</b> / 随处搜索）并输入 <b>"Revision Graph"</b>。</li>
+        </ul>
+        <p>版本图会作为一个整页标签在中央编辑器区域打开。</p>
+
+        <h2>功能</h2>
+        <ul>
+            <li><b>DAG 布局</b> — 提交按分支分列排列，并用连线相互连接。</li>
+            <li><b>彩色节点</b> — HEAD/当前分支（红色）、本地分支（绿色）、远程分支（蓝色）、标签（黄色）、普通提交（灰色）。</li>
+            <li><b>右键点击某个提交</b> → <em>"从此处创建分支…"</em> — 使用 Git 在该提交处创建一个新分支，然后刷新版本图。</li>
+            <li>直接在版本图中<b>检出（Checkout）</b>某个提交。</li>
+            <li><b>复制</b>任意提交的 <b>SHA</b>。</li>
+            <li>在版本图画布上<b>缩放与平移</b>。</li>
+        </ul>
+
+        <h2>源代码与许可证</h2>
+        <ul>
+            <li>源代码：<a href="https://github.com/HunKonTech/git_Revision_Graph">https://github.com/HunKonTech/git_Revision_Graph</a></li>
+            <li>许可证：<b><a href="https://github.com/HunKonTech/git_Revision_Graph/blob/main/LICENSE">Business Source License 1.1</a></b>
+            — 供个人、内部及非商业用途免费使用。不得出售、转售，或将本软件作为付费产品或服务提供。
+            每个版本发布四年后转为 MPL 2.0。</li>
+        </ul>
+
+        <p>这是 DevEco Studio 版本；另有一个版本面向主流 JetBrains IDE
+        （IntelliJ IDEA、WebStorm、PyCharm 等）。两者均由同一份共享代码构建。</p>
     ]]></description>
 
     <!-- DevEco Studio is built on IntelliJ IDEA Community; no DevEco-specific

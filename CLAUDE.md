@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Always commit
+
+After finishing a change, always `git commit` every file you modified — do not leave edits sitting uncommitted. Exception: skip committing a file that was already modified by someone/something else (another agent, or the user) before you touched it, since that's in-progress work that isn't yours to commit.
+
 ## Quad-host parity (MUST READ)
 
 **Every feature must ship for ALL FOUR hosts: the VS Code extension, the Visual Studio 2022/2026 VSIX, the JetBrains-family plugin, and the browser demo.** Never finish a feature in only some hosts — a feature that exists in only some hosts is incomplete.
@@ -19,7 +23,7 @@ The renderer/protocol live in shared `packages/` (graph-core, graph-webview, pro
 
 The VS C# VSIX is a legacy .NET Framework 4.7.2 + VS SDK project and can only be **compiled on Windows** (see [vs/BUILD.md](vs/BUILD.md)). On non-Windows machines, review the C# carefully but it cannot be built/run there.
 
-The JetBrains plugins need a JDK 17 + Gradle + IntelliJ Platform Gradle plugin toolchain (see [jetbrains/BUILD.md](jetbrains/BUILD.md)); one `buildPlugin` in `jetbrains/` produces both flavor ZIPs. The DevEco flavor is sideload-only; the IntelliJ flavor is additionally wired for JetBrains Marketplace publishing (opt-in, needs `PUBLISH_TOKEN`). Their git-plumbing-based reword/undo of non-HEAD commits intentionally diverges from the VS host's PowerShell-scripted `rebase -i` (these plugins are cross-platform); see the doc comments on `GitService.kt`'s `rewordCommit`/`undoCommit`.
+The JetBrains plugins need a JDK 17 + Gradle + IntelliJ Platform Gradle plugin toolchain (see [jetbrains/BUILD.md](jetbrains/BUILD.md)); one `buildPlugin` in `jetbrains/` produces both flavor ZIPs. Both flavors are additionally wired for JetBrains Marketplace publishing (opt-in, needs `PUBLISH_TOKEN`) — DevEco Studio has no separate Huawei plugin store; it's an IntelliJ Platform IDE, so its own Marketplace tab is the same JetBrains Marketplace, just under a distinct plugin id (`pluginGroup` vs `pluginGroupDeveco` in `jetbrains/gradle.properties`). Their git-plumbing-based reword/undo of non-HEAD commits intentionally diverges from the VS host's PowerShell-scripted `rebase -i` (these plugins are cross-platform); see the doc comments on `GitService.kt`'s `rewordCommit`/`undoCommit`.
 
 ## Commands
 

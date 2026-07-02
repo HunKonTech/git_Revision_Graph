@@ -190,7 +190,7 @@ jobs:
             "| rev-graph-vscode-$v.vsix | VS Code (engine ^1.85) |",
             "| RevisionGraph-vs2022.vsix | Visual Studio 2022 extension |",
             "| RevisionGraph-vs2026.vsix | Visual Studio 2026 extension |",
-            "| RevisionGraph-deveco.zip | Huawei DevEco Studio plugin (sideload) |",
+            "| RevisionGraph-deveco.zip | Huawei DevEco Studio plugin (sideload, and JetBrains Marketplace) |",
             "| RevisionGraph-jetbrains.zip | JetBrains IDEs plugin - IntelliJ IDEA, WebStorm, PyCharm, etc. (sideload, and JetBrains Marketplace) |"
           ) -join "`n"
 
@@ -541,9 +541,13 @@ jobs:
   # codebase: a DevEco Studio flavor (:deveco) and a mainstream IntelliJ IDEA /
   # JetBrains-IDE flavor (:intellij). Independent of the VS VSIX job — runs in
   # parallel, also after `release` so the GitHub Release already exists. Both
-  # ship as sideloadable ZIPs; the :intellij flavor is additionally published
-  # to the JetBrains Marketplace when the JETBRAINS_MARKETPLACE_TOKEN secret is
-  # set (the publish step is skipped otherwise, so CI still succeeds without it).
+  # ship as sideloadable ZIPs AND are published to the JetBrains Marketplace
+  # (DevEco Studio is itself an IntelliJ Platform IDE, so its Marketplace tab
+  # is the same JetBrains Marketplace — no separate Huawei publish channel)
+  # when the JETBRAINS_MARKETPLACE_TOKEN secret is set (both publish steps are
+  # skipped otherwise, so CI still succeeds without it). Each flavor has its
+  # own plugin id/listing (see pluginGroup / pluginGroupDeveco in
+  # jetbrains/gradle.properties).
   # -------------------------------------------------------------------------
   build-jetbrains-plugins:
     needs: release
@@ -663,11 +667,11 @@ jobs:
       # Publish the :intellij flavor to the JetBrains Marketplace.
       # Only runs when the JETBRAINS_MARKETPLACE_TOKEN secret is present (the
       # `if` guards on the job-level PUBLISH_TOKEN env, which is empty otherwise).
-      # The DevEco flavor stays sideload-only. Signing env vars are optional —
-      # if the CERTIFICATE_CHAIN / PRIVATE_KEY secrets are unset, the Marketplace
-      # signs the upload itself. NOTE: the plugin listing must already exist on
-      # the Marketplace (first version uploaded once via the web UI + approved)
-      # before the API can push updates; the plugin id is `com.hunkontech.revgraph`.
+      # Signing env vars are optional — if the CERTIFICATE_CHAIN / PRIVATE_KEY
+      # secrets are unset, the Marketplace signs the upload itself. NOTE: the
+      # plugin listing must already exist on the Marketplace (first version
+      # uploaded once via the web UI + approved) before the API can push
+      # updates; the plugin id is `com.hunkontech.revgraph`.
       # -----------------------------------------------------------------------
       - name: Publish IntelliJ flavor to JetBrains Marketplace
         if: ${{ env.PUBLISH_TOKEN != '' }}
@@ -684,6 +688,31 @@ jobs:
           gradle :intellij:publishPlugin --no-daemon
           if ($LASTEXITCODE -ne 0) { throw "Gradle publishPlugin failed ($LASTEXITCODE)" }
           Write-Host "Published :intellij flavor to the JetBrains Marketplace."
+
+      # -----------------------------------------------------------------------
+      # Publish the :deveco flavor to the JetBrains Marketplace.
+      # DevEco Studio is itself built on the IntelliJ Platform, so it has no
+      # separate Huawei plugin store — its Settings > Plugins > Marketplace
+      # panel pulls from the same plugins.jetbrains.com Marketplace, just
+      # filtered to plugins whose build-number range covers DevEco Studio's
+      # platform build. Same guard/token/signing as the :intellij step above;
+      # this is a distinct listing under the `com.hunkontech.revgraph.deveco`
+      # plugin id (see pluginGroupDeveco in jetbrains/gradle.properties), which
+      # must likewise be created once via the web UI + approved before the API
+      # can push updates.
+      # -----------------------------------------------------------------------
+      - name: Publish DevEco Studio flavor to JetBrains Marketplace
+        if: ${{ env.PUBLISH_TOKEN != '' }}
+        shell: powershell
+        working-directory: jetbrains
+        env:
+          CERTIFICATE_CHAIN: ${{ secrets.JETBRAINS_CERTIFICATE_CHAIN }}
+          PRIVATE_KEY: ${{ secrets.JETBRAINS_PRIVATE_KEY }}
+          PRIVATE_KEY_PASSWORD: ${{ secrets.JETBRAINS_PRIVATE_KEY_PASSWORD }}
+        run: |
+          gradle :deveco:publishPlugin --no-daemon
+          if ($LASTEXITCODE -ne 0) { throw "Gradle publishPlugin failed ($LASTEXITCODE)" }
+          Write-Host "Published :deveco flavor to the JetBrains Marketplace."
 
   # -------------------------------------------------------------------------
   # Buffer release announcement (X / Twitter)

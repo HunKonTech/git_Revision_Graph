@@ -94,9 +94,19 @@ publishing.
    Each launches a sandboxed IDE at that flavor's pinned platform version with
    the plugin installed.
 
-## Publishing the IntelliJ flavor to the JetBrains Marketplace
-Only the `:intellij` flavor is Marketplace-ready. Set these env vars and run
-`./gradlew :intellij:publishPlugin`:
+## Publishing to the JetBrains Marketplace
+**Both** flavors are Marketplace-ready — DevEco Studio has no separate Huawei
+plugin store of its own; it's built on the IntelliJ Platform, so its own
+Settings > Plugins > Marketplace panel is the same plugins.jetbrains.com
+Marketplace, just filtered to plugins whose build-number range covers DevEco
+Studio's platform build. Each flavor is therefore its own listing, under its
+own plugin id (`com.hunkontech.revgraph` for `:intellij`,
+`com.hunkontech.revgraph.deveco` for `:deveco`; see `pluginGroup` /
+`pluginGroupDeveco` in `jetbrains/gradle.properties`).
+
+Set these env vars and run `./gradlew :intellij:publishPlugin` and/or
+`./gradlew :deveco:publishPlugin` (both flavors share the same credentials,
+since both listings live under the same Marketplace account):
 - `PUBLISH_TOKEN` — a JetBrains Marketplace permanent token.
 - `CERTIFICATE_CHAIN`, `PRIVATE_KEY`, `PRIVATE_KEY_PASSWORD` — for signing
   (see the IntelliJ Platform plugin-signing docs).
@@ -106,18 +116,20 @@ succeed and just produce the sideloadable ZIPs.
 
 ### Automatic publishing from CI
 The `Build & Publish Extensions` GitHub Actions workflow
-(`.github/workflows/release.yml`) publishes the `:intellij` flavor to the
-Marketplace automatically on every release, right after it uploads the ZIPs to
-the GitHub Release. It only does so when the **`JETBRAINS_MARKETPLACE_TOKEN`**
-repository secret is set (the step is skipped otherwise). Optional signing is
-read from the `JETBRAINS_CERTIFICATE_CHAIN`, `JETBRAINS_PRIVATE_KEY`, and
+(`.github/workflows/release.yml`) publishes both the `:intellij` and `:deveco`
+flavors to the Marketplace automatically on every release, right after it
+uploads the ZIPs to the GitHub Release. It only does so when the
+**`JETBRAINS_MARKETPLACE_TOKEN`** repository secret is set (both publish steps
+are skipped otherwise). Optional signing is read from the
+`JETBRAINS_CERTIFICATE_CHAIN`, `JETBRAINS_PRIVATE_KEY`, and
 `JETBRAINS_PRIVATE_KEY_PASSWORD` secrets; if they are absent the Marketplace
 signs the upload itself.
 
-The Marketplace API can only push **updates** — the plugin listing (id
-`com.hunkontech.revgraph`) must be created once by uploading the first build
-manually via <https://plugins.jetbrains.com/> and passing moderation before CI
-can publish subsequent versions.
+The Marketplace API can only push **updates** — each plugin listing (id
+`com.hunkontech.revgraph` for `:intellij`, `com.hunkontech.revgraph.deveco`
+for `:deveco`) must be created **once per flavor** by uploading its first
+build manually via <https://plugins.jetbrains.com/> and passing moderation
+before CI can publish subsequent versions of that flavor.
 
 ## Trying it
 - Open a project that is inside a Git repo.

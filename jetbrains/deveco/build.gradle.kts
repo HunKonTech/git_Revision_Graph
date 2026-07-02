@@ -1,7 +1,11 @@
 // DevEco Studio flavor. Huawei DevEco Studio is built on IntelliJ IDEA
 // Community, so this targets the standard IntelliJ Platform against an IC
-// version inside DevEco Studio's build-number range. Sideloaded ZIP only —
-// no JetBrains Marketplace publish (see the :intellij flavor for that).
+// version inside DevEco Studio's build-number range. Ships as a sideloaded
+// ZIP AND is wired for JetBrains Marketplace publishing — DevEco Studio's
+// own Settings > Plugins > Marketplace panel is the same JetBrains
+// Marketplace (it's an IntelliJ Platform IDE, not a separate Huawei plugin
+// store), so this flavor is published there under its own plugin id
+// (pluginGroupDeveco), distinct from the :intellij flavor's id.
 //
 // This file is intentionally near-identical to ../intellij/build.gradle.kts:
 // both compile the SAME sources in ../common and differ only in the platform
@@ -50,8 +54,8 @@ kotlin {
 
 intellijPlatform {
     pluginConfiguration {
-        id = providers.gradleProperty("pluginGroup")
-        name = "Revision Graph for Git (SVN style) — DevEco Studio"
+        id = providers.gradleProperty("pluginGroupDeveco")
+        name = "Revision Graph for Git (SVN style) - DevEco Studio"
         version = providers.gradleProperty("pluginVersion")
 
         ideaVersion {
@@ -63,6 +67,21 @@ intellijPlatform {
             sinceBuild = "231"
             untilBuild = provider { null }
         }
+    }
+
+    // JetBrains Marketplace publish, same as :intellij — guarded by env vars
+    // so builds without credentials (the default) still succeed and just
+    // skip publishing. Reuses the same PUBLISH_TOKEN/signing secrets as
+    // :intellij since both listings live under the same Marketplace account;
+    // only the plugin id (pluginGroupDeveco) differs between the two.
+    publishing {
+        token = providers.environmentVariable("PUBLISH_TOKEN")
+    }
+
+    signing {
+        certificateChain = providers.environmentVariable("CERTIFICATE_CHAIN")
+        privateKey = providers.environmentVariable("PRIVATE_KEY")
+        password = providers.environmentVariable("PRIVATE_KEY_PASSWORD")
     }
 }
 
