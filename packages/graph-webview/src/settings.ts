@@ -1,4 +1,12 @@
-import { LANGUAGES, getLang, setLang, t, onLangChange } from "./i18n.js";
+import {
+  LANGUAGES,
+  getLang,
+  setLang,
+  t,
+  onLangChange,
+  getKeepJargonEnglish,
+  setKeepJargonEnglish,
+} from "./i18n.js";
 import { getMainBranch, setMainBranch } from "./mainBranch.js";
 import { getDisplayMode, setDisplayMode, type DisplayMode } from "./displayMode.js";
 import { getBranchDialogMode, setBranchDialogMode } from "./branchDialogMode.js";
@@ -15,6 +23,8 @@ import {
   darkThemeSchematic,
   diffMinimapOnSchematic,
   diffMinimapOffSchematic,
+  jargonTranslateSchematic,
+  jargonEnglishSchematic,
 } from "./schematics.js";
 
 /** Context the settings dialog needs from the app. */
@@ -99,6 +109,7 @@ export function toggleSettings(ctx: SettingsContext): void {
     // General section: language + colour theme + SVN-style branch dialog.
     const general = section(t("settings.sectionGeneral"));
     general.appendChild(languageRow());
+    general.appendChild(jargonRow());
     general.appendChild(themeRow());
     general.appendChild(branchDialogRow());
     body.appendChild(general);
@@ -181,6 +192,35 @@ function languageRow(): HTMLElement {
   }
   select.addEventListener("change", () => setLang(select.value as never));
   control.appendChild(select);
+  return row;
+}
+
+/**
+ * Git-terms picker: two clickable schematic cards — translate Git jargon into the
+ * interface language, or keep terms like pull/push/commit/branch in English while
+ * translating everything else. Off (translate) by default.
+ */
+function jargonRow(): HTMLElement {
+  const row = stackedRow(t("settings.jargon"));
+  const cards: CardDef[] = [
+    {
+      key: "translate",
+      title: t("settings.jargonTranslate"),
+      caption: t("settings.jargonTranslateHint"),
+      svg: jargonTranslateSchematic(),
+    },
+    {
+      key: "english",
+      title: t("settings.jargonEnglish"),
+      caption: t("settings.jargonEnglishHint"),
+      svg: jargonEnglishSchematic(),
+    },
+  ];
+  row.appendChild(
+    cardGroup(cards, getKeepJargonEnglish() ? "english" : "translate", (key) =>
+      setKeepJargonEnglish(key === "english"),
+    ),
+  );
   return row;
 }
 

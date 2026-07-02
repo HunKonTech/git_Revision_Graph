@@ -81,6 +81,11 @@ type Dict = {
   "settings.gitPath": string;
   "settings.gitPathPlaceholder": string;
   "settings.gitPathBrowse": string;
+  "settings.jargon": string;
+  "settings.jargonTranslate": string;
+  "settings.jargonEnglish": string;
+  "settings.jargonTranslateHint": string;
+  "settings.jargonEnglishHint": string;
   "legend.title": string;
   "legend.head": string;
   "legend.local": string;
@@ -246,6 +251,11 @@ const DICTS: Record<Lang, Dict> = {
     "settings.gitPath": "Path to git",
     "settings.gitPathPlaceholder": "/usr/bin/git",
     "settings.gitPathBrowse": "Browse…",
+    "settings.jargon": "Git terms",
+    "settings.jargonTranslate": "Translate",
+    "settings.jargonEnglish": "Keep in English",
+    "settings.jargonTranslateHint": "Translate Git terms (pull, push, commit, branch…) into the interface language.",
+    "settings.jargonEnglishHint": "Keep Git terms (pull, push, commit, branch…) in English; translate everything else.",
     "legend.title": "Legend",
     "legend.head": "HEAD / current branch",
     "legend.local": "Local branch",
@@ -409,6 +419,11 @@ const DICTS: Record<Lang, Dict> = {
     "settings.gitPath": "Git elérési útja",
     "settings.gitPathPlaceholder": "/usr/bin/git",
     "settings.gitPathBrowse": "Tallózás…",
+    "settings.jargon": "Git szakkifejezések",
+    "settings.jargonTranslate": "Fordítás",
+    "settings.jargonEnglish": "Angolul hagyás",
+    "settings.jargonTranslateHint": "A git szakszavak (pull, push, commit, branch…) lefordítása a felület nyelvére.",
+    "settings.jargonEnglishHint": "A git szakszavak (pull, push, commit, branch…) angolul maradnak; minden más lefordítva.",
     "legend.title": "Jelmagyarázat",
     "legend.head": "HEAD / aktuális branch",
     "legend.local": "Lokális branch",
@@ -572,6 +587,11 @@ const DICTS: Record<Lang, Dict> = {
     "settings.gitPath": "Git 路径",
     "settings.gitPathPlaceholder": "/usr/bin/git",
     "settings.gitPathBrowse": "浏览…",
+    "settings.jargon": "Git 术语",
+    "settings.jargonTranslate": "翻译",
+    "settings.jargonEnglish": "保留英文",
+    "settings.jargonTranslateHint": "将 Git 术语（pull、push、commit、branch…）翻译成界面语言。",
+    "settings.jargonEnglishHint": "Git 术语（pull、push、commit、branch…）保留英文；其余全部翻译。",
     "legend.title": "图例",
     "legend.head": "HEAD / 当前分支",
     "legend.local": "本地分支",
@@ -735,6 +755,11 @@ const DICTS: Record<Lang, Dict> = {
     "settings.gitPath": "Путь к git",
     "settings.gitPathPlaceholder": "/usr/bin/git",
     "settings.gitPathBrowse": "Обзор…",
+    "settings.jargon": "Термины Git",
+    "settings.jargonTranslate": "Переводить",
+    "settings.jargonEnglish": "Оставить на английском",
+    "settings.jargonTranslateHint": "Переводить термины Git (pull, push, commit, branch…) на язык интерфейса.",
+    "settings.jargonEnglishHint": "Оставить термины Git (pull, push, commit, branch…) на английском; всё остальное переводить.",
     "legend.title": "Легенда",
     "legend.head": "HEAD / текущая ветка",
     "legend.local": "Локальная ветка",
@@ -840,6 +865,155 @@ const DICTS: Record<Lang, Dict> = {
 
 export type MsgKey = keyof Dict;
 
+/**
+ * Git-jargon overrides. The "keep Git terms in English" setting decides whether
+ * words like *pull*, *push*, *commit*, *branch*, *merge*, *stash*, *checkout* are
+ * translated (the default) or kept in English while the rest of the sentence
+ * stays in the active language.
+ *
+ * Rather than tokenize every string (which breaks on the inflection of Slavic /
+ * agglutinative languages), each affected key carries up to two hand-authored
+ * renderings:
+ *   - `tr` — the fully translated form (used when the setting is OFF).
+ *   - `en` — the same sentence with the Git term(s) left in English (used ON).
+ * Whichever side is omitted falls back to the base string in {@link DICTS}, so a
+ * key only lists the variant that differs from its base. English needs no
+ * overrides — its base is already all-English.
+ */
+type JargonEntry = { en?: string; tr?: string };
+
+const JARGON: Partial<Record<Lang, Partial<Record<MsgKey, JargonEntry>>>> = {
+  hu: {
+    "toolbar.fetch": { tr: "⤓ Lekérés" },
+    "toolbar.pull": { tr: "⇩ Lehúzás" },
+    "toolbar.push": { tr: "⇧ Feltöltés" },
+    "toolbar.sync": { en: "⇅ Sync" },
+    "toolbar.jumpHead": { tr: "⌖ Ugrás a váltásra" },
+    "details.header": { tr: "Beküldés részletei" },
+    "legend.head": { tr: "HEAD / aktuális ág" },
+    "legend.local": { tr: "Lokális ág" },
+    "legend.remote": { tr: "Távoli ág" },
+    "legend.remoteOnly": { tr: "Csak a felhőben (nincs lehúzva)" },
+    "legend.stash": { tr: "Félretett munka" },
+    "menu.checkout": { tr: "Váltás erre a beküldésre" },
+    "menu.copySha": { tr: "Beküldés SHA másolása" },
+    "menu.pushBranch": { tr: '"{name}" ág feltöltése' },
+    "menu.renameBranch": { tr: '"{name}" ág átnevezése…' },
+    "menu.deleteBranch": { tr: '"{name}" ág törlése…' },
+    "menu.renameCommit": { tr: "Beküldés üzenet átnevezése…" },
+    "menu.undoCommit": { tr: "Beküldés visszavonása (változások megtartása)…" },
+    "menu.mergeBranch": { en: '"{source}" merge ebbe: "{target}"…' },
+    "menu.stashApply": { tr: "Félretett munka alkalmazása" },
+    "menu.stashPop": { tr: "Félretett munka kivétele (alkalmaz és töröl)" },
+    "menu.stashDrop": { tr: "Félretett munka eldobása…" },
+    "changes.changed": { tr: "Ebben a beküldésben" },
+    "merge.title": { en: "Branch merge", tr: "Ág összeolvasztása" },
+    "merge.route": { tr: "Összeolvasztás az aktuális ágba" },
+    "merge.merge": { en: "Merge" },
+    "newBranch.checkout": { tr: "Váltás az ágra létrehozás után" },
+    "status.fetching": { tr: "Lekérés folyamatban…" },
+    "status.pulling": { tr: "Lehúzás folyamatban…" },
+    "status.pushing": { tr: "Feltöltés folyamatban…" },
+    "status.syncing": { en: "Sync folyamatban…" },
+    "status.commitUndone": { tr: "Beküldés visszavonva — a változások visszakerültek a working tree-be." },
+    "status.stashApplying": { tr: "Félretett munka alkalmazása…" },
+    "status.stashPopping": { tr: "Félretett munka kivétele…" },
+    "status.stashDropping": { tr: "Félretett munka eldobása…" },
+    "status.stashApplied": { tr: "Félretett munka alkalmazva." },
+    "status.stashPopped": { tr: "Félretett munka kivéve." },
+    "status.stashDropped": { tr: "Félretett munka eldobva." },
+    "status.merging": { en: "Merge folyamatban…" },
+    "status.merged": { tr: "Az összeolvasztás elkészült." },
+    "status.mergeConflict": { tr: "Az összeolvasztás konfliktusos — oldd fel a szerkesztőben, majd commitold." },
+  },
+  zh: {
+    "toolbar.fetch": { en: "⤓ Fetch" },
+    "toolbar.pull": { en: "⇩ Pull" },
+    "toolbar.push": { en: "⇧ Push" },
+    "toolbar.sync": { en: "⇅ Sync" },
+    "toolbar.jumpHead": { en: "⌖ 跳转到 checkout 位置" },
+    "details.header": { en: "Commit 详情" },
+    "legend.head": { en: "HEAD / 当前 branch" },
+    "legend.local": { en: "本地 branch" },
+    "legend.remote": { en: "远程 branch" },
+    "legend.remoteOnly": { en: "仅在云端（尚未 pull）" },
+    "legend.stash": { en: "Stash（暂存的工作）" },
+    "menu.checkout": { en: "Checkout 此 commit" },
+    "menu.copySha": { en: "复制 commit SHA" },
+    "menu.pushBranch": { en: 'Push branch “{name}”' },
+    "menu.renameBranch": { en: '重命名 branch “{name}”…' },
+    "menu.deleteBranch": { en: '删除 branch “{name}”…' },
+    "menu.renameCommit": { en: "重命名 commit 信息…" },
+    "menu.undoCommit": { en: "撤销 commit（保留更改）…" },
+    "menu.mergeBranch": { en: '将 “{source}” merge 到 “{target}”…' },
+    "menu.stashApply": { en: "应用 stash" },
+    "menu.stashPop": { en: "弹出 stash（应用并移除）" },
+    "menu.stashDrop": { en: "丢弃 stash…" },
+    "changes.changed": { en: "此 commit" },
+    "merge.title": { en: "Merge branch" },
+    "merge.route": { en: "Merge 到当前 branch" },
+    "merge.merge": { en: "Merge" },
+    "newBranch.checkout": { en: "创建后 checkout branch" },
+    "status.fetching": { en: "正在 Fetch…" },
+    "status.pulling": { en: "正在 Pull…" },
+    "status.pushing": { en: "正在 Push…" },
+    "status.syncing": { en: "正在 Sync…" },
+    "status.commitUndone": { en: "Commit 已撤销 — 更改已回到工作树中。" },
+    "status.stashApplying": { en: "正在应用 stash…" },
+    "status.stashPopping": { en: "正在弹出 stash…" },
+    "status.stashDropping": { en: "正在丢弃 stash…" },
+    "status.stashApplied": { en: "Stash 已应用。" },
+    "status.stashPopped": { en: "Stash 已弹出。" },
+    "status.stashDropped": { en: "Stash 已丢弃。" },
+    "status.merging": { en: "正在 Merge…" },
+    "status.merged": { en: "Merge 完成。" },
+    "status.mergeConflict": { en: "Merge 存在冲突 — 请在编辑器中解决，然后 commit。" },
+  },
+  ru: {
+    "toolbar.fetch": { en: "⤓ Fetch" },
+    "toolbar.pull": { en: "⇩ Pull" },
+    "toolbar.push": { en: "⇧ Push" },
+    "toolbar.sync": { en: "⇅ Sync" },
+    "toolbar.jumpHead": { tr: "⌖ Перейти к переключению" },
+    "details.header": { en: "Сведения о commit’е" },
+    "legend.head": { en: "HEAD / текущий branch" },
+    "legend.local": { en: "Локальный branch" },
+    "legend.remote": { en: "Удалённый branch" },
+    "legend.remoteOnly": { en: "Только в облаке (не сделан pull)" },
+    "legend.stash": { tr: "Спрятанное (отложенная работа)" },
+    "menu.checkout": { en: "Checkout на этот commit" },
+    "menu.copySha": { en: "Копировать SHA commit’а" },
+    "menu.pushBranch": { en: 'Push branch «{name}»' },
+    "menu.renameBranch": { en: 'Переименовать branch «{name}»…' },
+    "menu.deleteBranch": { en: 'Удалить branch «{name}»…' },
+    "menu.renameCommit": { en: "Изменить сообщение commit’а…" },
+    "menu.undoCommit": { en: "Отменить commit (сохранить изменения)…" },
+    "menu.mergeBranch": { en: 'Merge «{source}» в «{target}»…' },
+    "menu.stashApply": { tr: "Применить спрятанное" },
+    "menu.stashPop": { tr: "Извлечь спрятанное (применить и удалить)" },
+    "menu.stashDrop": { tr: "Отбросить спрятанное…" },
+    "changes.changed": { en: "Этот commit" },
+    "merge.title": { en: "Merge branch" },
+    "merge.route": { en: "Merge в текущий branch" },
+    "merge.merge": { en: "Merge" },
+    "newBranch.checkout": { en: "Checkout branch после создания" },
+    "status.fetching": { en: "Fetch…" },
+    "status.pulling": { en: "Pull…" },
+    "status.pushing": { en: "Push…" },
+    "status.syncing": { en: "Sync…" },
+    "status.commitUndone": { en: "Commit отменён — изменения вернулись в рабочее дерево." },
+    "status.stashApplying": { tr: "Применение спрятанного…" },
+    "status.stashPopping": { tr: "Извлечение спрятанного…" },
+    "status.stashDropping": { tr: "Отбрасывание спрятанного…" },
+    "status.stashApplied": { tr: "Спрятанное применено." },
+    "status.stashPopped": { tr: "Спрятанное извлечено." },
+    "status.stashDropped": { tr: "Спрятанное отброшено." },
+    "status.merging": { en: "Merge…" },
+    "status.merged": { en: "Merge завершён." },
+    "status.mergeConflict": { en: "В merge есть конфликты — разрешите их в редакторе, затем сделайте commit." },
+  },
+};
+
 const STORAGE_KEY = "revGraph.lang";
 
 function isLang(v: unknown): v is Lang {
@@ -875,6 +1049,39 @@ function load(): Lang {
 let current: Lang = load();
 const listeners = new Set<() => void>();
 
+// ---- Keep-Git-terms-in-English setting ------------------------------------
+// A separate localStorage-backed toggle (like the display-mode / theme settings)
+// that reuses this module's listener set, so switching it re-renders everything
+// that already reacts to a language change. Off by default → jargon is translated.
+const JARGON_STORAGE_KEY = "revGraph.keepJargonEnglish";
+
+function loadJargon(): boolean {
+  try {
+    return localStorage.getItem(JARGON_STORAGE_KEY) === "en";
+  } catch {
+    return false;
+  }
+}
+
+let keepJargonEnglish = loadJargon();
+
+/** Whether Git terms (pull/push/commit/…) are kept in English. */
+export function getKeepJargonEnglish(): boolean {
+  return keepJargonEnglish;
+}
+
+/** Toggle keep-jargon-English, persist it, and notify subscribers to re-render. */
+export function setKeepJargonEnglish(on: boolean): void {
+  if (on === keepJargonEnglish) return;
+  keepJargonEnglish = on;
+  try {
+    localStorage.setItem(JARGON_STORAGE_KEY, on ? "en" : "tr");
+  } catch {
+    /* ignore persistence failures */
+  }
+  listeners.forEach((l) => l());
+}
+
 /** The active language. */
 export function getLang(): Lang {
   return current;
@@ -901,6 +1108,13 @@ export function onLangChange(cb: () => void): () => void {
 /** Translate a key in the active language, interpolating `{placeholders}`. */
 export function t(key: MsgKey, params?: Record<string, string | number>): string {
   let s = DICTS[current][key] ?? DICTS[DEFAULT_LANG][key] ?? key;
+  // Apply the Git-jargon override for this key/mode, if one exists. A missing
+  // side (en when translating, tr when keeping English) falls back to `s`.
+  const jo = JARGON[current]?.[key];
+  if (jo) {
+    const alt = keepJargonEnglish ? jo.en : jo.tr;
+    if (alt != null) s = alt;
+  }
   if (params) {
     for (const [k, v] of Object.entries(params)) {
       s = s.split(`{${k}}`).join(String(v));

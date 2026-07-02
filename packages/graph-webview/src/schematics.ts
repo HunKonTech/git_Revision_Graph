@@ -507,6 +507,53 @@ export function diffMinimapOffSchematic(): string {
   return diffMinimapSchematic(false);
 }
 
+// ---------------------------------------------------------------------------
+// Git-terms — translate vs keep-in-English. A little toolbar of three action
+// pills over a caption line. The "English" card shows the terms in English with
+// an "EN" badge; the "translate" card shows them rendered into mixed languages
+// with a small globe, conveying "localized into your language".
+// ---------------------------------------------------------------------------
+function jargonSchematic(english: boolean): string {
+  let s = open();
+  s += rect(8, 8, W - 16, H - 16, { fill: C.faint, r: 4 });
+
+  // Three toolbar action pills (first one accented, like a primary button).
+  const pills = english ? ["Pull", "Push", "Merge"] : ["Húzás", "拉取", "Слияние"];
+  const pw = 72;
+  const gap = 10;
+  const startX = (W - (pw * 3 + gap * 2)) / 2;
+  const py = 58;
+  for (let i = 0; i < 3; i++) s += button(startX + i * (pw + gap), py, pw, pills[i]!, i === 0);
+
+  // A caption line under the pills hinting at the other terms.
+  const cap = english ? "commit · branch · stash" : "commit → beküldés · ág…";
+  s += text(W / 2, py + 40, cap, { size: 9, anchor: "middle", opacity: 0.6 });
+
+  // Badge top-right: "EN" chip for English, a little globe for translate.
+  const bx = W - 42;
+  const by = 30;
+  if (english) {
+    s += rect(bx, by - 12, 32, 18, { fill: C.accent, r: 4 });
+    s += text(bx + 16, by + 1, "EN", { size: 10, weight: 700, anchor: "middle", fill: "#fff" });
+  } else {
+    const gcx = bx + 16;
+    const gcy = by - 3;
+    s += circle(gcx, gcy, 10, { stroke: C.fg, sw: 1.4 });
+    s += `<ellipse cx="${gcx}" cy="${gcy}" rx="4.5" ry="10" fill="none" stroke="${C.fg}" stroke-width="1.2"/>`;
+    s += line(gcx - 10, gcy, gcx + 10, gcy, { sw: 1.2 });
+    s += line(gcx - 9, gcy - 5, gcx + 9, gcy - 5, { sw: 1 });
+    s += line(gcx - 9, gcy + 5, gcx + 9, gcy + 5, { sw: 1 });
+  }
+  return s + close();
+}
+
+export function jargonTranslateSchematic(): string {
+  return jargonSchematic(false);
+}
+export function jargonEnglishSchematic(): string {
+  return jargonSchematic(true);
+}
+
 /**
  * Every schematic by id, for the build-time `.svg` emitter. The native dialog is
  * emitted in both IDE flavours so each host can ship its own file if needed.
@@ -521,4 +568,6 @@ export const ALL_SCHEMATICS: { id: string; svg: () => string }[] = [
   { id: "theme-dark", svg: darkThemeSchematic },
   { id: "diff-minimap-on", svg: diffMinimapOnSchematic },
   { id: "diff-minimap-off", svg: diffMinimapOffSchematic },
+  { id: "jargon-translate", svg: jargonTranslateSchematic },
+  { id: "jargon-english", svg: jargonEnglishSchematic },
 ];
