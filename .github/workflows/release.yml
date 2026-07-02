@@ -541,8 +541,9 @@ jobs:
   # codebase: a DevEco Studio flavor (:deveco) and a mainstream IntelliJ IDEA /
   # JetBrains-IDE flavor (:intellij). Independent of the VS VSIX job — runs in
   # parallel, also after `release` so the GitHub Release already exists. Both
-  # ship as sideloadable ZIPs; Marketplace publishing of the :intellij flavor
-  # is a separate opt-in step (needs PUBLISH_TOKEN) not wired into CI here.
+  # ship as sideloadable ZIPs; the :intellij flavor is additionally published
+  # to the JetBrains Marketplace when the JETBRAINS_MARKETPLACE_TOKEN secret is
+  # set (the publish step is skipped otherwise, so CI still succeeds without it).
   # -------------------------------------------------------------------------
   build-jetbrains-plugins:
     needs: release
@@ -551,6 +552,10 @@ jobs:
 
     env:
       NEW_VERSION: ${{ needs.release.outputs.new_version }}
+      # Inherited by the publish step below. Empty when the secret is unset,
+      # which both skips that step (its `if`) and makes Gradle's publishPlugin a
+      # no-op — so builds without credentials still succeed.
+      PUBLISH_TOKEN: ${{ secrets.JETBRAINS_MARKETPLACE_TOKEN }}
 
     steps:
       - name: Checkout
@@ -653,6 +658,32 @@ jobs:
               -ContentType "application/octet-stream" | Out-Null
             Write-Host "Uploaded: $name"
           }
+
+      # -----------------------------------------------------------------------
+      # Publish the :intellij flavor to the JetBrains Marketplace.
+      # Only runs when the JETBRAINS_MARKETPLACE_TOKEN secret is present (the
+      # `if` guards on the job-level PUBLISH_TOKEN env, which is empty otherwise).
+      # The DevEco flavor stays sideload-only. Signing env vars are optional —
+      # if the CERTIFICATE_CHAIN / PRIVATE_KEY secrets are unset, the Marketplace
+      # signs the upload itself. NOTE: the plugin listing must already exist on
+      # the Marketplace (first version uploaded once via the web UI + approved)
+      # before the API can push updates; the plugin id is `com.hunkontech.revgraph`.
+      # -----------------------------------------------------------------------
+      - name: Publish IntelliJ flavor to JetBrains Marketplace
+        if: ${{ env.PUBLISH_TOKEN != '' }}
+        shell: powershell
+        working-directory: jetbrains
+        env:
+          CERTIFICATE_CHAIN: ${{ secrets.JETBRAINS_CERTIFICATE_CHAIN }}
+          PRIVATE_KEY: ${{ secrets.JETBRAINS_PRIVATE_KEY }}
+          PRIVATE_KEY_PASSWORD: ${{ secrets.JETBRAINS_PRIVATE_KEY_PASSWORD }}
+        run: |
+          # publishPlugin depends on buildPlugin/signPlugin, so it reuses the
+          # already-patched pluginVersion. PUBLISH_TOKEN is inherited from the
+          # job env (from the JETBRAINS_MARKETPLACE_TOKEN secret).
+          gradle :intellij:publishPlugin --no-daemon
+          if ($LASTEXITCODE -ne 0) { throw "Gradle publishPlugin failed ($LASTEXITCODE)" }
+          Write-Host "Published :intellij flavor to the JetBrains Marketplace."
 
   # -------------------------------------------------------------------------
   # Buffer release announcement (X / Twitter)

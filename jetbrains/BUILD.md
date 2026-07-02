@@ -104,6 +104,21 @@ Only the `:intellij` flavor is Marketplace-ready. Set these env vars and run
 With no token set, `publishPlugin` is a no-op, so ordinary local/CI builds still
 succeed and just produce the sideloadable ZIPs.
 
+### Automatic publishing from CI
+The `Build & Publish Extensions` GitHub Actions workflow
+(`.github/workflows/release.yml`) publishes the `:intellij` flavor to the
+Marketplace automatically on every release, right after it uploads the ZIPs to
+the GitHub Release. It only does so when the **`JETBRAINS_MARKETPLACE_TOKEN`**
+repository secret is set (the step is skipped otherwise). Optional signing is
+read from the `JETBRAINS_CERTIFICATE_CHAIN`, `JETBRAINS_PRIVATE_KEY`, and
+`JETBRAINS_PRIVATE_KEY_PASSWORD` secrets; if they are absent the Marketplace
+signs the upload itself.
+
+The Marketplace API can only push **updates** — the plugin listing (id
+`com.hunkontech.revgraph`) must be created once by uploading the first build
+manually via <https://plugins.jetbrains.com/> and passing moderation before CI
+can publish subsequent versions.
+
 ## Trying it
 - Open a project that is inside a Git repo.
 - **View → Tool Windows → Revision Graph** opens the tool window.
