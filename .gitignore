@@ -101,6 +101,16 @@ jetbrains/.gradle/
 jetbrains/build/
 jetbrains/*/build/
 
+# Generated Gradle wrapper binaries (only gradle-wrapper.properties is
+# checked in; run `gradle wrapper --gradle-version 8.9` in jetbrains/ to
+# regenerate these locally — see jetbrains/BUILD.md).
+jetbrains/gradlew
+jetbrains/gradlew.bat
+jetbrains/gradle/wrapper/gradle-wrapper.jar
+
+# IntelliJ Platform Gradle plugin local cache
+jetbrains/.intellijPlatform/
+
 # Generated LICENSE copy for VS Code packaging
 vscode/LICENSE
 github-actions-org-runner-selection-spec.md alias
