@@ -54,11 +54,13 @@ intellijPlatform {
         version = providers.gradleProperty("pluginVersion")
 
         ideaVersion {
-            // Built against 2024.1 but installable back to 2023.1 (build 231)
-            // and forward through the 2024.3 line.
+            // Built against 2024.1, installable back to 2023.1 (build 231).
+            // untilBuild explicitly cleared (the Gradle plugin otherwise
+            // defaults it to the build-target's major version, e.g. "241.*",
+            // which would block every newer IDE release without a republish).
             // See https://plugins.jetbrains.com/docs/intellij/build-number-ranges.html
             sinceBuild = "231"
-            untilBuild = "243.*"
+            untilBuild = provider { null }
         }
     }
 

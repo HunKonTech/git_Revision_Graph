@@ -55,10 +55,13 @@ intellijPlatform {
         version = providers.gradleProperty("pluginVersion")
 
         ideaVersion {
-            // Kept low so one ZIP installs across DevEco Studio's whole range.
+            // sinceBuild kept low so one ZIP installs across DevEco Studio's
+            // whole range. untilBuild explicitly cleared (the Gradle plugin
+            // otherwise defaults it to the build-target's major version,
+            // which would block every newer IDE release without a republish).
             // See https://plugins.jetbrains.com/docs/intellij/build-number-ranges.html
             sinceBuild = "231"
-            untilBuild = "243.*"
+            untilBuild = provider { null }
         }
     }
 }
