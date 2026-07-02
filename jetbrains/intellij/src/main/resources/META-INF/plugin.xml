@@ -4,13 +4,80 @@
     <vendor url="https://github.com/HunKonTech/git_Revision_Graph">HunKonTech</vendor>
 
     <description><![CDATA[
-        A TortoiseSVN-style revision graph for Git, right inside your JetBrains
-        IDE (IntelliJ IDEA, WebStorm, PyCharm, GoLand, …). Commits, local and
-        remote branches, and tags appear as connected, color-coded boxes.
-        Right-click a commit to branch, check out, merge, or copy its SHA.
+        <p>A <b>TortoiseSVN-style revision graph</b> for Git inside your
+        <b>JetBrains IDE</b> (IntelliJ IDEA, WebStorm, PyCharm, GoLand, …).
+        Commits, local &amp; remote branches, and tags are displayed as
+        connected, color-coded boxes.</p>
 
-        A separate build targets Huawei DevEco Studio; both are produced from
-        the same shared codebase.
+        <p><b>▶ <a href="https://hunkontech.github.io/git_Revision_Graph/">Try the live demo in your browser</a></b>
+        — no install required; runs the real renderer on a sample repository.</p>
+
+        <p><img src="https://raw.githubusercontent.com/HunKonTech/git_Revision_Graph/main/RevisionGraph_vs_code.png" alt="Git Revision Graph" width="600"/></p>
+
+        <h2>How to open</h2>
+        <p>Open a project that is under Git version control, then either:</p>
+        <ul>
+            <li>open the <b>Tools</b> menu and choose <b>Revision Graph</b>, or</li>
+            <li>press <b>Shift</b> twice (<b>Search Everywhere</b>) and type <b>"Revision Graph"</b>.</li>
+        </ul>
+        <p>The graph opens as a full tab in the center editor area.</p>
+
+        <h2>Features</h2>
+        <ul>
+            <li><b>DAG layout</b> — commits arranged in columns per branch with connecting lines.</li>
+            <li><b>Color-coded nodes</b> — HEAD/current branch (red), local branches (green), remote branches (blue), tags (yellow), plain commits (grey).</li>
+            <li><b>Right-click a commit</b> → <em>"Create branch from here…"</em> — creates a new branch at that commit using Git, then refreshes the graph.</li>
+            <li><b>Checkout</b> a commit directly from the graph.</li>
+            <li><b>Copy SHA</b> of any commit.</li>
+            <li><b>Zoom &amp; pan</b> the graph canvas.</li>
+        </ul>
+
+        <h2>Source code &amp; license</h2>
+        <ul>
+            <li>Source code: <a href="https://github.com/HunKonTech/git_Revision_Graph">https://github.com/HunKonTech/git_Revision_Graph</a></li>
+            <li>License: <b><a href="https://github.com/HunKonTech/git_Revision_Graph/blob/main/LICENSE">Business Source License 1.1</a></b>
+            — free for personal, internal, and non-commercial use. Selling, reselling, or offering the software as a paid
+            product or service is not permitted. Converts to MPL 2.0 four years after each version's release.</li>
+        </ul>
+
+        <p>A separate build targets Huawei DevEco Studio; both are produced from the same shared codebase.</p>
+
+        <hr/>
+
+        <p>Egy <b>TortoiseSVN-stílusú revíziógraf</b> Git-hez a <b>JetBrains IDE-den</b>
+        belül (IntelliJ IDEA, WebStorm, PyCharm, GoLand, …). A commitok, helyi és
+        távoli ágak, valamint tagek összekötött, színkódolt dobozokként jelennek meg.</p>
+
+        <p><b>▶ <a href="https://hunkontech.github.io/git_Revision_Graph/">Próbáld ki az élő demót a böngésződben</a></b>
+        — telepítés nélkül; a valódi megjelenítő fut egy minta-repozitóriummal.</p>
+
+        <p><img src="https://raw.githubusercontent.com/HunKonTech/git_Revision_Graph/main/RevisionGraph_vs_code.png" alt="Git Revision Graph" width="600"/></p>
+
+        <h2>Megnyitás</h2>
+        <p>Nyiss meg egy Git verziókövetés alatt álló projektet, majd:</p>
+        <ul>
+            <li>nyisd meg a <b>Tools</b> menüt és válaszd a <b>Revision Graph</b> pontot, vagy</li>
+            <li>nyomd meg kétszer a <b>Shift</b>et (<b>Search Everywhere</b>) és írd be: <b>"Revision Graph"</b>.</li>
+        </ul>
+        <p>A gráf középen, teljes editor-fülként nyílik meg.</p>
+
+        <h2>Funkciók</h2>
+        <ul>
+            <li><b>DAG elrendezés</b> — a commitok áganként oszlopokba rendezve, összekötő vonalakkal.</li>
+            <li><b>Színkódolt csomópontok</b> — HEAD/aktuális ág (piros), helyi ágak (zöld), távoli ágak (kék), tagek (sárga), sima commitok (szürke).</li>
+            <li><b>Jobb klikk egy commitra</b> → <em>"Ág létrehozása innen…"</em> — új ágat hoz létre az adott committól a Git-en keresztül, majd frissíti a gráfot.</li>
+            <li><b>Checkout</b> — commit közvetlen kivétele a gráfból.</li>
+            <li><b>SHA másolása</b> bármely commithoz.</li>
+            <li><b>Nagyítás és mozgatás</b> a gráf felületén.</li>
+        </ul>
+
+        <h2>Forráskód és licenc</h2>
+        <ul>
+            <li>Forráskód: <a href="https://github.com/HunKonTech/git_Revision_Graph">https://github.com/HunKonTech/git_Revision_Graph</a></li>
+            <li>Licenc: <b><a href="https://github.com/HunKonTech/git_Revision_Graph/blob/main/LICENSE">Business Source License 1.1</a></b>
+            — személyes, belső és nem-kereskedelmi célú használatra ingyenes. A szoftver eladása, továbbértékesítése, vagy fizetős
+            termékként/szolgáltatásként történő kínálása nem megengedett. Verziónként a megjelenéstől számított négy év után MPL 2.0 licencre vált.</li>
+        </ul>
     ]]></description>
 
     <!-- Depends only on the platform module every IntelliJ-Platform IDE
