@@ -1,7 +1,7 @@
 // Stage the shared web renderer bundle into the JetBrains-family plugin's
-// SHARED module (jetbrains/common/src/main/resources/webview/), so ALL the
-// flavors (DevEco Studio, IntelliJ, Android Studio) pick it up from one place.
-// Run after build:webview. Mirrors scripts/copy-vs-assets.mjs.
+// SHARED module (jetbrains/common/src/main/resources/webview/), so the
+// :intellij build (installable across the whole IntelliJ Platform family)
+// picks it up. Run after build:webview. Mirrors scripts/copy-vs-assets.mjs.
 import { cp, mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";

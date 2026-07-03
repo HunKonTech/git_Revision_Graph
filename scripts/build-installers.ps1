@@ -161,24 +161,24 @@ if (-not (Test-Path $vswhere)) {
 }
 
 # ---------------------------------------------------------------------------
-# 4. JetBrains-family pluginok (IntelliJ Platform / Gradle)
-#    Egy multi-project (jetbrains/) HÁROM ZIP-et gyárt a közös kódból:
-#    :deveco (DevEco Studio), :intellij (IntelliJ IDEA / JetBrains IDE-k) és
-#    :androidstudio (Android Studio). A `buildPlugin` mindhárom al-projektre
-#    lefut. A Marketplace-publikálás az :intellij/:androidstudio flavoroknál
-#    külön, opcionális lépés (lásd jetbrains/BUILD.md).
+# 4. JetBrains-family plugin (IntelliJ Platform / Gradle)
+#    Egy multi-project (jetbrains/) EGY ZIP-et gyárt a közös kódból (:intellij),
+#    ami az IntelliJ Platform build-szám tartománya alapján IntelliJ IDEA-ban,
+#    Android Studióban, Huawei DevEco Studióban és a többi JetBrains IDE-ben is
+#    telepíthető. A Marketplace-publikálás külön, opcionális lépés (lásd
+#    jetbrains/BUILD.md).
 # ---------------------------------------------------------------------------
 $jetbrainsDir = Join-Path $root "jetbrains"
 $gradlew   = if ($IsWindows) { Join-Path $jetbrainsDir "gradlew.bat" } else { Join-Path $jetbrainsDir "gradlew" }
 $gradleCmd = if (Test-Path $gradlew) { $gradlew } elseif (Get-Command gradle -ErrorAction SilentlyContinue) { "gradle" } else { $null }
 
 if (-not $gradleCmd) {
-    Warn "Sem jetbrains/gradlew, sem rendszer-Gradle nem található — JetBrains pluginok kihagyva."
+    Warn "Sem jetbrains/gradlew, sem rendszer-Gradle nem található — JetBrains plugin kihagyva."
     Warn "Lásd jetbrains/BUILD.md: 'gradle wrapper --gradle-version 8.9' a jetbrains/ mappában."
 } elseif (-not (Get-Command java -ErrorAction SilentlyContinue)) {
-    Warn "JDK nem található a PATH-on — JetBrains pluginok kihagyva."
+    Warn "JDK nem található a PATH-on — JetBrains plugin kihagyva."
 } else {
-    Step "JetBrains pluginok fordítása (Gradle, mindkét flavor)"
+    Step "JetBrains plugin fordítása (Gradle)"
     Push-Location $jetbrainsDir
     try {
         & $gradleCmd buildPlugin --no-daemon
@@ -186,21 +186,14 @@ if (-not $gradleCmd) {
     } finally {
         Pop-Location
     }
-    $flavors = @(
-        @{ Dir = "deveco";        Asset = "RevisionGraph-deveco.zip"        },
-        @{ Dir = "intellij";      Asset = "RevisionGraph-jetbrains.zip"      },
-        @{ Dir = "androidstudio"; Asset = "RevisionGraph-androidstudio.zip" }
-    )
-    foreach ($f in $flavors) {
-        $builtZip = Get-ChildItem "$jetbrainsDir\$($f.Dir)\build\distributions\*.zip" -ErrorAction SilentlyContinue |
-                    Sort-Object LastWriteTime -Descending | Select-Object -First 1
-        if ($builtZip) {
-            $dest = Join-Path $installers $f.Asset
-            Copy-Item $builtZip.FullName $dest -Force
-            Ok "JetBrains plugin ($($f.Dir)): $($dest | Split-Path -Leaf)"
-        } else {
-            Warn "Nem található a build kimenete: $jetbrainsDir\$($f.Dir)\build\distributions\*.zip"
-        }
+    $builtZip = Get-ChildItem "$jetbrainsDir\intellij\build\distributions\*.zip" -ErrorAction SilentlyContinue |
+                Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($builtZip) {
+        $dest = Join-Path $installers "RevisionGraph-jetbrains.zip"
+        Copy-Item $builtZip.FullName $dest -Force
+        Ok "JetBrains plugin: $($dest | Split-Path -Leaf)"
+    } else {
+        Warn "Nem található a build kimenete: $jetbrainsDir\intellij\build\distributions\*.zip"
     }
 }
 

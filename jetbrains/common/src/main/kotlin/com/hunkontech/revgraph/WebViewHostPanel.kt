@@ -102,7 +102,7 @@ class WebViewHostPanel(private val project: Project) : Disposable {
 
     /**
      * The webview bundle (packages/graph-webview/dist, staged by
-     * scripts/copy-deveco-assets.mjs) ships as plugin resources under
+     * scripts/copy-jetbrains-assets.mjs) ships as plugin resources under
      * `webview/`. JCEF needs real file:// URLs, so on first use it is
      * extracted once into the IDE's per-user system directory. Works both
      * when the plugin runs from an exploded classpath (Run Plugin) and from

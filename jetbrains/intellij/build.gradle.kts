@@ -1,12 +1,11 @@
-// Mainstream JetBrains IDE flavor (IntelliJ IDEA and the wider IntelliJ
-// Platform family: WebStorm, PyCharm, GoLand, etc.). Built against a current
-// IC release and prepared for JetBrains Marketplace publishing — set the
-// PUBLISH_TOKEN env var to enable `publishPlugin` (it is a no-op otherwise, so
-// local/CI builds without a token still succeed as a sideloadable ZIP).
-//
-// This file is intentionally near-identical to ../deveco/build.gradle.kts:
-// both compile the SAME sources in ../common and differ only in the platform
-// version they build against and the branding/build-range they declare.
+// The single JetBrains-family plugin build. Targets the base IntelliJ
+// Platform (IC) at its oldest supported baseline so one build/listing covers
+// the whole family — IntelliJ IDEA, Android Studio, Huawei DevEco Studio,
+// WebStorm, PyCharm, GoLand, etc. — since Marketplace/IDE compatibility is
+// matched by build-number range, not by product name. Prepared for JetBrains
+// Marketplace publishing — set the PUBLISH_TOKEN env var to enable
+// `publishPlugin` (it is a no-op otherwise, so local/CI builds without a
+// token still succeed as a sideloadable ZIP).
 plugins {
     id("org.jetbrains.kotlin.jvm")
     id("org.jetbrains.intellij.platform")
@@ -38,7 +37,7 @@ val writeRevGraphVersion by tasks.registering {
 sourceSets {
     named("main") {
         // Pull in the shared Kotlin + shared resources (webview bundle, icons)
-        // from common/; only META-INF/plugin.xml is this flavor's own resource.
+        // from common/; only META-INF/plugin.xml is this subproject's own resource.
         java.srcDir(rootProject.projectDir.resolve("common/src/main/kotlin"))
         resources.srcDir(rootProject.projectDir.resolve("common/src/main/resources"))
         resources.srcDir(revGraphVersionDir)
@@ -47,7 +46,10 @@ sourceSets {
 
 dependencies {
     intellijPlatform {
-        create("IC", "2024.1")
+        // Oldest supported baseline (also what Android Studio and DevEco
+        // Studio's IC releases are built on) so this single build's platform
+        // API surface stays compatible across the whole family.
+        create("IC", "2023.1.7")
         bundledPlugin("Git4Idea")
         instrumentationTools()
     }
@@ -68,10 +70,12 @@ intellijPlatform {
         version = providers.gradleProperty("pluginVersion")
 
         ideaVersion {
-            // Built against 2024.1, installable back to 2023.1 (build 231).
-            // untilBuild explicitly cleared (the Gradle plugin otherwise
-            // defaults it to the build-target's major version, e.g. "241.*",
-            // which would block every newer IDE release without a republish).
+            // sinceBuild kept low, untilBuild explicitly cleared (the Gradle
+            // plugin otherwise defaults it to the build-target's major
+            // version, e.g. "231.*", which would block every newer IDE
+            // release without a republish) so one build installs across
+            // IntelliJ IDEA, Android Studio, DevEco Studio, and the rest of
+            // the IntelliJ Platform family.
             // See https://plugins.jetbrains.com/docs/intellij/build-number-ranges.html
             sinceBuild = "231"
             untilBuild = provider { null }
@@ -93,7 +97,7 @@ intellijPlatform {
 
 tasks {
     processResources {
-        // common/ resources + this flavor's plugin.xml are merged; the shared
+        // common/ resources + this subproject's plugin.xml are merged; the shared
         // webview bundle is staged into common/ by `npm run build:jetbrains-assets`.
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
         dependsOn(writeRevGraphVersion)

@@ -40,7 +40,7 @@
             product or service is not permitted. Converts to MPL 2.0 four years after each version's release.</li>
         </ul>
 
-        <p>A separate build targets Huawei DevEco Studio; both are produced from the same shared codebase.</p>
+        <p>One build, installable in any IntelliJ Platform IDE — IntelliJ IDEA, Android Studio, Huawei DevEco Studio, WebStorm, PyCharm, GoLand, and more.</p>
 
         <hr/>
 
@@ -78,6 +78,8 @@
             — személyes, belső és nem-kereskedelmi célú használatra ingyenes. A szoftver eladása, továbbértékesítése, vagy fizetős
             termékként/szolgáltatásként történő kínálása nem megengedett. Verziónként a megjelenéstől számított négy év után MPL 2.0 licencre vált.</li>
         </ul>
+
+        <p>Egyetlen build, amely bármely IntelliJ Platform IDE-be telepíthető — IntelliJ IDEA, Android Studio, Huawei DevEco Studio, WebStorm, PyCharm, GoLand és több más.</p>
     ]]></description>
 
     <!-- Depends only on the platform module every IntelliJ-Platform IDE

@@ -1,4 +1,4 @@
-# Building the JetBrains-family plugins
+# Building the JetBrains-family plugin
 
 > This project is authored cross-platform, but has not been compiled or run
 > in this environment: doing so needs a JDK 17 + Gradle + the IntelliJ
@@ -9,20 +9,19 @@
 > `vs/BUILD.md` already carries for the Visual Studio VSIX on non-Windows
 > machines.
 
-## One codebase, three builds
+## One codebase, one build
 
-`jetbrains/` is a Gradle **multi-project** that produces **three** plugin
-distributions from a single shared codebase:
-
-| Subproject | Targets | Distribution |
-|------------|---------|--------------|
-| `:deveco`        | Huawei DevEco Studio (built on IntelliJ IDEA Community) | sideloaded ZIP + JetBrains Marketplace |
-| `:intellij`      | Mainstream JetBrains IDEs — IntelliJ IDEA, WebStorm, PyCharm, GoLand, … | sideloaded ZIP + JetBrains Marketplace |
-| `:androidstudio` | Google Android Studio (built on IntelliJ IDEA Community) | sideloaded ZIP + JetBrains Marketplace |
+`jetbrains/` is a Gradle **multi-project** with a single plugin subproject
+(`:intellij`) built against a broad, unbounded IntelliJ Platform build-number
+range. Because Marketplace/IDE compatibility is matched by build number, not
+by product name, this one build already installs into IntelliJ IDEA, Android
+Studio, Huawei DevEco Studio, WebStorm, PyCharm, GoLand, and every other
+IntelliJ Platform IDE — there is no need for separate per-product flavors or
+listings.
 
 ```
 jetbrains/
-  settings.gradle.kts        # includes :deveco, :intellij, :androidstudio
+  settings.gradle.kts        # includes :intellij
   build.gradle.kts           # declares the IntelliJ Platform plugin (apply false)
   gradle.properties          # shared group + version (CI patches the version)
   common/                    # ← ALL the shared code lives here
@@ -30,24 +29,17 @@ jetbrains/
     src/main/resources/
       webview/index.html      #   (main.js/main.css/schematics staged by the build)
       icons/
-  deveco/
-    build.gradle.kts         # IC 2023.1.7, since 231; DevEco branding
-    src/main/resources/META-INF/plugin.xml
   intellij/
-    build.gradle.kts         # IC 2024.1, since 231; JetBrains branding + Marketplace publish
-    src/main/resources/META-INF/plugin.xml
-  androidstudio/
-    build.gradle.kts         # IC 2023.1.7, since 231; Android Studio branding + Marketplace publish
+    build.gradle.kts         # IC 2023.1.7 baseline, since 231, no untilBuild; Marketplace publish
     src/main/resources/META-INF/plugin.xml
 ```
 
-All flavors compile the **exact same** Kotlin in `common/src/main/kotlin`
-(pulled in via `sourceSets { main { java.srcDir("$rootDir/common/…") } }`) and
-bundle the **exact same** shared web renderer. They differ only in the IntelliJ
-Platform version they build against and their `plugin.xml` branding — the DevEco
-Studio and Android Studio flavors stay on the older platform to keep their
-build-number ranges broad; the IntelliJ flavor builds against a current release.
-All three are wired for Marketplace publishing.
+`:intellij` compiles the Kotlin in `common/src/main/kotlin` (pulled in via
+`sourceSets { main { java.srcDir("$rootDir/common/…") } }`) and bundles the
+shared web renderer. It builds against IC 2023.1.7 — the oldest baseline that
+keeps the plugin's declared build-number range (`sinceBuild = "231"`, no
+`untilBuild`) broad enough to cover Android Studio and DevEco Studio releases
+as well as current IntelliJ IDEA/JetBrains IDE builds.
 
 ## Prerequisites
 - JDK 17.
@@ -56,7 +48,7 @@ All three are wired for Marketplace publishing.
 - Git on `PATH`.
 - DevEco Studio, Android Studio, and/or a JetBrains IDE (IntelliJ IDEA
   Community is enough for UI development) for manually installing/trying the
-  built plugins.
+  built plugin.
 
 ## Steps
 1. Build the shared web renderer and stage it into the **shared** module:
@@ -68,7 +60,7 @@ All three are wired for Marketplace publishing.
    ```
    This produces `jetbrains/common/src/main/resources/webview/main.js` and
    `main.css` (`index.html` is checked in as a static file, like
-   `vs/webview/index.html`). Both flavors read from this one location.
+   `vs/webview/index.html`). The `:intellij` build reads from this one location.
 
 2. Generate the Gradle wrapper once (only `gradle/wrapper/gradle-wrapper.properties`
    is checked in; the wrapper jar/scripts are not, since they're binary):
@@ -78,81 +70,65 @@ All three are wired for Marketplace publishing.
    ```
    From then on use `./gradlew` (or `gradlew.bat` on Windows).
 
-3. Build **all** plugin distribution ZIPs (one `buildPlugin` aggregates across
-   every subproject):
+3. Build the plugin distribution ZIP:
    ```
    ./gradlew buildPlugin
    ```
-   Outputs:
-   - `jetbrains/deveco/build/distributions/*.zip`        (DevEco Studio flavor)
-   - `jetbrains/intellij/build/distributions/*.zip`      (IntelliJ / JetBrains flavor)
-   - `jetbrains/androidstudio/build/distributions/*.zip` (Android Studio flavor)
+   Output: `jetbrains/intellij/build/distributions/*.zip`.
 
-   To build just one flavor: `./gradlew :deveco:buildPlugin`,
-   `./gradlew :intellij:buildPlugin`, or `./gradlew :androidstudio:buildPlugin`.
-
-4. To try a flavor interactively instead of sideloading its ZIP, use the
-   IntelliJ Platform Gradle plugin's run task:
+4. To try it interactively instead of sideloading the ZIP, use the IntelliJ
+   Platform Gradle plugin's run task:
    ```
-   ./gradlew :deveco:runIde         # DevEco-Studio-compatible IDE (IC 2023.1)
-   ./gradlew :intellij:runIde       # mainstream IntelliJ IDEA (IC 2024.1)
-   ./gradlew :androidstudio:runIde  # Android-Studio-compatible IDE (IC 2023.1)
+   ./gradlew :intellij:runIde
    ```
-   Each launches a sandboxed IDE at that flavor's pinned platform version with
+   Launches a sandboxed IDE at the pinned platform version (IC 2023.1.7) with
    the plugin installed.
 
 ## Publishing to the JetBrains Marketplace
-**All** flavors are Marketplace-ready — neither DevEco Studio nor Android Studio
-has a separate plugin store of its own; both are built on the IntelliJ Platform,
-so their own Settings > Plugins > Marketplace panels are the same
-plugins.jetbrains.com Marketplace, just filtered to plugins whose build-number
-range covers that IDE's platform build. Each flavor is therefore its own listing,
-under its own plugin id (`com.hunkontech.revgraph` for `:intellij`,
-`com.hunkontech.revgraph.deveco` for `:deveco`,
-`com.hunkontech.revgraph.androidstudio` for `:androidstudio`; see `pluginGroup` /
-`pluginGroupDeveco` / `pluginGroupAndroidStudio` in `jetbrains/gradle.properties`).
+Neither DevEco Studio nor Android Studio has a separate plugin store of its
+own; both are built on the IntelliJ Platform, so their own Settings > Plugins >
+Marketplace panels are the same plugins.jetbrains.com Marketplace, just
+filtered to plugins whose build-number range covers that IDE's platform build.
+That means **one listing** (plugin id `com.hunkontech.revgraph`; see
+`pluginGroup` in `jetbrains/gradle.properties`) already covers IntelliJ IDEA,
+Android Studio, DevEco Studio, and the rest of the family — there's no need
+for, and JetBrains Marketplace review will reject, separate per-product
+listings built from the same code and build range.
 
-Set these env vars and run `./gradlew :intellij:publishPlugin`,
-`./gradlew :deveco:publishPlugin`, and/or `./gradlew :androidstudio:publishPlugin`
-(all flavors share the same credentials, since every listing lives under the
-same Marketplace account):
+Set these env vars and run `./gradlew :intellij:publishPlugin`:
 - `PUBLISH_TOKEN` — a JetBrains Marketplace permanent token.
 - `CERTIFICATE_CHAIN`, `PRIVATE_KEY`, `PRIVATE_KEY_PASSWORD` — for signing
   (see the IntelliJ Platform plugin-signing docs).
 
 With no token set, `publishPlugin` is a no-op, so ordinary local/CI builds still
-succeed and just produce the sideloadable ZIPs.
+succeed and just produce the sideloadable ZIP.
 
 ### Automatic publishing from CI
 The `Build & Publish Extensions` GitHub Actions workflow
-(`.github/workflows/release.yml`) publishes the `:intellij`, `:deveco`, and
-`:androidstudio` flavors to the Marketplace automatically on every release,
-right after it uploads the ZIPs to the GitHub Release. It only does so when the
-**`JETBRAINS_MARKETPLACE_TOKEN`** repository secret is set (all publish steps
-are skipped otherwise). Optional signing is read from the
+(`.github/workflows/release.yml`) publishes to the Marketplace automatically on
+every release, right after it uploads the ZIP to the GitHub Release. It only
+does so when the **`JETBRAINS_MARKETPLACE_TOKEN`** repository secret is set
+(the publish step is skipped otherwise). Optional signing is read from the
 `JETBRAINS_CERTIFICATE_CHAIN`, `JETBRAINS_PRIVATE_KEY`, and
 `JETBRAINS_PRIVATE_KEY_PASSWORD` secrets; if they are absent the Marketplace
 signs the upload itself.
 
-The Marketplace API can only push **updates** — each plugin listing (id
-`com.hunkontech.revgraph` for `:intellij`, `com.hunkontech.revgraph.deveco`
-for `:deveco`, `com.hunkontech.revgraph.androidstudio` for `:androidstudio`)
-must be created **once per flavor** by uploading its first build manually via
+The Marketplace API can only push **updates** — the `com.hunkontech.revgraph`
+listing must be created **once** by uploading its first build manually via
 <https://plugins.jetbrains.com/> and passing moderation before CI can publish
-subsequent versions of that flavor.
+subsequent versions.
 
-Each flavor's publish step in CI treats two specific Marketplace API errors as
-non-fatal warnings instead of failing the job — the ZIPs are already built and
-attached to the GitHub Release regardless of what the Marketplace publish does:
-- `Cannot find plugin` — the listing doesn't exist yet (the one-time-per-flavor
-  bootstrap state above; expected until the manual first upload + moderation).
+The publish step in CI treats two specific Marketplace API errors as non-fatal
+warnings instead of failing the job — the ZIP is already built and attached to
+the GitHub Release regardless of what the Marketplace publish does:
+- `Cannot find plugin` — the listing doesn't exist yet (the one-time bootstrap
+  state above; expected until the manual first upload + moderation).
 - `already contains version ... in channel` — this exact version was already
-  published to this flavor by an earlier attempt of the same job. This happens
-  because the job is not naturally idempotent: GitHub Actions' "Re-run failed
-  jobs" reuses the `release` job's already-computed version number rather than
-  bumping it, so retrying `build-jetbrains-plugins` after a partial failure
-  targets the same version again — flavors that already published it in the
-  first attempt would otherwise fail the retry for no reason.
+  published by an earlier attempt of the same job. This happens because the
+  job is not naturally idempotent: GitHub Actions' "Re-run failed jobs" reuses
+  the `release` job's already-computed version number rather than bumping it,
+  so retrying `build-jetbrains-plugins` after a partial failure targets the
+  same version again.
 
 Every other publish error still fails the job.
 
