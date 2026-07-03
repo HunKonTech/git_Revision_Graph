@@ -186,6 +186,19 @@ type Dict = {
   "status.merging": string;
   "status.merged": string;
   "status.mergeConflict": string;
+  "search.title": string;
+  "search.tooltip": string;
+  "search.placeholder": string;
+  "search.filter": string;
+  "search.highlight": string;
+  "search.filterMode": string;
+  "search.filterModeFilter": string;
+  "search.filterModeHighlight": string;
+  "search.filterModeHint": string;
+  "search.visibility": string;
+  "search.visibilityToolbar": string;
+  "search.visibilityAlwaysVisible": string;
+  "search.visibilityHint": string;
 };
 
 const DICTS: Record<Lang, Dict> = {
@@ -356,6 +369,19 @@ const DICTS: Record<Lang, Dict> = {
     "status.merging": "Merging…",
     "status.merged": "Merge completed.",
     "status.mergeConflict": "Merge has conflicts — resolve them in the editor, then commit.",
+    "search.title": "Search",
+    "search.tooltip": "Search commits",
+    "search.placeholder": "Search commits…",
+    "search.filter": "Filter mode",
+    "search.highlight": "Highlight mode",
+    "search.filterMode": "Search display",
+    "search.filterModeFilter": "Filter (hide non-matches)",
+    "search.filterModeHighlight": "Highlight (show all, mark matches)",
+    "search.filterModeHint": "Choose how search results are displayed in the graph.",
+    "search.visibility": "Search location",
+    "search.visibilityToolbar": "Toolbar button",
+    "search.visibilityAlwaysVisible": "Always-visible bar",
+    "search.visibilityHint": "Show search as a toolbar icon or persistent bar at the top.",
   },
   hu: {
     "toolbar.refresh": "⟳ Frissítés",
@@ -524,6 +550,19 @@ const DICTS: Record<Lang, Dict> = {
     "status.merging": "Beolvasztás…",
     "status.merged": "A merge elkészült.",
     "status.mergeConflict": "A merge konfliktusos — oldd fel a szerkesztőben, majd commitold.",
+    "search.title": "Keresés",
+    "search.tooltip": "Commitok keresése",
+    "search.placeholder": "Commitok keresése…",
+    "search.filter": "Szűrés mód",
+    "search.highlight": "Kiemelés mód",
+    "search.filterMode": "Keresési megjelenítés",
+    "search.filterModeFilter": "Szűrés (nem egyezők elrejtése)",
+    "search.filterModeHighlight": "Kiemelés (összes mutatása, egyezők jelölése)",
+    "search.filterModeHint": "Válaszd ki, hogyan jelenjenek meg a keresési eredmények a gráfban.",
+    "search.visibility": "Keresés helye",
+    "search.visibilityToolbar": "Toolbar gomb",
+    "search.visibilityAlwaysVisible": "Mindig látható sáv",
+    "search.visibilityHint": "A keresést toolbar ikonként vagy állandó sávként mutasd.",
   },
   zh: {
     "toolbar.refresh": "⟳ 刷新",
