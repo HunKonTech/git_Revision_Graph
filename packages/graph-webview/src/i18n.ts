@@ -124,6 +124,11 @@ type Dict = {
   "changes.close": string;
   "changes.prevChange": string;
   "changes.nextChange": string;
+  "changes.collapseAll": string;
+  "changes.searchPlaceholder": string;
+  "changes.noSearchResults": string;
+  "changes.maximize": string;
+  "changes.restore": string;
   "menu.stashApply": string;
   "menu.stashPop": string;
   "menu.stashDrop": string;
@@ -307,6 +312,11 @@ const DICTS: Record<Lang, Dict> = {
     "changes.close": "Close",
     "changes.prevChange": "Previous change",
     "changes.nextChange": "Next change",
+    "changes.collapseAll": "Collapse all folders",
+    "changes.searchPlaceholder": "Search files…",
+    "changes.noSearchResults": "No files match your search.",
+    "changes.maximize": "Maximize",
+    "changes.restore": "Restore size",
     "menu.stashApply": "Apply stash",
     "menu.stashPop": "Pop stash (apply & remove)",
     "menu.stashDrop": "Drop stash…",
@@ -488,6 +498,11 @@ const DICTS: Record<Lang, Dict> = {
     "changes.close": "Bezárás",
     "changes.prevChange": "Előző változás",
     "changes.nextChange": "Következő változás",
+    "changes.collapseAll": "Minden mappa becsukása",
+    "changes.searchPlaceholder": "Fájlok keresése…",
+    "changes.noSearchResults": "Nincs a keresésnek megfelelő fájl.",
+    "changes.maximize": "Nagyítás",
+    "changes.restore": "Eredeti méret",
     "menu.stashApply": "Stash alkalmazása",
     "menu.stashPop": "Stash kivétele (alkalmaz és töröl)",
     "menu.stashDrop": "Stash eldobása…",
@@ -669,6 +684,11 @@ const DICTS: Record<Lang, Dict> = {
     "changes.close": "关闭",
     "changes.prevChange": "上一处更改",
     "changes.nextChange": "下一处更改",
+    "changes.collapseAll": "折叠所有文件夹",
+    "changes.searchPlaceholder": "搜索文件…",
+    "changes.noSearchResults": "没有匹配的文件。",
+    "changes.maximize": "最大化",
+    "changes.restore": "还原大小",
     "menu.stashApply": "应用储藏",
     "menu.stashPop": "弹出储藏（应用并移除）",
     "menu.stashDrop": "丢弃储藏…",
@@ -837,6 +857,11 @@ const DICTS: Record<Lang, Dict> = {
     "changes.close": "Закрыть",
     "changes.prevChange": "Предыдущее изменение",
     "changes.nextChange": "Следующее изменение",
+    "changes.collapseAll": "Свернуть все папки",
+    "changes.searchPlaceholder": "Поиск файлов…",
+    "changes.noSearchResults": "Нет файлов, соответствующих поиску.",
+    "changes.maximize": "Развернуть",
+    "changes.restore": "Восстановить размер",
     "menu.stashApply": "Применить stash",
     "menu.stashPop": "Извлечь stash (применить и удалить)",
     "menu.stashDrop": "Отбросить stash…",

@@ -90,6 +90,33 @@ function sortTree(node: FileTreeNode): void {
   for (const child of node.children) sortTree(child);
 }
 
+/** Recursively collect every folder path in a tree into `into`. */
+function collectFolderPaths(nodes: FileTreeNode[], into: Set<string>): void {
+  for (const node of nodes) {
+    if (!node.isFolder) continue;
+    into.add(node.path);
+    collectFolderPaths(node.children, into);
+  }
+}
+
+function normalizeQuery(query: string): string {
+  return query.trim().toLowerCase();
+}
+
+/** True when a file's path contains the (already-lowercased) query. */
+function pathMatchesQuery(path: string, query: string): boolean {
+  return path.toLowerCase().includes(query);
+}
+
+/** True when a changed file's cached diff text contains the query — lets a
+ * search for a method/identifier surface the file that touched it, once its
+ * diff has been fetched (see fetchMissingDiffs). */
+function diffMatchesQuery(path: string, query: string, cache: Map<string, FileDiff>): boolean {
+  const cached = cache.get(path);
+  if (!cached || cached.binary || cached.tooLarge) return false;
+  return cached.oldText.toLowerCase().includes(query) || cached.newText.toLowerCase().includes(query);
+}
+
 const FOLDER_SVG =
   '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">' +
   '<path fill="currentColor" d="M1.5 3h4l1.2 1.6h7.8a.5.5 0 0 1 .5.5v8.4a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5V3.5A.5.5 0 0 1 1.5 3z"/></svg>';
@@ -97,6 +124,19 @@ const FILE_SVG =
   '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">' +
   '<path fill="currentColor" d="M9.5 1H3.5a.5.5 0 0 0-.5.5v13a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5V5L9.5 1z"/>' +
   '<path fill="rgba(0,0,0,0.35)" d="M9.5 1L13 5H10a.5.5 0 0 1-.5-.5V1z"/></svg>';
+/** "Collapse all folders" toolbar icon — three shrinking horizontal bars. */
+const COLLAPSE_ALL_SVG =
+  '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">' +
+  '<path fill="none" stroke="currentColor" stroke-width="1.3" d="M3 4h10M3 8h7M3 12h4"/></svg>';
+/** Maximize icon — a single outlined square. */
+const MAXIMIZE_SVG =
+  '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">' +
+  '<rect x="2.5" y="2.5" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>';
+/** Restore icon — two overlapping squares. */
+const RESTORE_SVG =
+  '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">' +
+  '<rect x="2.5" y="4.5" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.4"/>' +
+  '<path fill="none" stroke="currentColor" stroke-width="1.4" d="M5.5 4.5V2.5h8v8h-2"/></svg>';
 
 function fileCategory(name: string): string {
   const ext = name.slice(name.lastIndexOf(".") + 1).toLowerCase();
@@ -141,6 +181,15 @@ let listEl: HTMLElement | null = null;
 let diffPaneEl: HTMLElement | null = null;
 let collapsed = new Set<string>();
 let listWidth: number | null = null;
+/** Whether the modal currently fills the viewport. */
+let maximized = false;
+/** Current file-search query (filters both tabs; also drives content search on "Changed"). */
+let searchQuery = "";
+/** Diffs fetched so far, keyed by path — populated by setFileDiff, used for content search. */
+const diffCache = new Map<string, FileDiff>();
+/** Paths we've already asked the host for a diff of, to avoid duplicate requests while searching. */
+const requestedDiffPaths = new Set<string>();
+let searchDebounce: ReturnType<typeof setTimeout> | undefined;
 
 export function closeChangesDialog(): void {
   if (openOverlay) {
@@ -151,6 +200,7 @@ export function closeChangesDialog(): void {
   if (minimapUnsub) { minimapUnsub(); minimapUnsub = null; }
   minimapCleanup?.();
   minimapCleanup = null;
+  clearTimeout(searchDebounce);
   ctx = null;
   files = null;
   allPaths = null;
@@ -163,6 +213,10 @@ export function closeChangesDialog(): void {
   diffPaneEl = null;
   collapsed = new Set();
   listWidth = null;
+  maximized = false;
+  searchQuery = "";
+  diffCache.clear();
+  requestedDiffPaths.clear();
 }
 
 export function openChangesDialog(context: ChangesDialogContext): void {
@@ -177,13 +231,26 @@ export function openChangesDialog(context: ChangesDialogContext): void {
   modal.setAttribute("aria-modal", "true");
   overlay.appendChild(modal);
 
+  function toggleMaximize(): void {
+    maximized = !maximized;
+    modal.classList.toggle("maximized", maximized);
+    render();
+  }
+
   function render(): void {
     if (!ctx) return;
     modal.innerHTML = "";
+    modal.classList.toggle("maximized", maximized);
 
     // ---- Header ----
     const header = el("div", "settings-modal-header");
     header.appendChild(el("span", "settings-modal-title", t("changes.title", { sha: ctx.sha.slice(0, 7) })));
+    const maxBtn = button("settings-close-x changes-max-btn", "", toggleMaximize);
+    maxBtn.innerHTML = maximized ? RESTORE_SVG : MAXIMIZE_SVG;
+    const maxLabel = maximized ? t("changes.restore") : t("changes.maximize");
+    maxBtn.title = maxLabel;
+    maxBtn.setAttribute("aria-label", maxLabel);
+    header.appendChild(maxBtn);
     const closeBtn = button("settings-close-x", "×", closeChangesDialog);
     closeBtn.setAttribute("aria-label", t("changes.close"));
     header.appendChild(closeBtn);
@@ -213,6 +280,7 @@ export function openChangesDialog(context: ChangesDialogContext): void {
         renderList();
         renderDiff();
         renderTabs();
+        if (normalizeQuery(searchQuery)) fetchMissingDiffs();
       },
     );
     const tabAll = button(
@@ -230,6 +298,44 @@ export function openChangesDialog(context: ChangesDialogContext): void {
     );
     tabs.append(tabChanged, tabAll);
     list.appendChild(tabs);
+
+    // Search + collapse-all toolbar row.
+    const toolbar = el("div", "changes-list-toolbar");
+    const searchInput = document.createElement("input");
+    searchInput.type = "text";
+    searchInput.className = "settings-input changes-search-input";
+    searchInput.placeholder = t("changes.searchPlaceholder");
+    searchInput.value = searchQuery;
+    searchInput.addEventListener("input", (e) => {
+      const value = (e.target as HTMLInputElement).value;
+      clearTimeout(searchDebounce);
+      searchDebounce = setTimeout(() => {
+        searchQuery = value;
+        renderList();
+        if (activeTab === "changed" && normalizeQuery(searchQuery)) fetchMissingDiffs();
+      }, 120);
+    });
+    searchInput.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        // Clear the search box without closing the whole dialog.
+        e.stopPropagation();
+        if (searchInput.value || searchQuery) {
+          searchInput.value = "";
+          clearTimeout(searchDebounce);
+          searchQuery = "";
+          renderList();
+        } else {
+          searchInput.blur();
+        }
+      }
+    });
+    toolbar.appendChild(searchInput);
+    const collapseBtn = button("changes-toolbar-btn", "", collapseAllFolders);
+    collapseBtn.innerHTML = COLLAPSE_ALL_SVG;
+    collapseBtn.title = t("changes.collapseAll");
+    collapseBtn.setAttribute("aria-label", t("changes.collapseAll"));
+    toolbar.appendChild(collapseBtn);
+    list.appendChild(toolbar);
 
     listEl = el("div", "changes-list-scroll");
     list.appendChild(listEl);
@@ -283,6 +389,24 @@ export function openChangesDialog(context: ChangesDialogContext): void {
     }
   }
 
+  /** Changed files matching the current search — by filename, or (once fetched) diff content. */
+  function visibleChangedFiles(): CommitChangeFile[] {
+    if (!files) return [];
+    const query = normalizeQuery(searchQuery);
+    if (!query) return files;
+    return files.filter(
+      (f) => pathMatchesQuery(f.path, query) || diffMatchesQuery(f.path, query, diffCache),
+    );
+  }
+
+  /** All-tree paths matching the current search — filename only (see plan notes on scope). */
+  function visibleAllPaths(): string[] {
+    if (!allPaths) return [];
+    const query = normalizeQuery(searchQuery);
+    if (!query) return allPaths;
+    return allPaths.filter((p) => pathMatchesQuery(p, query));
+  }
+
   function renderChangedTab(): void {
     if (!listEl) return;
     if (files === null) {
@@ -293,10 +417,15 @@ export function openChangesDialog(context: ChangesDialogContext): void {
       listEl.appendChild(el("div", "changes-empty", t("changes.noChanges")));
       return;
     }
-    // Build tree from changed files only.
-    const changedByPath = new Map<string, CommitChangeFile>(files.map((f) => [f.path, f]));
+    const visible = visibleChangedFiles();
+    if (visible.length === 0) {
+      listEl.appendChild(el("div", "changes-empty", t("changes.noSearchResults")));
+      return;
+    }
+    // Build tree from the (search-filtered) changed files only.
+    const changedByPath = new Map<string, CommitChangeFile>(visible.map((f) => [f.path, f]));
     const tree = el("div", "changes-tree");
-    for (const node of buildFileTree(files.map((f) => f.path), changedByPath))
+    for (const node of buildFileTree(visible.map((f) => f.path), changedByPath))
       renderNode(node, tree, 0, true);
     listEl.appendChild(tree);
   }
@@ -307,13 +436,38 @@ export function openChangesDialog(context: ChangesDialogContext): void {
       listEl.appendChild(el("div", "changes-empty", t("changes.loading")));
       return;
     }
+    const visible = visibleAllPaths();
+    if (visible.length === 0 && normalizeQuery(searchQuery)) {
+      listEl.appendChild(el("div", "changes-empty", t("changes.noSearchResults")));
+      return;
+    }
     const changedByPath = new Map<string, CommitChangeFile>(
       (files ?? []).map((f) => [f.path, f]),
     );
     const tree = el("div", "changes-tree");
-    for (const node of buildFileTree(allPaths, changedByPath))
+    for (const node of buildFileTree(visible, changedByPath))
       renderNode(node, tree, 0, false);
     listEl.appendChild(tree);
+  }
+
+  /** Fetch diffs for every changed file not yet cached, so content search can match them. */
+  function fetchMissingDiffs(): void {
+    if (!ctx || !files) return;
+    for (const f of files) {
+      if (diffCache.has(f.path) || requestedDiffPaths.has(f.path)) continue;
+      requestedDiffPaths.add(f.path);
+      ctx.onRequestFile(f);
+    }
+  }
+
+  /** Collapse every folder currently visible in the active tab's (search-filtered) tree. */
+  function collapseAllFolders(): void {
+    const changedByPath = new Map<string, CommitChangeFile>(
+      (files ?? []).map((f) => [f.path, f]),
+    );
+    const paths = activeTab === "changed" ? visibleChangedFiles().map((f) => f.path) : visibleAllPaths();
+    collectFolderPaths(buildFileTree(paths, changedByPath), collapsed);
+    renderList();
   }
 
   function renderNode(
@@ -514,9 +668,14 @@ export function setCommitTree(sha: string, paths: string[]): void {
 
 export function setFileDiff(incoming: FileDiff): void {
   if (!ctx || ctx.sha !== incoming.sha) return;
-  if (!selected || selected.path !== incoming.path) return;
-  diff = incoming;
-  pendingRenderDiff?.();
+  // Cache every diff we see (not just the currently selected one) so content search can
+  // match files the user hasn't opened yet — see fetchMissingDiffs.
+  diffCache.set(incoming.path, incoming);
+  if (selected && selected.path === incoming.path) {
+    diff = incoming;
+    pendingRenderDiff?.();
+  }
+  if (activeTab === "changed" && normalizeQuery(searchQuery)) pendingRenderList?.();
 }
 
 export function setFileContent(

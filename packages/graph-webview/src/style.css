@@ -898,6 +898,48 @@ body,
   height: calc(100vh - 64px);
   max-height: calc(100vh - 48px);
 }
+.changes-modal.maximized {
+  width: calc(100vw - 16px);
+  max-width: calc(100vw - 16px);
+  height: calc(100vh - 16px);
+  max-height: calc(100vh - 16px);
+}
+.changes-max-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+/* Search box + collapse-all button, between the tab strip and the file tree. */
+.changes-list-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 6px 4px;
+  flex-shrink: 0;
+}
+.changes-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.changes-toolbar-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+  opacity: 0.75;
+}
+.changes-toolbar-btn:hover {
+  opacity: 1;
+  border-color: var(--accent);
+}
 .changes-body {
   display: flex;
   flex: 1 1 auto;
@@ -971,6 +1013,9 @@ body,
   flex-direction: column;
   overflow: hidden;
   background: var(--bg);
+  /* The rest of the dialog chrome inherits `user-select: none` from the overlay
+     (style.css above); the code/diff text itself should stay selectable/copyable. */
+  user-select: text;
 }
 .changes-diff-scroll {
   flex: 1 1 auto;
