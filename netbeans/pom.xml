@@ -247,7 +247,32 @@
                     <author>HunKonTech</author>
                     <licenseName>Business Source License 1.1</licenseName>
                     <licenseFile>${project.basedir}/../LICENSE</licenseFile>
+                    <!-- Autoupdate Center note: we intentionally do NOT set
+                         `distBase`. With it unset the `autoupdate` goal writes
+                         RELATIVE nbm URLs into updates.xml, so the generated site
+                         (updates.xml + .nbm) is location-independent — it works
+                         from whatever URL it is served at (here: GitHub Pages,
+                         /netbeans-update-center). This is the NetBeans analogue of
+                         the Eclipse p2 update site; there is NO token-based Plugin
+                         Portal push API, so end-user auto-update is delivered via
+                         this catalog. The `autoupdate` execution below emits
+                         target/netbeans_site/. -->
                 </configuration>
+                <executions>
+                    <!-- Generate the Autoupdate Center (updates.xml catalog +
+                         a copy of the .nbm) into target/netbeans_site/ as part of
+                         `package`, so both `npm run package:netbeans` and the CI
+                         job produce a ready-to-publish update site. Declared after
+                         the packaging-default `nbm` binding so the .nbm exists
+                         first. -->
+                    <execution>
+                        <id>autoupdate</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>autoupdate</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
 
             <!-- nbm-maven-plugin's `manifest` goal writes the NetBeans module

@@ -88,12 +88,37 @@ sideloadable NetBeans module). `scripts/build-installers.ps1` and the
 4. Open a project under Git version control, then **Tools ▸ Revision Graph** — the
    graph opens as a center editor tab.
 
-## Publishing to the Apache NetBeans Plugin Portal
+## Auto-update via the NetBeans Update Center (no token)
 
-Unlike the JetBrains Marketplace, the **Plugin Portal has no token-based push
-API**, so CI does **not** publish automatically (and needs no new secret). The
-portal only lists plugins **hosted on Maven Central** and requires a **one-time
-manual registration** that is then cleared by **two Plugin Portal verifiers**:
+The **Plugin Portal has no token-based push API**, so — exactly like the Eclipse
+host with its p2 update site — end-user auto-update is delivered the
+NetBeans-native way, through an **Autoupdate Center**: a small `updates.xml`
+catalog that lists the module and points at the `.nbm`.
+
+- The `nbm-maven-plugin` `autoupdate` goal (bound to the `package` phase in
+  [`pom.xml`](pom.xml)) generates the catalog into `target/netbeans_site/`
+  (`updates.xml` + a copy of the `.nbm`). `distBase` is deliberately left unset,
+  so the catalog uses **relative** nbm URLs and is therefore location-independent.
+- The `build-netbeans-plugin` CI job deploys `target/netbeans_site/` to **GitHub
+  Pages** under `/netbeans-update-center` (via `peaceiris/actions-gh-pages`,
+  `keep_files: true`, mirroring the Eclipse update-site deploy). It uses only the
+  existing `GITHUB_TOKEN` — **no new secret**.
+
+A user subscribes once and then gets updates automatically:
+
+1. **Tools ▸ Plugins ▸ Settings ▸ Add**.
+2. Name it e.g. *Revision Graph*, URL:
+   `https://hunkontech.github.io/git_Revision_Graph/netbeans-update-center/updates.xml`.
+3. Back on the **Available Plugins** tab, install/update Revision Graph; future
+   releases show up under **Check for Updates** automatically.
+
+## Publishing to the Apache NetBeans Plugin Portal (optional, one-time)
+
+The Plugin Portal is a **separate**, optional listing (a discoverability surface,
+not required for the auto-update above). It too has **no token-based push API**,
+so CI does **not** publish to it (and needs no new secret). The portal only lists
+plugins **hosted on Maven Central** and requires a **one-time manual
+registration** that is then cleared by **two Plugin Portal verifiers**:
 
 1. Deploy the module artifact to Maven Central under `com.hunkontech.revgraph`
    (a separate, opt-in step — not wired into the release workflow).
@@ -103,7 +128,8 @@ manual registration** that is then cleared by **two Plugin Portal verifiers**:
 3. Mark the compatible NetBeans versions and submit; once two verifiers approve
    and none reject, it is published on the Plugin Portal Update Center.
 
-Until then, distribution is via the `.nbm` attached to each GitHub Release.
+Until then (and regardless), distribution/auto-update is served by the GitHub
+Pages Update Center above, plus the `.nbm` attached to each GitHub Release.
 
 ## Known limitation — JavaFX native libraries
 

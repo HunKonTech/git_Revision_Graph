@@ -207,12 +207,16 @@ jobs:
             "| RevisionGraph-vs2022.vsix | Visual Studio 2022 extension |",
             "| RevisionGraph-vs2026.vsix | Visual Studio 2026 extension |",
             "| RevisionGraph-jetbrains.zip | JetBrains IDEs plugin - IntelliJ IDEA, Android Studio, DevEco Studio, WebStorm, PyCharm, etc. (sideload, and JetBrains Marketplace) |",
-            "| RevisionGraph-netbeans.nbm | Apache NetBeans plugin (sideload; Plugin Portal listing is a one-time manual registration) |",
+            "| RevisionGraph-netbeans.nbm | Apache NetBeans plugin (sideload, or auto-update via the NetBeans Update Center below) |",
             "",
             "### Marketplace listings",
             "- [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=BenKoncsik.rev-graph-vscode)",
             "- [Visual Studio Marketplace (2022 / 2026)](https://marketplace.visualstudio.com/items?itemName=BenKoncsik.GitRevisionGraph)",
-            "- [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/32627-revision-graph-for-git-svn-style-)"
+            "- [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/32627-revision-graph-for-git-svn-style-)",
+            "",
+            "### Auto-update centers",
+            "- NetBeans: add ``https://hunkontech.github.io/git_Revision_Graph/netbeans-update-center/updates.xml`` in Tools ▸ Plugins ▸ Settings",
+            "- Eclipse: add ``https://hunkontech.github.io/git_Revision_Graph/eclipse-update-site/`` in Help ▸ Install New Software"
           ) -join "`n"
 
           $headers = @{
@@ -822,9 +826,17 @@ jobs:
   # Publishing note: unlike the JetBrains Marketplace, the Apache NetBeans Plugin
   # Portal has no token-based push API — it only lists plugins hosted on Maven
   # Central and requires a one-time manual "Add Plugin" registration cleared by
-  # two verifiers. So "publishing" here means attaching the sideloadable .nbm to
-  # the GitHub Release; the Plugin Portal listing is a documented one-time manual
-  # step (see netbeans/BUILD.md). No new secret is required.
+  # two verifiers. So there is no token to publish with. End-user AUTO-UPDATE is
+  # instead delivered the NetBeans-native way — via an Autoupdate Center: the
+  # `autoupdate` goal emits an updates.xml catalog (+ the .nbm) into
+  # netbeans/target/netbeans_site/, which we deploy to GitHub Pages under
+  # /netbeans-update-center (exactly the Eclipse p2-update-site pattern). A user
+  # who adds that catalog URL once in Tools ▸ Plugins ▸ Settings gets updates
+  # automatically. "Publishing" here therefore means (a) attaching the
+  # sideloadable .nbm to the GitHub Release, and (b) deploying the update center
+  # to GitHub Pages. Uses only the existing GITHUB_TOKEN — NO new secret. The
+  # Plugin Portal listing remains a documented one-time manual step (see
+  # netbeans/BUILD.md).
   # -------------------------------------------------------------------------
   build-netbeans-plugin:
     needs: release
@@ -862,7 +874,10 @@ jobs:
             -DnewVersion="${NEW_VERSION}" -DgenerateBackupPoms=false
           echo "Patched netbeans/pom.xml to ${NEW_VERSION}"
 
-      - name: Build the NetBeans module (.nbm)
+      # `package` also runs the nbm-maven-plugin `autoupdate` execution (bound to
+      # the package phase in netbeans/pom.xml), so this one command produces both
+      # the .nbm and the Autoupdate Center under netbeans/target/netbeans_site/.
+      - name: Build the NetBeans module (.nbm) + Autoupdate Center
         run: mvn -B -f netbeans/pom.xml -DskipTests clean package
 
       - name: Stage the .nbm
@@ -882,6 +897,21 @@ jobs:
         run: |
           gh release upload "v${NEW_VERSION}" \
             dist/installers/RevisionGraph-netbeans.nbm --clobber
+
+      # Deploy the NetBeans Autoupdate Center (updates.xml + .nbm) to GitHub Pages
+      # under /netbeans-update-center so an IDE subscribed to that catalog URL
+      # auto-updates the plugin — the NetBeans analogue of the Eclipse update-site
+      # deploy above. Best-effort (keep_files preserves the demo at the Pages root
+      # and the sibling eclipse-update-site); a Pages misconfig must not fail a
+      # release whose .nbm is already attached to the GitHub Release above.
+      - name: Publish the Autoupdate Center to GitHub Pages
+        continue-on-error: true
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: netbeans/target/netbeans_site
+          destination_dir: netbeans-update-center
+          keep_files: true
 
   # -------------------------------------------------------------------------
   # Buffer release announcement (X / Twitter)
