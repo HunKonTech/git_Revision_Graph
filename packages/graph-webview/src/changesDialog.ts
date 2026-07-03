@@ -117,6 +117,48 @@ function diffMatchesQuery(path: string, query: string, cache: Map<string, FileDi
   return cached.oldText.toLowerCase().includes(query) || cached.newText.toLowerCase().includes(query);
 }
 
+/**
+ * Wrap every occurrence of `query` inside the rendered diff/content code with a
+ * <mark class="changes-search-hit"> so the term the user searched for is visible
+ * where it actually appears. Walks text nodes only (leaving highlight.js's own
+ * spans intact) and works on the already-rendered DOM. Returns the first mark so
+ * the caller can scroll it into view; null when nothing matched.
+ */
+function highlightSearchHits(root: HTMLElement, query: string): HTMLElement | null {
+  const q = query.toLowerCase();
+  if (!q) return null;
+  let first: HTMLElement | null = null;
+  const cells = root.querySelectorAll<HTMLElement>(".diff-code");
+  cells.forEach((cell) => {
+    // Collect text nodes up front — we mutate the tree as we go.
+    const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+    const textNodes: Text[] = [];
+    let node: Node | null;
+    while ((node = walker.nextNode())) textNodes.push(node as Text);
+    for (const textNode of textNodes) {
+      const text = textNode.nodeValue ?? "";
+      const lower = text.toLowerCase();
+      if (!lower.includes(q)) continue;
+      const frag = document.createDocumentFragment();
+      let last = 0;
+      let idx = lower.indexOf(q);
+      while (idx >= 0) {
+        if (idx > last) frag.appendChild(document.createTextNode(text.slice(last, idx)));
+        const mark = document.createElement("mark");
+        mark.className = "changes-search-hit";
+        mark.textContent = text.slice(idx, idx + q.length);
+        if (!first) first = mark;
+        frag.appendChild(mark);
+        last = idx + q.length;
+        idx = lower.indexOf(q, last);
+      }
+      if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+      textNode.parentNode?.replaceChild(frag, textNode);
+    }
+  });
+  return first;
+}
+
 const FOLDER_SVG =
   '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">' +
   '<path fill="currentColor" d="M1.5 3h4l1.2 1.6h7.8a.5.5 0 0 1 .5.5v8.4a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5V3.5A.5.5 0 0 1 1.5 3z"/></svg>';
@@ -612,6 +654,7 @@ export function openChangesDialog(context: ChangesDialogContext): void {
       diffPaneEl.appendChild(scroll);
       minimapCleanup?.();
       minimapCleanup = minimapOn ? attachMinimaps(diffPaneEl, scroll, minimaps) : null;
+      applySearchHighlight(scroll);
       return;
     }
 
@@ -629,6 +672,15 @@ export function openChangesDialog(context: ChangesDialogContext): void {
     if (blocks.length > 1) {
       diffPaneEl.appendChild(buildChangeNav(scroll, blocks, minimapOn ? MM_W + 10 : 14));
     }
+    applySearchHighlight(scroll);
+  }
+
+  /** Mark the active search term in the just-rendered diff/content and reveal the first hit. */
+  function applySearchHighlight(scroll: HTMLElement): void {
+    const q = normalizeQuery(searchQuery);
+    if (!q) return;
+    const firstHit = highlightSearchHits(scroll, q);
+    if (firstHit) firstHit.scrollIntoView({ block: "center", inline: "nearest" });
   }
 
   render();

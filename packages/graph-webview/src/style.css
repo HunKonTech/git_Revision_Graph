@@ -1201,6 +1201,13 @@ body,
 .diff-num.diff-add { background: rgba(46, 160, 67, 0.28); opacity: 0.7; }
 .diff-num.diff-del { background: rgba(248, 81, 73, 0.28); opacity: 0.7; }
 .diff-empty { background: rgba(128, 128, 128, 0.06); }
+/* Search-term matches highlighted inside the diff/content when filtering by content. */
+.changes-search-hit {
+  background: #ffd54a;
+  color: #000;
+  border-radius: 2px;
+  padding: 0 1px;
+}
 
 /* Syntax highlighting (highlight.js) inside diff code cells. The renderer picks
    the language from the file extension and emits `hljs-*` spans; these rules give
