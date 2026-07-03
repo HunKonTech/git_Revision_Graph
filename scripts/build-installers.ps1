@@ -205,9 +205,40 @@ if (-not $gradleCmd) {
 }
 
 # ---------------------------------------------------------------------------
+# 5. Apache NetBeans plugin (NetBeans module / Maven + nbm-maven-plugin)
+#    Kotlin modul, ami a közös git/DTO Kotlint a JetBrains hostból húzza be
+#    (jetbrains/common/.../git + model) — csak a NetBeans platform-glue saját.
+#    A `mvn package` egy sideloadolható .nbm-et gyárt. A Plugin Portal listázás
+#    egyszeri kézi lépés (lásd netbeans/BUILD.md).
+# ---------------------------------------------------------------------------
+$netbeansPom = Join-Path $root "netbeans\pom.xml"
+$mvnCmd = if (Get-Command mvn -ErrorAction SilentlyContinue) { "mvn" } else { $null }
+
+if (-not (Test-Path $netbeansPom)) {
+    Warn "netbeans/pom.xml nem található — NetBeans plugin kihagyva."
+} elseif (-not $mvnCmd) {
+    Warn "Maven (mvn) nem található a PATH-on — NetBeans plugin kihagyva. Lásd netbeans/BUILD.md."
+} elseif (-not (Get-Command java -ErrorAction SilentlyContinue)) {
+    Warn "JDK nem található a PATH-on — NetBeans plugin kihagyva."
+} else {
+    Step "NetBeans plugin fordítása (Maven, nbm-maven-plugin)"
+    & $mvnCmd -B -f $netbeansPom -DskipTests clean package
+    if ($LASTEXITCODE -ne 0) { Fail "NetBeans plugin build sikertelen." }
+    $builtNbm = Get-ChildItem (Join-Path $root "netbeans\target\*.nbm") -ErrorAction SilentlyContinue |
+                Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($builtNbm) {
+        $dest = Join-Path $installers "RevisionGraph-netbeans.nbm"
+        Copy-Item $builtNbm.FullName $dest -Force
+        Ok "NetBeans plugin: $($dest | Split-Path -Leaf)"
+    } else {
+        Warn "Nem található a build kimenete: netbeans\target\*.nbm"
+    }
+}
+
+# ---------------------------------------------------------------------------
 # Összefoglaló
 # ---------------------------------------------------------------------------
 Step "Kész. Telepítők:"
-Get-ChildItem "$installers\*" -Include "*.vsix", "*.zip" -File |
+Get-ChildItem "$installers\*" -Include "*.vsix", "*.zip", "*.nbm" -File |
     Sort-Object Name |
     Format-Table Name, @{L="Méret (KB)";E={[math]::Round($_.Length/1KB,1)}}

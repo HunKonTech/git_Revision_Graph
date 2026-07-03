@@ -111,6 +111,7 @@ All outputs land in `dist/installers/`.
 - ✅ shared SVG renderer + context menu (verified in browser harness)
 - ✅ VS Code extension (data layer verified against a real repo end-to-end)
 - ✅ Visual Studio VSIX authored (build & run on Windows per `vs/BUILD.md`)
+- ✅ Apache NetBeans plugin authored (Kotlin, reuses the JetBrains shared git/DTO code; build the `.nbm` per `netbeans/BUILD.md`)
 
 ## License
 

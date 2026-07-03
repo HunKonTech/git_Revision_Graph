@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Apache NetBeans host for the Git Revision Graph (5th host, alongside VS Code,
+  Visual Studio, JetBrains and the browser demo). This is a NetBeans module
+  (packaging=nbm) written in Kotlin.
+
+  Maximal code reuse: it does NOT re-implement the git/DTO layer. Instead the
+  kotlin-maven-plugin `compile` execution below pulls the SHARED, IDE-agnostic
+  Kotlin straight out of the JetBrains host —
+    jetbrains/common/.../git/GitService.kt  (git CLI + Gson, 0 IntelliJ imports)
+    jetbrains/common/.../model/Dtos.kt      (protocol DTOs, 0 IntelliJ imports)
+  so all hosts feed the shared renderer identical data. Only the NetBeans
+  platform glue (TopComponent, JavaFX WebView bridge, action) lives in
+  src/main/kotlin. See netbeans/BUILD.md.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.hunkontech.revgraph</groupId>
+    <!-- artifactId has no dashes so the derived module code-name base is the
+         clean com.hunkontech.revgraph.netbeans. -->
+    <artifactId>netbeans</artifactId>
+    <version>0.1.0</version>
+    <packaging>nbm</packaging>
+
+    <name>Revision Graph for Git (SVN style)</name>
+    <description>TortoiseSVN-style revision graph for Git inside Apache NetBeans.</description>
+    <organization>
+        <name>HunKonTech</name>
+        <url>https://github.com/HunKonTech/git_Revision_Graph</url>
+    </organization>
+    <licenses>
+        <license>
+            <name>Business Source License 1.1</name>
+            <url>https://github.com/HunKonTech/git_Revision_Graph/blob/main/LICENSE</url>
+        </license>
+    </licenses>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.release>17</maven.compiler.release>
+        <kotlin.version>1.9.24</kotlin.version>
+        <!-- NetBeans platform API baseline (NetBeans 21). The org.netbeans.api
+             artifacts on Maven Central are versioned RELEASE<NN>0. -->
+        <netbeans.version>RELEASE210</netbeans.version>
+        <!-- NetBeans (JDK 17) ships no JavaFX, so the WebView runtime is
+             bundled. openjfx's POMs select the host-platform native jar via
+             os-activated profiles, so a plain dependency resolves the natives
+             for whichever platform the build runs on (see BUILD.md: the CI
+             NBM is host-platform specific — full multi-platform bundling is a
+             documented follow-up). -->
+        <javafx.version>21.0.2</javafx.version>
+        <shared.kotlin>${project.basedir}/../jetbrains/common/src/main/kotlin/com/hunkontech/revgraph</shared.kotlin>
+    </properties>
+
+    <dependencies>
+        <!-- Kotlin runtime (bundled into the module as a classpath library). -->
+        <dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-stdlib</artifactId>
+            <version>${kotlin.version}</version>
+        </dependency>
+
+        <!-- Gson: the shared GitService/Dtos serialize with it. The JetBrains
+             host gets it from the platform (compileOnly); NetBeans doesn't
+             bundle it, so we ship it as a module classpath library. -->
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.10.1</version>
+        </dependency>
+
+        <!-- JavaFX WebView runtime (bundled). javafx-web pulls graphics/media/
+             controls/base; javafx-swing provides JFXPanel for Swing embedding. -->
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-web</artifactId>
+            <version>${javafx.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-swing</artifactId>
+            <version>${javafx.version}</version>
+        </dependency>
+
+        <!-- NetBeans platform modules. Compile-scope org.netbeans.api artifacts
+             are auto-recorded by nbm-maven-plugin as module dependencies (not
+             bundled). -->
+        <dependency>
+            <groupId>org.netbeans.api</groupId>
+            <artifactId>org-openide-windows</artifactId>
+            <version>${netbeans.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.netbeans.api</groupId>
+            <artifactId>org-openide-awt</artifactId>
+            <version>${netbeans.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.netbeans.api</groupId>
+            <artifactId>org-openide-util</artifactId>
+            <version>${netbeans.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.netbeans.api</groupId>
+            <artifactId>org-openide-util-ui</artifactId>
+            <version>${netbeans.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.netbeans.api</groupId>
+            <artifactId>org-openide-util-lookup</artifactId>
+            <version>${netbeans.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.netbeans.api</groupId>
+            <artifactId>org-openide-modules</artifactId>
+            <version>${netbeans.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.netbeans.api</groupId>
+            <artifactId>org-openide-filesystems</artifactId>
+            <version>${netbeans.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.netbeans.api</groupId>
+            <artifactId>org-netbeans-modules-projectapi</artifactId>
+            <version>${netbeans.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.netbeans.api</groupId>
+            <artifactId>org-netbeans-modules-projectuiapi-base</artifactId>
+            <version>${netbeans.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <!-- revgraph-version.txt is filtered (project.version stamped in, for
+             the webview-cache bust in NetBeansWebViewHost). Everything else in
+             resources (the webview bundle, icons) is copied verbatim. -->
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+                <excludes>
+                    <exclude>revgraph-version.txt</exclude>
+                </excludes>
+            </resource>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+                <includes>
+                    <include>revgraph-version.txt</include>
+                </includes>
+            </resource>
+        </resources>
+
+        <plugins>
+            <plugin>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-maven-plugin</artifactId>
+                <version>${kotlin.version}</version>
+                <configuration>
+                    <jvmTarget>17</jvmTarget>
+                </configuration>
+                <executions>
+                    <!-- Run the NetBeans annotation processors (ActionID/
+                         ActionRegistration/ActionReference in org-openide-awt)
+                         via kapt so the action lands in the auto-loaded
+                         META-INF/generated-layer.xml. Only our own sources are
+                         processed. -->
+                    <execution>
+                        <id>kapt</id>
+                        <goals>
+                            <goal>kapt</goal>
+                        </goals>
+                        <configuration>
+                            <sourceDirs>
+                                <sourceDir>src/main/kotlin</sourceDir>
+                            </sourceDirs>
+                            <annotationProcessorPaths>
+                                <annotationProcessorPath>
+                                    <groupId>org.netbeans.api</groupId>
+                                    <artifactId>org-openide-awt</artifactId>
+                                    <version>${netbeans.version}</version>
+                                </annotationProcessorPath>
+                                <annotationProcessorPath>
+                                    <groupId>org.netbeans.api</groupId>
+                                    <artifactId>org-openide-filesystems</artifactId>
+                                    <version>${netbeans.version}</version>
+                                </annotationProcessorPath>
+                                <annotationProcessorPath>
+                                    <groupId>org.netbeans.api</groupId>
+                                    <artifactId>org-openide-util-lookup</artifactId>
+                                    <version>${netbeans.version}</version>
+                                </annotationProcessorPath>
+                            </annotationProcessorPaths>
+                        </configuration>
+                    </execution>
+                    <!-- Compile our platform glue TOGETHER with the shared,
+                         IDE-agnostic git/model Kotlin pulled from the JetBrains
+                         host — one compilation, zero duplication. The sibling
+                         IntelliJ-coupled files in common/ are deliberately NOT
+                         on the source path (only the git/ and model/ subdirs). -->
+                    <execution>
+                        <id>compile</id>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                        <configuration>
+                            <sourceDirs>
+                                <sourceDir>src/main/kotlin</sourceDir>
+                                <sourceDir>${shared.kotlin}/git</sourceDir>
+                                <sourceDir>${shared.kotlin}/model</sourceDir>
+                            </sourceDirs>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>test-compile</id>
+                        <goals>
+                            <goal>test-compile</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- No Java sources, but the nbm lifecycle binds the compiler at
+                 the compile phase; pin its release so the empty run is JDK-17
+                 consistent and doesn't emit an older-target warning. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <release>17</release>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.netbeans.utilities</groupId>
+                <artifactId>nbm-maven-plugin</artifactId>
+                <version>14.3</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <!-- Homepage/author shown on the Plugin Portal listing. -->
+                    <author>HunKonTech</author>
+                    <licenseName>Business Source License 1.1</licenseName>
+                    <licenseFile>${project.basedir}/../LICENSE</licenseFile>
+                </configuration>
+            </plugin>
+
+            <!-- nbm-maven-plugin's `manifest` goal writes the NetBeans module
+                 manifest into target/classes/META-INF/MANIFEST.MF; the jar
+                 plugin must use it so the produced jar is a real NB module. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.4.1</version>
+                <configuration>
+                    <archive>
+                        <manifestFile>${project.build.outputDirectory}/META-INF/MANIFEST.MF</manifestFile>
+                    </archive>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
