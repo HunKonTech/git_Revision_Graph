@@ -6,9 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 After finishing a change, always `git commit` every file you modified — do not leave edits sitting uncommitted. Exception: skip committing a file that was already modified by someone/something else (another agent, or the user) before you touched it, since that's in-progress work that isn't yours to commit.
 
-## Quad-host parity (MUST READ)
+## Multi-host parity (MUST READ)
 
-**Every feature must ship for ALL FOUR hosts: the VS Code extension, the Visual Studio 2022/2026 VSIX, the JetBrains-family plugin, and the browser demo.** Never finish a feature in only some hosts — a feature that exists in only some hosts is incomplete.
+**Every feature must ship for EVERY host: the VS Code extension, the Visual Studio 2022/2026 VSIX, the JetBrains-family plugin, the Eclipse plugin, and the browser demo.** Never finish a feature in only some hosts — a feature that exists in only some hosts is incomplete. **For every change, one of the first things to check is whether it affects the Eclipse host (`eclipse/`) — if so, update it in the same change**, exactly as you would for VS Code, Visual Studio, and JetBrains.
 
 The JetBrains host is **one shared Kotlin codebase that ships as three build flavors** — a Huawei DevEco Studio ZIP, a mainstream IntelliJ IDEA / JetBrains-IDE ZIP, and a Google Android Studio ZIP — so it counts as a single host for parity purposes (update it once, all flavors get the change).
 
@@ -19,20 +19,23 @@ The renderer/protocol live in shared `packages/` (graph-core, graph-webview, pro
 - **VS Code** (`vscode/`, TypeScript): `vscode/src/gitData.ts` (git ops), `vscode/src/panel.ts` (message handling).
 - **Visual Studio** (`vs/`, C#): `vs/Git/GitService.cs` (git ops), `vs/WebViewHostControl.xaml.cs` (message handling), `vs/Model/Dtos.cs` (hand-mirrored protocol types).
 - **JetBrains** (`jetbrains/`, Kotlin — IntelliJ Platform plugin). All the code is shared in `jetbrains/common/`: `jetbrains/common/src/main/kotlin/.../git/GitService.kt` (git ops), `jetbrains/common/.../WebViewHostPanel.kt` (message handling, JCEF host), `jetbrains/common/.../model/Dtos.kt` (hand-mirrored protocol types). Three thin flavor subprojects — `jetbrains/deveco/` (DevEco Studio), `jetbrains/intellij/` (IntelliJ IDEA / other JetBrains IDEs), and `jetbrains/androidstudio/` (Android Studio) — compile that shared code against their own platform version and add only their own `META-INF/plugin.xml` branding.
+- **Eclipse** (`eclipse/`, Java — PDE/OSGi plugin, hosted by the SWT `Browser` widget). Data/message layer under `eclipse/com.hunkontech.revgraph/src/com/hunkontech/revgraph/`: `git/GitService.java` (git ops, git CLI via `ProcessBuilder`), `WebViewHost.java` (message handling; JS→host is an SWT `BrowserFunction` reusing the same `window.__ideHostPostMessage__` hook the JetBrains/JCEF host uses), `model/Dtos.java` (hand-mirrored protocol types), plus `util/Json.java` (a tiny dependency-free JSON codec so the bundle needs no Gson). The plugin is built with Eclipse Tycho into a p2 update site (feature + repository subprojects).
 - **Browser demo** (`packages/graph-webview/harness/demo-host.js`): simulates git ops in-browser with mock data; the `handlers` object must mirror every `WebviewToHost` message type handled by the real hosts.
-- Any protocol change in `packages/protocol/src/index.ts` **must be mirrored by hand** into `vs/Model/Dtos.cs` AND `jetbrains/common/.../model/Dtos.kt` AND handled in `demo-host.js`.
-- The shared webview bundle is copied into each IDE host by the build (`vscode/media/`, `vs/webview/`, `jetbrains/common/src/main/resources/webview/` — one location shared by all JetBrains flavors).
+- Any protocol change in `packages/protocol/src/index.ts` **must be mirrored by hand** into `vs/Model/Dtos.cs` AND `jetbrains/common/.../model/Dtos.kt` AND `eclipse/com.hunkontech.revgraph/src/com/hunkontech/revgraph/model/Dtos.java` AND handled in `demo-host.js`.
+- The shared webview bundle is copied into each IDE host by the build (`vscode/media/`, `vs/webview/`, `jetbrains/common/src/main/resources/webview/` — one location shared by all JetBrains flavors, `eclipse/com.hunkontech.revgraph/webview/`).
 
 The VS C# VSIX is a legacy .NET Framework 4.7.2 + VS SDK project and can only be **compiled on Windows** (see [vs/BUILD.md](vs/BUILD.md)). On non-Windows machines, review the C# carefully but it cannot be built/run there.
 
 The JetBrains plugins need a JDK 17 + Gradle + IntelliJ Platform Gradle plugin toolchain (see [jetbrains/BUILD.md](jetbrains/BUILD.md)); one `buildPlugin` in `jetbrains/` produces all flavor ZIPs. Every flavor is additionally wired for JetBrains Marketplace publishing (opt-in, needs `PUBLISH_TOKEN`) — neither DevEco Studio nor Android Studio has a separate plugin store; both are IntelliJ Platform IDEs, so their Marketplace tabs are the same JetBrains Marketplace, just under distinct plugin ids (`pluginGroup` vs `pluginGroupDeveco` vs `pluginGroupAndroidStudio` in `jetbrains/gradle.properties`). Their git-plumbing-based reword/undo of non-HEAD commits intentionally diverges from the VS host's PowerShell-scripted `rebase -i` (these plugins are cross-platform); see the doc comments on `GitService.kt`'s `rewordCommit`/`undoCommit`.
+
+The Eclipse plugin needs a JDK 17 + Maven + Eclipse Tycho toolchain with network access to the Eclipse p2 repositories (see [eclipse/BUILD.md](eclipse/BUILD.md)); one `mvn -f eclipse/pom.xml package` produces the OSGi plugin, an installable feature, and a p2 update site (+ zip). Its Java data layer is a faithful hand-port of the JetBrains Kotlin one (same git-plumbing reword/undo, hence the same clean-working-tree requirement). Unlike the other marketplaces, the **Eclipse Marketplace hosts no artifact** — a listing just references a p2 update-site URL, so "publishing" means deploying that update site (CI attaches the zipped site to the GitHub Release and pushes the live site to GitHub Pages). Like the VS VSIX and JetBrains plugins, the Eclipse plugin is authored cross-platform but is **not built in this sandbox** (Tycho needs the network target platform).
 
 ## Commands
 
 ```bash
 npm install          # install all workspace dependencies
 npm test             # run all unit tests (vitest, graph-core only)
-npm run build        # build everything: protocol → graph-core → webview → vscode extension → VS assets → JetBrains assets
+npm run build        # build everything: protocol → graph-core → webview → vscode extension → VS assets → JetBrains assets → Eclipse assets
 npm run harness      # browser dev harness with mock data at http://localhost:5599
 ```
 
@@ -48,11 +51,13 @@ npm run build:webview   # bundles packages/graph-webview (esbuild via build.mjs)
 npm run build:vscode    # compiles vscode/ extension (esbuild)
 npm run build:vs-assets # copies webview bundle into vs/ (node scripts/copy-vs-assets.mjs)
 npm run build:jetbrains-assets # copies webview bundle into jetbrains/common/ (node scripts/copy-jetbrains-assets.mjs)
+npm run build:eclipse-assets # copies webview bundle into eclipse/ (node scripts/copy-eclipse-assets.mjs)
 ```
 
 Package for distribution:
 ```bash
 npm run package:vscode                    # → dist/installers/*.vsix (cross-platform)
+npm run package:eclipse                   # → eclipse p2 update site + zip (mvn/Tycho; needs JDK 17 + network)
 pwsh scripts/build-installers.ps1         # all installers: VS Code, VS 2022/2026, all three JetBrains ZIPs (Windows only)
 ```
 
@@ -60,7 +65,7 @@ pwsh scripts/build-installers.ps1         # all installers: VS Code, VS 2022/202
 
 ## Architecture
 
-This is a monorepo with one shared web renderer embedded by three thin IDE hosts:
+This is a monorepo with one shared web renderer embedded by several thin IDE hosts:
 
 ```
 packages/protocol/     — shared TypeScript types: GitCommit, GitRef, GraphData, WebviewToHost, HostToWebview
@@ -72,6 +77,8 @@ jetbrains/             — JetBrains-family plugin (Kotlin, IntelliJ Platform, J
                          Multi-project: shared code in jetbrains/common/, three flavor subprojects
                          jetbrains/deveco/ (DevEco Studio), jetbrains/intellij/ (IntelliJ IDEA / JetBrains IDEs),
                          and jetbrains/androidstudio/ (Android Studio)
+eclipse/               — Eclipse plugin (Java, PDE/OSGi, SWT Browser host, mirrors the TS protocol by hand).
+                         Tycho reactor: com.hunkontech.revgraph (plugin), .feature, .repository (p2 update site)
 ```
 
 ### Data flow
@@ -126,7 +133,8 @@ Key message types:
 5. Implement the git operation in `vscode/src/gitData.ts`.
 6. Mirror the protocol change in `vs/` (C# side): `vs/WebViewHostControl.xaml.cs` + `vs/Git/GitService.cs` + `vs/Model/Dtos.cs`.
 7. Mirror the protocol change in `jetbrains/` (Kotlin side, shared by all flavors): `jetbrains/common/.../WebViewHostPanel.kt` + `jetbrains/common/.../git/GitService.kt` + `jetbrains/common/.../model/Dtos.kt`.
-8. Add a simulated handler in `packages/graph-webview/harness/demo-host.js` (`handlers` object) — the demo runs entirely in the browser with no real git, so every action needs its own mock implementation.
+8. Mirror the protocol change in `eclipse/` (Java side): `eclipse/com.hunkontech.revgraph/src/com/hunkontech/revgraph/WebViewHost.java` + `.../git/GitService.java` + `.../model/Dtos.java` (new `WebviewMessage` fields go in `Dtos.java`'s `fromJson`).
+9. Add a simulated handler in `packages/graph-webview/harness/demo-host.js` (`handlers` object) — the demo runs entirely in the browser with no real git, so every action needs its own mock implementation.
 
 ### Git operations pattern
 

@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+
+   <!-- The graph view: hosts the shared web renderer via an SWT Browser. -->
+   <extension point="org.eclipse.ui.views">
+      <category
+            id="com.hunkontech.revgraph.category"
+            name="Git"/>
+      <view
+            id="com.hunkontech.revgraph.view"
+            name="Revision Graph"
+            category="com.hunkontech.revgraph.category"
+            class="com.hunkontech.revgraph.RevisionGraphView"
+            icon="icons/revisionGraph.svg"
+            restorable="true"/>
+   </extension>
+
+   <!-- Command + handler that opens (or focuses) the view. -->
+   <extension point="org.eclipse.ui.commands">
+      <category
+            id="com.hunkontech.revgraph.commands"
+            name="Git Revision Graph"/>
+      <command
+            id="com.hunkontech.revgraph.open"
+            name="Revision Graph"
+            description="Open the SVN-style revision graph"
+            categoryId="com.hunkontech.revgraph.commands"/>
+   </extension>
+
+   <extension point="org.eclipse.ui.handlers">
+      <handler
+            commandId="com.hunkontech.revgraph.open"
+            class="com.hunkontech.revgraph.OpenRevisionGraphHandler"/>
+   </extension>
+
+   <!-- A top-level "Revision Graph" menu with the open command. The view is
+        also reachable via Window > Show View > Other > Git > Revision Graph. -->
+   <extension point="org.eclipse.ui.menus">
+      <menuContribution
+            locationURI="menu:org.eclipse.ui.main.menu?after=additions">
+         <menu
+               id="com.hunkontech.revgraph.menu"
+               label="Revision Graph">
+            <command
+                  commandId="com.hunkontech.revgraph.open"
+                  icon="icons/revisionGraph.svg"
+                  style="push"/>
+         </menu>
+      </menuContribution>
+      <menuContribution
+            locationURI="toolbar:org.eclipse.ui.main.toolbar?after=additions">
+         <toolbar id="com.hunkontech.revgraph.toolbar">
+            <command
+                  commandId="com.hunkontech.revgraph.open"
+                  icon="icons/revisionGraph.svg"
+                  tooltip="Open the Revision Graph"
+                  style="push"/>
+         </toolbar>
+      </menuContribution>
+   </extension>
+
+</plugin>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feature
+      id="com.hunkontech.revgraph.feature"
+      label="Revision Graph for Git (SVN style)"
+      version="0.1.0.qualifier"
+      provider-name="HunKonTech">
+
+   <description url="https://github.com/HunKonTech/git_Revision_Graph">
+      A TortoiseSVN-style revision graph for Git inside Eclipse. Commits, local
+      and remote branches, tags and stashes are drawn as connected, color-coded
+      boxes by the same shared web renderer used by the VS Code, Visual Studio
+      and JetBrains hosts.
+   </description>
+
+   <copyright>
+      Business Source License 1.1 — free for personal, internal and
+      non-commercial use. See the LICENSE file in the repository.
+   </copyright>
+
+   <license url="https://github.com/HunKonTech/git_Revision_Graph/blob/main/LICENSE">
+      Business Source License 1.1. Selling, reselling, or offering the software
+      as a paid product or service is not permitted. Converts to MPL 2.0 four
+      years after each version's release.
+   </license>
+
+   <plugin
+         id="com.hunkontech.revgraph"
+         download-size="0"
+         install-size="0"
+         version="0.1.0.qualifier"
+         unpack="false"/>
+
+</feature>

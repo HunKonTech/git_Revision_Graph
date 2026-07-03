@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<site>
+   <feature id="com.hunkontech.revgraph.feature" version="0.0.0">
+      <category name="git-tools"/>
+   </feature>
+   <category-def name="git-tools" label="Git Tools">
+      <description>
+         TortoiseSVN-style revision graph for Git.
+      </description>
+   </category-def>
+</site>

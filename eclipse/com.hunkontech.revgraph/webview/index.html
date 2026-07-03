@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; connect-src 'none';" />
+    <link rel="stylesheet" href="main.css" />
+    <title>Revision Graph</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <!-- WebViewHost.java registers window.__ideHostPostMessage__ (an SWT
+         BrowserFunction) before this script runs; the shared bundle
+         auto-detects it, the same hook the JetBrains/JCEF host uses. -->
+    <script src="main.js"></script>
+  </body>
+</html>

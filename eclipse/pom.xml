@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!--
+    Parent (aggregator) POM for the Eclipse host. This is the FIFTH host of the
+    project (alongside the VS Code extension, the Visual Studio VSIX, the
+    JetBrains-family plugin, and the browser demo). It is built with Eclipse
+    Tycho against a standard Eclipse Platform p2 repository — no Orbit / extra
+    bundles, since the plugin is self-contained (its own tiny JSON codec, no
+    Gson). One `mvn -f eclipse/pom.xml package` produces:
+      - com.hunkontech.revgraph            → the OSGi plugin JAR
+      - com.hunkontech.revgraph.feature    → the installable feature
+      - com.hunkontech.revgraph.repository → a p2 update site (+ zip) that the
+                                             Eclipse Marketplace listing points at
+    Version is patched by CI (mirrors the jetbrains/gradle.properties patch).
+
+    NOTE: like the Visual Studio VSIX and the JetBrains plugin, this is authored
+    cross-platform but is NOT built in the sandbox it was written in (Tycho needs
+    network access to resolve the Eclipse target platform). See eclipse/BUILD.md.
+  -->
+
+  <groupId>com.hunkontech.revgraph</groupId>
+  <artifactId>revgraph-eclipse-parent</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  <name>Revision Graph for Git — Eclipse (parent)</name>
+
+  <properties>
+    <tycho.version>4.0.8</tycho.version>
+    <maven.compiler.source>17</maven.compiler.source>
+    <maven.compiler.target>17</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+  <modules>
+    <module>com.hunkontech.revgraph</module>
+    <module>com.hunkontech.revgraph.feature</module>
+    <module>com.hunkontech.revgraph.repository</module>
+  </modules>
+
+  <repositories>
+    <!-- The Eclipse Platform target. Tycho resolves org.eclipse.ui / swt /
+         core.* from here; the release train version only needs to be recent
+         enough that its SWT Browser has a modern engine (Edge/WebKit). -->
+    <repository>
+      <id>eclipse-2024-06</id>
+      <layout>p2</layout>
+      <url>https://download.eclipse.org/releases/2024-06/</url>
+    </repository>
+  </repositories>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.eclipse.tycho</groupId>
+        <artifactId>tycho-maven-plugin</artifactId>
+        <version>${tycho.version}</version>
+        <extensions>true</extensions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.eclipse.tycho</groupId>
+        <artifactId>target-platform-configuration</artifactId>
+        <version>${tycho.version}</version>
+        <configuration>
+          <executionEnvironment>JavaSE-17</executionEnvironment>
+          <environments>
+            <environment>
+              <os>linux</os>
+              <ws>gtk</ws>
+              <arch>x86_64</arch>
+            </environment>
+            <environment>
+              <os>win32</os>
+              <ws>win32</ws>
+              <arch>x86_64</arch>
+            </environment>
+            <environment>
+              <os>macosx</os>
+              <ws>cocoa</ws>
+              <arch>x86_64</arch>
+            </environment>
+            <environment>
+              <os>macosx</os>
+              <ws>cocoa</ws>
+              <arch>aarch64</arch>
+            </environment>
+          </environments>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

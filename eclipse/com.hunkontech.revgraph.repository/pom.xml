@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.hunkontech.revgraph</groupId>
+    <artifactId>revgraph-eclipse-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <!--
+    The p2 update site. `mvn package` builds it under
+    target/repository/ (a directory a user can add as an update site in
+    Help > Install New Software) and also zips it to
+    target/com.hunkontech.revgraph.repository-<version>.zip. The Eclipse
+    Marketplace listing points at the published (GitHub Pages) copy of this
+    site — the Marketplace doesn't host the artifact itself, it references the
+    update-site URL, so "publishing" here means deploying this repository.
+  -->
+  <artifactId>com.hunkontech.revgraph.repository</artifactId>
+  <packaging>eclipse-repository</packaging>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.eclipse.tycho</groupId>
+        <artifactId>tycho-p2-repository-plugin</artifactId>
+        <version>${tycho.version}</version>
+        <configuration>
+          <!-- Emit a self-contained, addressable update site. -->
+          <includeAllDependencies>false</includeAllDependencies>
+          <compress>true</compress>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>
