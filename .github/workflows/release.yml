@@ -120,8 +120,14 @@ jobs:
           (Get-Content $f -Raw) -replace $pattern, $replacement | Set-Content $f -NoNewline
 
           # vs/source.extension.vsixmanifest (XML attribute)
+          # PS 5.1 reads BOM-less files using the system codepage, not UTF-8 -
+          # since the Description contains an em dash (U+2014), a plain
+          # Get-Content/Save round-trip mangles it into "â€”" on save (same
+          # class of bug fixed for build-installers.ps1 below). Read as UTF-8
+          # explicitly to avoid corrupting the manifest text.
           $manifestPath = (Resolve-Path 'vs/source.extension.vsixmanifest').Path
-          $xml = [xml](Get-Content $manifestPath -Raw)
+          $manifestText = [System.IO.File]::ReadAllText($manifestPath, [System.Text.Encoding]::UTF8)
+          $xml = [xml]$manifestText
           $xml.PackageManifest.Metadata.Identity.Version = $v
           $xml.Save($manifestPath)
 
@@ -201,7 +207,12 @@ jobs:
             "| RevisionGraph-vs2022.vsix | Visual Studio 2022 extension |",
             "| RevisionGraph-vs2026.vsix | Visual Studio 2026 extension |",
             "| RevisionGraph-jetbrains.zip | JetBrains IDEs plugin - IntelliJ IDEA, Android Studio, DevEco Studio, WebStorm, PyCharm, etc. (sideload, and JetBrains Marketplace) |",
-            "| RevisionGraph-netbeans.nbm | Apache NetBeans plugin (sideload; Plugin Portal listing is a one-time manual registration) |"
+            "| RevisionGraph-netbeans.nbm | Apache NetBeans plugin (sideload; Plugin Portal listing is a one-time manual registration) |",
+            "",
+            "### Marketplace listings",
+            "- [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=BenKoncsik.rev-graph-vscode)",
+            "- [Visual Studio Marketplace (2022 / 2026)](https://marketplace.visualstudio.com/items?itemName=BenKoncsik.GitRevisionGraph)",
+            "- [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/32627-revision-graph-for-git-svn-style-)"
           ) -join "`n"
 
           $headers = @{
@@ -370,8 +381,11 @@ jobs:
           $replacement = '"version": "' + $v + '"'
           $f = 'package.json'
           (Get-Content $f -Raw) -replace $pattern, $replacement | Set-Content $f -NoNewline
+          # Read as UTF-8 explicitly - see comment on the same pattern in the
+          # "Patch versions in source files" step above.
           $manifestPath = (Resolve-Path 'vs/source.extension.vsixmanifest').Path
-          $xml = [xml](Get-Content $manifestPath -Raw)
+          $manifestText = [System.IO.File]::ReadAllText($manifestPath, [System.Text.Encoding]::UTF8)
+          $xml = [xml]$manifestText
           $xml.PackageManifest.Metadata.Identity.Version = $v
           $xml.Save($manifestPath)
           Write-Host "Patched VS manifest to $v"

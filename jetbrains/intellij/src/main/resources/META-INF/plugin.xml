@@ -32,6 +32,10 @@
             <li><b>Zoom &amp; pan</b> the graph canvas.</li>
         </ul>
 
+        <h2>Other hosts</h2>
+        <p>Also available for <a href="https://marketplace.visualstudio.com/items?itemName=BenKoncsik.rev-graph-vscode">VS Code</a>
+        and <a href="https://marketplace.visualstudio.com/items?itemName=BenKoncsik.GitRevisionGraph">Visual Studio 2022 / 2026</a>.</p>
+
         <h2>Source code &amp; license</h2>
         <ul>
             <li>Source code: <a href="https://github.com/HunKonTech/git_Revision_Graph">https://github.com/HunKonTech/git_Revision_Graph</a></li>
@@ -70,6 +74,10 @@
             <li><b>SHA másolása</b> bármely commithoz.</li>
             <li><b>Nagyítás és mozgatás</b> a gráf felületén.</li>
         </ul>
+
+        <h2>Más hosztokon</h2>
+        <p>Elérhető <a href="https://marketplace.visualstudio.com/items?itemName=BenKoncsik.rev-graph-vscode">VS Code</a>-hoz
+        és <a href="https://marketplace.visualstudio.com/items?itemName=BenKoncsik.GitRevisionGraph">Visual Studio 2022 / 2026</a>-höz is.</p>
 
         <h2>Forráskód és licenc</h2>
         <ul>

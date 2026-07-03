@@ -23,6 +23,10 @@ The graph loads automatically and shows the full commit DAG of the current repos
 - **Copy SHA** of any commit.
 - **Zoom & pan** the graph canvas.
 
+## Other hosts
+
+Also available for **[VS Code](https://marketplace.visualstudio.com/items?itemName=BenKoncsik.rev-graph-vscode)** and **[JetBrains IDEs](https://plugins.jetbrains.com/plugin/32627-revision-graph-for-git-svn-style-)** (IntelliJ IDEA, Android Studio, DevEco Studio, WebStorm, PyCharm, GoLand, etc.).
+
 ## Source code & license
 
 - Source code: [https://github.com/HunKonTech/git_Revision_Graph](https://github.com/HunKonTech/git_Revision_Graph)
@@ -54,6 +58,10 @@ A gráf automatikusan betölti az aktuális repozitórium teljes commit-fáját.
 - **Checkout** — commit közvetlen kivétele a gráfból.
 - **SHA másolása** bármely commithoz.
 - **Nagyítás és mozgatás** a gráf felületén.
+
+## Más hosztokon
+
+Elérhető **[VS Code](https://marketplace.visualstudio.com/items?itemName=BenKoncsik.rev-graph-vscode)**-hoz és **[JetBrains IDE-khez](https://plugins.jetbrains.com/plugin/32627-revision-graph-for-git-svn-style-)** is (IntelliJ IDEA, Android Studio, DevEco Studio, WebStorm, PyCharm, GoLand, stb.).
 
 ## Forráskód és licenc
 

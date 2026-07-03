@@ -30,6 +30,10 @@ Open a folder or workspace that contains a Git repository, then either:
 |---|---|---|
 | `revGraph.maxCommits` | `1000` | Maximum number of commits to load into the graph. |
 
+## Other hosts
+
+Also available for **[Visual Studio 2022 / 2026](https://marketplace.visualstudio.com/items?itemName=BenKoncsik.GitRevisionGraph)** and **[JetBrains IDEs](https://plugins.jetbrains.com/plugin/32627-revision-graph-for-git-svn-style-)** (IntelliJ IDEA, Android Studio, DevEco Studio, WebStorm, PyCharm, GoLand, etc.).
+
 ## Source code & license
 
 - Source code: [https://github.com/HunKonTech/git_Revision_Graph](https://github.com/HunKonTech/git_Revision_Graph)
@@ -68,6 +72,10 @@ Nyiss meg egy mappát vagy munkaterületet, amely egy Git repozitóriumot tartal
 | Beállítás | Alapértelmezett | Leírás |
 |---|---|---|
 | `revGraph.maxCommits` | `1000` | A gráfba betöltendő commitok maximális száma. |
+
+## Más hosztokon
+
+Elérhető **[Visual Studio 2022 / 2026](https://marketplace.visualstudio.com/items?itemName=BenKoncsik.GitRevisionGraph)**-höz és **[JetBrains IDE-khez](https://plugins.jetbrains.com/plugin/32627-revision-graph-for-git-svn-style-)** is (IntelliJ IDEA, Android Studio, DevEco Studio, WebStorm, PyCharm, GoLand, stb.).
 
 ## Forráskód és licenc
 

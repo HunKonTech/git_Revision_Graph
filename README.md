@@ -13,6 +13,11 @@ branch, checkout, copy SHA, stash, zoom & pan) works against mock data.
 
 ![VS Code / Visual Studio](docs/RevisionGraph_vs_code.png)
 
+## Where to get it
+- [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=BenKoncsik.rev-graph-vscode)
+- [Visual Studio Marketplace (2022 / 2026)](https://marketplace.visualstudio.com/items?itemName=BenKoncsik.GitRevisionGraph)
+- [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/32627-revision-graph-for-git-svn-style-) — IntelliJ IDEA, Android Studio, DevEco Studio, WebStorm, PyCharm, GoLand, etc.
+
 ## What it does
 - Renders the git DAG as boxes-and-edges, with a column-per-branch layout.
 - Colors nodes by ref type: current/HEAD, local branch, remote branch, tag,
@@ -131,6 +136,11 @@ mock adatokon.
 ![Example](docs/RevisionGraph.png)
 
 ![VS Code / Visual Studio](docs/RevisionGraph_vs_code.png)
+
+## Hol érhető el
+- [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=BenKoncsik.rev-graph-vscode)
+- [Visual Studio Marketplace (2022 / 2026)](https://marketplace.visualstudio.com/items?itemName=BenKoncsik.GitRevisionGraph)
+- [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/32627-revision-graph-for-git-svn-style-) — IntelliJ IDEA, Android Studio, DevEco Studio, WebStorm, PyCharm, GoLand, stb.
 
 ## Mit csinál
 - A git DAG-ot dobozok és élek formájában rajzolja ki, áganként egy oszloppal.
