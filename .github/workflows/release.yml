@@ -728,6 +728,17 @@ jobs:
       # plugin id (see pluginGroupAndroidStudio in jetbrains/gradle.properties),
       # which must likewise be created once via the web UI + approved before the
       # API can push updates.
+      #
+      # BOOTSTRAP GRACE: because this flavor is newer than :intellij/:deveco, its
+      # Marketplace listing may not exist yet — the first publish attempt then
+      # fails with "Cannot find plugin" until someone uploads the initial build
+      # manually (once) via https://plugins.jetbrains.com/ and it clears
+      # moderation. That one-time bootstrap condition must NOT fail the whole
+      # release job (the ZIPs are already built and attached to the GitHub
+      # Release above), so we downgrade *only* that specific error to a warning.
+      # Any OTHER publish failure still fails the job. Once the listing exists
+      # this branch is never taken again. The older flavors above stay strict
+      # (their listings already exist, so a "not found" there is a real problem).
       # -----------------------------------------------------------------------
       - name: Publish Android Studio flavor to JetBrains Marketplace
         if: ${{ env.PUBLISH_TOKEN != '' }}
@@ -738,9 +749,17 @@ jobs:
           PRIVATE_KEY: ${{ secrets.JETBRAINS_PRIVATE_KEY }}
           PRIVATE_KEY_PASSWORD: ${{ secrets.JETBRAINS_PRIVATE_KEY_PASSWORD }}
         run: |
-          gradle :androidstudio:publishPlugin --no-daemon
-          if ($LASTEXITCODE -ne 0) { throw "Gradle publishPlugin failed ($LASTEXITCODE)" }
-          Write-Host "Published :androidstudio flavor to the JetBrains Marketplace."
+          $log = gradle :androidstudio:publishPlugin --no-daemon 2>&1 | Tee-Object -Variable captured
+          $captured | ForEach-Object { Write-Host $_ }
+          if ($LASTEXITCODE -ne 0) {
+            if ($captured -match 'Cannot find plugin') {
+              Write-Warning "Android Studio flavor is not on the JetBrains Marketplace yet. Upload the first com.hunkontech.revgraph.androidstudio build manually via https://plugins.jetbrains.com/ and let it clear moderation; CI will publish updates automatically after that. Treating this one-time bootstrap failure as non-fatal."
+            } else {
+              throw "Gradle publishPlugin failed ($LASTEXITCODE)"
+            }
+          } else {
+            Write-Host "Published :androidstudio flavor to the JetBrains Marketplace."
+          }
 
   # -------------------------------------------------------------------------
   # Buffer release announcement (X / Twitter)

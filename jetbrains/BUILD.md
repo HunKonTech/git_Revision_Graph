@@ -141,6 +141,15 @@ must be created **once per flavor** by uploading its first build manually via
 <https://plugins.jetbrains.com/> and passing moderation before CI can publish
 subsequent versions of that flavor.
 
+Until that one-time manual upload happens, the CI publish attempt for a new
+flavor fails with `Cannot find plugin`. So the `:androidstudio` publish step is
+written to treat **only** that specific "listing does not exist yet" error as a
+non-fatal warning — the release job still succeeds and the ZIP is already on the
+GitHub Release, it just isn't on the Marketplace until you do the manual upload.
+Every other publish error still fails the job, and the older `:intellij` /
+`:deveco` steps stay strict (their listings already exist). Once the Android
+Studio listing has been created + approved, its CI publishes go through normally.
+
 ## Trying it
 - Open a project that is inside a Git repo.
 - **View → Tool Windows → Revision Graph** opens the tool window.
