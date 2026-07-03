@@ -95,6 +95,21 @@ vs/webview/schematics/
 jetbrains/common/src/main/resources/webview/main.js
 jetbrains/common/src/main/resources/webview/main.css
 jetbrains/common/src/main/resources/webview/schematics/
+eclipse/com.hunkontech.revgraph/webview/main.js
+eclipse/com.hunkontech.revgraph/webview/main.css
+eclipse/com.hunkontech.revgraph/webview/schematics/
+netbeans/src/main/resources/com/hunkontech/revgraph/webview/main.js
+netbeans/src/main/resources/com/hunkontech/revgraph/webview/main.css
+netbeans/src/main/resources/com/hunkontech/revgraph/webview/schematics/
+
+### Eclipse / Tycho (eclipse/)
+# Maven/Tycho build output and PDE compile output.
+eclipse/**/target/
+eclipse/**/bin/
+
+### NetBeans (netbeans/)
+# Maven / nbm-maven-plugin build output.
+netbeans/target/
 
 ### Gradle (jetbrains/)
 jetbrains/.gradle/

@@ -20,10 +20,13 @@ declare global {
     /** Set by the dev browser harness to capture outgoing messages. */
     __REV_GRAPH_HARNESS__?: { onPost(msg: WebviewToHost): void };
     /**
-     * Set by the DevEco Studio (IntelliJ Platform/JCEF) host before the page
-     * loads. Wraps a JBCefJSQuery injection so the webview can call back into
-     * the Kotlin host; the host pushes messages the same way WebView2 does,
-     * via `window.postMessage`, which the listener below already handles.
+     * Set by any embedded-IDE host that has no native postMessage channel,
+     * before the page loads. The JetBrains host (IntelliJ Platform/JCEF) wraps
+     * a JBCefJSQuery injection; the Eclipse host wraps an SWT BrowserFunction;
+     * the NetBeans host wraps a JavaFX WebView JSObject bridge — either way the
+     * webview can call back into the JVM host, and the host
+     * pushes messages the same way WebView2 does, via `window.postMessage`,
+     * which the listener below already handles.
      */
     __ideHostPostMessage__?: (json: string) => void;
   }
@@ -33,7 +36,7 @@ declare global {
  * Pick the right transport at runtime:
  *  - VS Code webview   -> acquireVsCodeApi()
  *  - Visual Studio     -> window.chrome.webview (WebView2)
- *  - DevEco Studio     -> window.__ideHostPostMessage__ (JCEF)
+ *  - JVM IDE hosts     -> window.__ideHostPostMessage__ (JetBrains/JCEF, Eclipse/SWT, NetBeans/JavaFX)
  *  - dev browser       -> window.postMessage + harness hook
  */
 export function createHostBridge(): HostBridge {
