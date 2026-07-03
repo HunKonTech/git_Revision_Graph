@@ -27,6 +27,10 @@
 
     <name>Revision Graph for Git (SVN style)</name>
     <description>TortoiseSVN-style revision graph for Git inside Apache NetBeans.</description>
+    <!-- <url>, <developers> and <scm> are MANDATORY for a Maven Central deploy
+         (the `central-deploy` profile below). They also feed the auto-populated
+         NetBeans Plugin Portal listing. -->
+    <url>https://github.com/HunKonTech/git_Revision_Graph</url>
     <organization>
         <name>HunKonTech</name>
         <url>https://github.com/HunKonTech/git_Revision_Graph</url>
@@ -37,6 +41,18 @@
             <url>https://github.com/HunKonTech/git_Revision_Graph/blob/main/LICENSE</url>
         </license>
     </licenses>
+    <developers>
+        <developer>
+            <id>BenKoncsik</id>
+            <name>HunKonTech</name>
+            <url>https://github.com/HunKonTech</url>
+        </developer>
+    </developers>
+    <scm>
+        <connection>scm:git:https://github.com/HunKonTech/git_Revision_Graph.git</connection>
+        <developerConnection>scm:git:https://github.com/HunKonTech/git_Revision_Graph.git</developerConnection>
+        <url>https://github.com/HunKonTech/git_Revision_Graph</url>
+    </scm>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -290,4 +306,120 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- ================================================================
+             central-deploy: publish the module to Maven Central (Sonatype
+             Central Portal). OPT-IN — only activated with `-Pcentral-deploy`
+             from the CI job when the Sonatype + GPG secrets are present. The
+             normal `package` build (sideload .nbm + Autoupdate Center) is
+             completely unaffected by this profile.
+
+             WHY this exists: the Apache NetBeans Plugin Portal
+             (https://plugins.netbeans.apache.org/) only lists plugins HOSTED
+             ON MAVEN CENTRAL — there is no direct .nbm upload and no push
+             token for the Portal itself. Getting onto the Portal is therefore
+             a two-step process: (1) deploy the signed artifact here to Maven
+             Central under com.hunkontech.revgraph (this profile); (2) a
+             ONE-TIME manual "Add Plugin" on the Portal (groupId/artifactId),
+             then two community verifiers approve it. See netbeans/BUILD.md.
+
+             PREREQUISITES you must set up once, outside this repo:
+               - Sonatype Central account + a verified NAMESPACE for
+                 `com.hunkontech` (prove ownership of hunkontech.com via the
+                 DNS TXT record the Central UI gives you).
+               - A Central *user token* (username+password) → CI secrets
+                 MAVENCENTRAL_USERNAME / MAVENCENTRAL_PASSWORD.
+               - A GPG key; export the private key + passphrase → CI secrets
+                 MAVEN_GPG_PRIVATE_KEY / MAVEN_GPG_PASSPHRASE.
+
+             NOTE (Kotlin javadoc/sources): Maven Central requires -sources
+             and -javadoc jars. The kotlin-maven-plugin registers src/main/
+             kotlin as a compile-source-root, so maven-source-plugin picks the
+             Kotlin up; maven-javadoc-plugin has no Java sources here and emits
+             a (near-)empty javadoc jar, which Central accepts. If a future
+             Central validation tightens this, switch the javadoc jar to
+             dokka-maven-plugin's `javadocJar` goal.
+             ================================================================ -->
+        <profile>
+            <id>central-deploy</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <version>3.3.1</version>
+                        <executions>
+                            <execution>
+                                <id>attach-sources</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>jar-no-fork</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <version>3.6.3</version>
+                        <configuration>
+                            <!-- No Java sources in this Kotlin module; don't let
+                                 an empty run fail the deploy. -->
+                            <failOnError>false</failOnError>
+                            <failOnWarnings>false</failOnWarnings>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>attach-javadoc</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>3.2.4</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                                <configuration>
+                                    <!-- Non-interactive signing in CI: read the
+                                         passphrase from the gpg.passphrase
+                                         property and use loopback pinentry. -->
+                                    <gpgArguments>
+                                        <arg>--pinentry-mode</arg>
+                                        <arg>loopback</arg>
+                                    </gpgArguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>0.7.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <!-- Credentials resolved from the <server id="central">
+                                 entry the CI job writes into ~/.m2/settings.xml. -->
+                            <publishingServerId>central</publishingServerId>
+                            <!-- Leave the deployment in the Central "validated"
+                                 state for a manual Publish click the first few
+                                 times; flip to true once the pipeline is trusted. -->
+                            <autoPublish>false</autoPublish>
+                            <waitUntil>validated</waitUntil>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
