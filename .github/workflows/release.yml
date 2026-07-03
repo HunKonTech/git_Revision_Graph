@@ -960,7 +960,7 @@ jobs:
           mvn -B -f netbeans/pom.xml -Pcentral-deploy -DskipTests \
             -Dgpg.passphrase="${MAVEN_GPG_PASSPHRASE}" \
             deploy
-          echo "Deployed com.hunkontech.revgraph:netbeans:${NEW_VERSION} to Maven Central (validated; Publish it in the Central UI, then Add Plugin on the NetBeans Plugin Portal)."
+          echo "Deployed io.github.benkoncsik:netbeans:${NEW_VERSION} to Maven Central (validated; Publish it in the Central UI, then Add Plugin on the NetBeans Plugin Portal)."
 
   # -------------------------------------------------------------------------
   # Buffer release announcement (X / Twitter)

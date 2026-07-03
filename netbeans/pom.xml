@@ -18,9 +18,14 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.hunkontech.revgraph</groupId>
-    <!-- artifactId has no dashes so the derived module code-name base is the
-         clean com.hunkontech.revgraph.netbeans. -->
+    <!-- Maven Central namespace: io.github.benkoncsik — the GitHub-verified
+         Sonatype namespace (no domain needed; verified via a one-off public repo
+         under github.com/benkoncsik). This is ONLY the Maven coordinate; the
+         source packages, the JetBrains pluginGroup and the Eclipse bundle ids
+         stay com.hunkontech.revgraph. -->
+    <groupId>io.github.benkoncsik</groupId>
+    <!-- artifactId has no dashes so the derived NetBeans module code-name base
+         is the clean io.github.benkoncsik.netbeans. -->
     <artifactId>netbeans</artifactId>
     <version>0.1.0</version>
     <packaging>nbm</packaging>
@@ -320,14 +325,15 @@
              ON MAVEN CENTRAL — there is no direct .nbm upload and no push
              token for the Portal itself. Getting onto the Portal is therefore
              a two-step process: (1) deploy the signed artifact here to Maven
-             Central under com.hunkontech.revgraph (this profile); (2) a
+             Central under io.github.benkoncsik (this profile); (2) a
              ONE-TIME manual "Add Plugin" on the Portal (groupId/artifactId),
              then two community verifiers approve it. See netbeans/BUILD.md.
 
              PREREQUISITES you must set up once, outside this repo:
-               - Sonatype Central account + a verified NAMESPACE for
-                 `com.hunkontech` (prove ownership of hunkontech.com via the
-                 DNS TXT record the Central UI gives you).
+               - Sonatype Central account + a verified NAMESPACE
+                 `io.github.benkoncsik` (GitHub-verified: create the one-off
+                 public repo the Central UI names, under github.com/benkoncsik —
+                 no domain / DNS needed).
                - A Central *user token* (username+password) → CI secrets
                  MAVENCENTRAL_USERNAME / MAVENCENTRAL_PASSWORD.
                - A GPG key; export the private key + passphrase → CI secrets

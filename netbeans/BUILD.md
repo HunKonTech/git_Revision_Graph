@@ -133,26 +133,31 @@ the sources/javadoc jars, GPG-signs everything, and uploads via the Sonatype
 One-time setup you must do outside this repo:
 
 1. **Sonatype Central account + namespace.** Sign in at
-   <https://central.sonatype.com>, register the `com.hunkontech` namespace, and
-   verify it by adding the **DNS TXT record** Central shows you to the
-   `hunkontech.com` domain. (If that domain isn't available, switch the `groupId`
-   to `io.github.<user>`, verified via a GitHub repo instead — that also changes
-   the module code-name base.)
+   <https://central.sonatype.com> (GitHub login is easiest) and register the
+   **`io.github.benkoncsik`** namespace. Central verifies it via GitHub — it
+   names a temporary code; create a **public repo with that name under
+   `github.com/benkoncsik`**, click **Verify**, then you can delete the repo. No
+   domain / DNS is involved. (This GitHub-verified namespace is why the POM
+   `groupId` is `io.github.benkoncsik`, giving module code-name base
+   `io.github.benkoncsik.netbeans`.)
 2. **Central user token** → repo secrets `MAVENCENTRAL_USERNAME` /
    `MAVENCENTRAL_PASSWORD` (Central ▸ Account ▸ *Generate User Token*).
 3. **GPG key** → `gpg --gen-key`, publish the public key to a keyserver, then
    export the private key (`gpg --armor --export-secret-keys <id>`) into repo
    secret `MAVEN_GPG_PRIVATE_KEY`, and the passphrase into `MAVEN_GPG_PASSPHRASE`.
 
-Once those four secrets exist, each release deploys `com.hunkontech.revgraph`
+Once those four secrets exist, each release deploys `io.github.benkoncsik:netbeans`
 automatically; you click **Publish** in the Central UI (until you flip
 `autoPublish` to `true`).
 
 ### B. Register on the Plugin Portal (manual, one-time)
 
 1. Sign in at <https://plugins.netbeans.apache.org/> with Google/GitHub, click
-   **Add Plugin**, and provide the `groupId` / `artifactId` — metadata (name,
-   license, homepage, description) auto-populates from the POM.
+   **Add Plugin**, and provide `groupId = io.github.benkoncsik`,
+   `artifactId = netbeans` — metadata (name, license, homepage, description)
+   auto-populates from the POM. (The Portal reads
+   `.../io/github/benkoncsik/netbeans/maven-metadata.xml` from Maven Central, so
+   this only works **after** step A has deployed *and* you clicked Publish.)
 2. Categorize it, mark the compatible NetBeans versions, and **Request
    verification**; once two verifiers approve and none reject, it is published on
    the Plugin Portal Update Center.
