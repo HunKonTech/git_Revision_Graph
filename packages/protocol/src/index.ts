@@ -169,6 +169,10 @@ export type HostToWebview =
   // The before/after content of one file the merge would change (answers
   // `requestMergeFileDiff`). Reuses FileDiff so the shared diff view renders it.
   | { type: "mergeFileDiff"; diff: FileDiff }
+  // Search results (answers `search`).
+  | { type: "searchResults"; query: string; searchType: string; commits: GitCommit[]; branches?: string[] }
+  // Search error (answers `search`).
+  | { type: "searchError"; message: string }
   | { type: "error"; message: string }
   // The host replies with the path the user selected in the OS file-picker.
   | { type: "gitPathSelected"; path: string };
@@ -213,6 +217,8 @@ export type WebviewToHost =
   | { type: "stashDrop"; index: number }
   | { type: "checkout"; sha?: string; ref?: string }
   | { type: "copySha"; sha: string }
+  // Search commits by message, author, hash, or branch.
+  | { type: "search"; query: string; searchType: "message" | "author" | "hash" | "branch" | "auto" }
   | { type: "fetch" }
   | { type: "pull" }
   | { type: "push" }

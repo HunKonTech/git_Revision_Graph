@@ -929,6 +929,91 @@ export async function rewordCommitCli(
   }
 }
 
+/** Detect the search type based on query heuristics. */
+function detectSearchType(query: string): "message" | "author" | "hash" | "branch" {
+  const trimmed = query.trim();
+  if (!trimmed) return "message";
+
+  if (/@/.test(trimmed)) return "author"; // Email address
+  if (/^[0-9a-f]{7,40}$/i.test(trimmed)) return "hash"; // Commit SHA
+  if (trimmed.includes("/")) return "branch"; // Likely remote branch (e.g., "origin/feature")
+  if (trimmed.match(/^[a-z][a-z0-9-]*$/i)) {
+    // Looks like a branch name (alphanumeric + dashes)
+    if (!trimmed.includes(" ")) return "branch";
+  }
+
+  return "message"; // Default to message search
+}
+
+/** Search for commits matching the query. */
+export async function searchCommits(
+  repoRoot: string,
+  query: string,
+  searchType: "message" | "author" | "hash" | "branch" | "auto",
+): Promise<{ commits: GitCommit[]; branches?: string[] }> {
+  const detected = searchType === "auto" ? detectSearchType(query) : searchType;
+  const trimmed = query.trim();
+
+  if (!trimmed) return { commits: [] };
+
+  switch (detected) {
+    case "message": {
+      const out = await git(repoRoot, [
+        "log",
+        "--all",
+        "--topo-order",
+        "--grep",
+        trimmed,
+        "--regexp-ignore-case",
+        `--pretty=format:%H${FS}%P${FS}%s${FS}%an${FS}%ae${FS}%aI${RS}`,
+      ]).catch(() => "");
+      return { commits: parseCommits(out) };
+    }
+
+    case "author": {
+      const out = await git(repoRoot, [
+        "log",
+        "--all",
+        "--topo-order",
+        "--author",
+        trimmed,
+        "--regexp-ignore-case",
+        `--pretty=format:%H${FS}%P${FS}%s${FS}%an${FS}%ae${FS}%aI${RS}`,
+      ]).catch(() => "");
+      return { commits: parseCommits(out) };
+    }
+
+    case "hash": {
+      const out = await git(repoRoot, [
+        "log",
+        "--all",
+        "--topo-order",
+        `--pretty=format:%H${FS}%P${FS}%s${FS}%an${FS}%ae${FS}%aI${RS}`,
+      ]).catch(() => "");
+      const allCommits = parseCommits(out);
+      const lower = trimmed.toLowerCase();
+      const matches = allCommits.filter((c) => c.sha.toLowerCase().startsWith(lower));
+      return { commits: matches };
+    }
+
+    case "branch": {
+      const out = await git(repoRoot, [
+        "branch",
+        "-a",
+        "--format",
+        "%(refname:short)",
+      ]).catch(() => "");
+      const allBranches = out
+        .split("\n")
+        .map((b) => b.trim())
+        .filter(Boolean);
+      const lower = trimmed.toLowerCase();
+      const matches = allBranches.filter((b) => b.toLowerCase().includes(lower));
+      return { branches: matches };
+    }
+  }
+}
+
 // Marks exactly the target commit as "reword" in the rebase todo list.
 const SEQ_EDITOR_JS = `
 const fs = require('fs');

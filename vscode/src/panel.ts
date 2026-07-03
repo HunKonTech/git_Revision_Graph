@@ -27,6 +27,7 @@ import {
   computeMergePreview,
   mergeCli,
   readMergeFileDiff,
+  searchCommits,
   setCustomGitPath,
 } from "./gitData";
 import { resolveRepository, getGitApi } from "./repo";
@@ -148,6 +149,9 @@ export class GraphPanel {
       case "copySha":
         await vscode.env.clipboard.writeText(msg.sha);
         void vscode.window.showInformationMessage(`Copied ${msg.sha.slice(0, 10)}`);
+        break;
+      case "search":
+        await this.handleSearch(msg.query, msg.searchType);
         break;
       case "requestCommitChanges":
         await this.handleCommitChanges(msg.sha);
@@ -576,6 +580,23 @@ export class GraphPanel {
       this.post({ type: "opResult", op: "merge", result: "error", detail: String(err) });
     }
     await this.refresh();
+  }
+
+  private async handleSearch(
+    query: string,
+    searchType: "message" | "author" | "hash" | "branch" | "auto",
+  ): Promise<void> {
+    const repo = await resolveRepository();
+    if (!repo) {
+      this.post({ type: "searchError", message: "No Git repository found." });
+      return;
+    }
+    try {
+      const result = await searchCommits(repo.rootUri.fsPath, query, searchType);
+      this.post({ type: "searchResults", query, searchType, ...result });
+    } catch (err) {
+      this.post({ type: "searchError", message: `Search failed: ${String(err)}` });
+    }
   }
 
   private post(msg: HostToWebview): void {
