@@ -941,10 +941,16 @@ jobs:
           MAVEN_GPG_PRIVATE_KEY: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
           MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
         run: |
-          set -euo pipefail
+          # Best-effort: never fail the step (no red X). Any failure below is
+          # turned into a ::warning:: and the step exits 0 — the .nbm and the
+          # Autoupdate Center already shipped in the steps above.
+          set -uo pipefail
 
           # 1. Import the GPG signing key (ASCII-armored private key secret).
-          echo "$MAVEN_GPG_PRIVATE_KEY" | gpg --batch --import
+          if ! echo "$MAVEN_GPG_PRIVATE_KEY" | gpg --batch --import; then
+            echo "::warning::GPG key import failed — skipping Maven Central publish (the .nbm and Autoupdate Center already shipped)."
+            exit 0
+          fi
 
           # 2. Write ~/.m2/settings.xml with the Central Portal server creds the
           #    central-publishing-maven-plugin reads (publishingServerId=central).
@@ -962,11 +968,17 @@ jobs:
           EOF
 
           # 3. Deploy with the opt-in profile. Version was already stamped by the
-          #    earlier `versions:set` step, so this deploys v${NEW_VERSION}.
-          mvn -B -f netbeans/pom.xml -Pcentral-deploy -DskipTests \
-            -Dgpg.passphrase="${MAVEN_GPG_PASSPHRASE}" \
-            deploy
-          echo "Deployed io.github.benkoncsik:netbeans:${NEW_VERSION} to Maven Central (validated; Publish it in the Central UI, then Add Plugin on the NetBeans Plugin Portal)."
+          #    earlier `versions:set` step, so this deploys v${NEW_VERSION}. A
+          #    failure here (e.g. a 401 from a wrong/expired Sonatype user token)
+          #    is downgraded to a warning so the release stays green.
+          if mvn -B -f netbeans/pom.xml -Pcentral-deploy -DskipTests \
+               -Dgpg.passphrase="${MAVEN_GPG_PASSPHRASE}" \
+               deploy; then
+            echo "Deployed io.github.benkoncsik:netbeans:${NEW_VERSION} to Maven Central (validated; Publish it in the Central UI, then Add Plugin on the NetBeans Plugin Portal)."
+          else
+            echo "::warning::Maven Central publish failed (see the Maven log above — commonly a 401 from a wrong/expired Sonatype user token). Continuing; the .nbm on the GitHub Release and the Autoupdate Center on GitHub Pages already shipped."
+            exit 0
+          fi
 
   # -------------------------------------------------------------------------
   # Buffer release announcement (X / Twitter)
