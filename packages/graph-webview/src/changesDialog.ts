@@ -124,10 +124,14 @@ const FILE_SVG =
   '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">' +
   '<path fill="currentColor" d="M9.5 1H3.5a.5.5 0 0 0-.5.5v13a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5V5L9.5 1z"/>' +
   '<path fill="rgba(0,0,0,0.35)" d="M9.5 1L13 5H10a.5.5 0 0 1-.5-.5V1z"/></svg>';
-/** "Collapse all folders" toolbar icon — three shrinking horizontal bars. */
+/** "Collapse all folders" toolbar icon — a double chevron pointing up (fold shut). */
 const COLLAPSE_ALL_SVG =
   '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">' +
-  '<path fill="none" stroke="currentColor" stroke-width="1.3" d="M3 4h10M3 8h7M3 12h4"/></svg>';
+  '<path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="M4 7.5 8 4l4 3.5M4 12l4-3.5 4 3.5"/></svg>';
+/** "Expand all folders" toolbar icon — a double chevron pointing down (fold open). */
+const EXPAND_ALL_SVG =
+  '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">' +
+  '<path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="M4 4.5 8 8l4-3.5M4 9l4 3.5 4-3.5"/></svg>';
 /** Maximize icon — a single outlined square. */
 const MAXIMIZE_SVG =
   '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">' +
@@ -294,6 +298,7 @@ export function openChangesDialog(context: ChangesDialogContext): void {
         renderList();
         renderDiff();
         renderTabs();
+        if (normalizeQuery(searchQuery)) fetchMissingDiffs();
       },
     );
     tabs.append(tabChanged, tabAll);
@@ -312,7 +317,10 @@ export function openChangesDialog(context: ChangesDialogContext): void {
       searchDebounce = setTimeout(() => {
         searchQuery = value;
         renderList();
-        if (activeTab === "changed" && normalizeQuery(searchQuery)) fetchMissingDiffs();
+        // Content/method search matches against changed files' diff text, so pull any
+        // not-yet-fetched diffs — on both tabs (the "All Files" tab still lists changed
+        // files, and their bodies should be searchable there too).
+        if (normalizeQuery(searchQuery)) fetchMissingDiffs();
       }, 120);
     });
     searchInput.addEventListener("keydown", (e) => {
@@ -330,11 +338,18 @@ export function openChangesDialog(context: ChangesDialogContext): void {
       }
     });
     toolbar.appendChild(searchInput);
+    // Dedicated folder controls — always present, regardless of whether the tree
+    // has any folders (they simply no-op on a flat file list).
     const collapseBtn = button("changes-toolbar-btn", "", collapseAllFolders);
     collapseBtn.innerHTML = COLLAPSE_ALL_SVG;
     collapseBtn.title = t("changes.collapseAll");
     collapseBtn.setAttribute("aria-label", t("changes.collapseAll"));
     toolbar.appendChild(collapseBtn);
+    const expandBtn = button("changes-toolbar-btn", "", expandAllFolders);
+    expandBtn.innerHTML = EXPAND_ALL_SVG;
+    expandBtn.title = t("changes.expandAll");
+    expandBtn.setAttribute("aria-label", t("changes.expandAll"));
+    toolbar.appendChild(expandBtn);
     list.appendChild(toolbar);
 
     listEl = el("div", "changes-list-scroll");
@@ -399,12 +414,20 @@ export function openChangesDialog(context: ChangesDialogContext): void {
     );
   }
 
-  /** All-tree paths matching the current search — filename only (see plan notes on scope). */
+  /**
+   * All-tree paths matching the current search. Every file matches by filename;
+   * additionally, a file the commit *changed* matches when its (already-fetched)
+   * diff text contains the query — so a method/identifier search finds it on this
+   * tab too, not just the "Changed" tab. Unchanged files stay filename-only: their
+   * full content isn't fetched up front (a repo tree can be enormous).
+   */
   function visibleAllPaths(): string[] {
     if (!allPaths) return [];
     const query = normalizeQuery(searchQuery);
     if (!query) return allPaths;
-    return allPaths.filter((p) => pathMatchesQuery(p, query));
+    return allPaths.filter(
+      (p) => pathMatchesQuery(p, query) || diffMatchesQuery(p, query, diffCache),
+    );
   }
 
   function renderChangedTab(): void {
@@ -467,6 +490,13 @@ export function openChangesDialog(context: ChangesDialogContext): void {
     );
     const paths = activeTab === "changed" ? visibleChangedFiles().map((f) => f.path) : visibleAllPaths();
     collectFolderPaths(buildFileTree(paths, changedByPath), collapsed);
+    renderList();
+  }
+
+  /** Expand every folder — simply forget all collapsed paths. */
+  function expandAllFolders(): void {
+    if (collapsed.size === 0) return;
+    collapsed.clear();
     renderList();
   }
 
@@ -675,7 +705,8 @@ export function setFileDiff(incoming: FileDiff): void {
     diff = incoming;
     pendingRenderDiff?.();
   }
-  if (activeTab === "changed" && normalizeQuery(searchQuery)) pendingRenderList?.();
+  // A newly-arrived diff may make a file match an active content search, on either tab.
+  if (normalizeQuery(searchQuery)) pendingRenderList?.();
 }
 
 export function setFileContent(

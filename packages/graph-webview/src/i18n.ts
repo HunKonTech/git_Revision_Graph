@@ -125,6 +125,7 @@ type Dict = {
   "changes.prevChange": string;
   "changes.nextChange": string;
   "changes.collapseAll": string;
+  "changes.expandAll": string;
   "changes.searchPlaceholder": string;
   "changes.noSearchResults": string;
   "changes.maximize": string;
@@ -313,6 +314,7 @@ const DICTS: Record<Lang, Dict> = {
     "changes.prevChange": "Previous change",
     "changes.nextChange": "Next change",
     "changes.collapseAll": "Collapse all folders",
+    "changes.expandAll": "Expand all folders",
     "changes.searchPlaceholder": "Search files…",
     "changes.noSearchResults": "No files match your search.",
     "changes.maximize": "Maximize",
@@ -499,6 +501,7 @@ const DICTS: Record<Lang, Dict> = {
     "changes.prevChange": "Előző változás",
     "changes.nextChange": "Következő változás",
     "changes.collapseAll": "Minden mappa becsukása",
+    "changes.expandAll": "Minden mappa kinyitása",
     "changes.searchPlaceholder": "Fájlok keresése…",
     "changes.noSearchResults": "Nincs a keresésnek megfelelő fájl.",
     "changes.maximize": "Nagyítás",
@@ -685,6 +688,7 @@ const DICTS: Record<Lang, Dict> = {
     "changes.prevChange": "上一处更改",
     "changes.nextChange": "下一处更改",
     "changes.collapseAll": "折叠所有文件夹",
+    "changes.expandAll": "展开所有文件夹",
     "changes.searchPlaceholder": "搜索文件…",
     "changes.noSearchResults": "没有匹配的文件。",
     "changes.maximize": "最大化",
@@ -858,6 +862,7 @@ const DICTS: Record<Lang, Dict> = {
     "changes.prevChange": "Предыдущее изменение",
     "changes.nextChange": "Следующее изменение",
     "changes.collapseAll": "Свернуть все папки",
+    "changes.expandAll": "Развернуть все папки",
     "changes.searchPlaceholder": "Поиск файлов…",
     "changes.noSearchResults": "Нет файлов, соответствующих поиску.",
     "changes.maximize": "Развернуть",
