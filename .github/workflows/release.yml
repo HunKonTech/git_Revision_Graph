@@ -929,8 +929,14 @@ jobs:
       # (autoPublish=false in the central-deploy profile); the Portal "Add Plugin"
       # + two-verifier approval is a documented one-time manual step (BUILD.md).
       # -----------------------------------------------------------------------
+      # Best-effort, like every other optional publish in this workflow: the
+      # primary deliverables (the .nbm on the GitHub Release + the Autoupdate
+      # Center on GitHub Pages) already shipped in the steps above, so a Maven
+      # Central hiccup (e.g. a 401 from a wrong/expired user token) must not fail
+      # the whole release. The error still prints in the log for diagnosis.
       - name: Publish NetBeans module to Maven Central
         if: ${{ env.MAVENCENTRAL_USERNAME != '' }}
+        continue-on-error: true
         env:
           MAVEN_GPG_PRIVATE_KEY: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
           MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
