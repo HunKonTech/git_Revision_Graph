@@ -667,14 +667,32 @@ jobs:
           }
 
       # -----------------------------------------------------------------------
-      # Publish the :intellij flavor to the JetBrains Marketplace.
+      # Publish each flavor to the JetBrains Marketplace.
       # Only runs when the JETBRAINS_MARKETPLACE_TOKEN secret is present (the
       # `if` guards on the job-level PUBLISH_TOKEN env, which is empty otherwise).
       # Signing env vars are optional — if the CERTIFICATE_CHAIN / PRIVATE_KEY
-      # secrets are unset, the Marketplace signs the upload itself. NOTE: the
-      # plugin listing must already exist on the Marketplace (first version
-      # uploaded once via the web UI + approved) before the API can push
-      # updates; the plugin id is `com.hunkontech.revgraph`.
+      # secrets are unset, the Marketplace signs the upload itself. Each flavor
+      # is its own listing (`com.hunkontech.revgraph` for :intellij,
+      # `com.hunkontech.revgraph.deveco` for :deveco,
+      # `com.hunkontech.revgraph.androidstudio` for :androidstudio — see
+      # pluginGroup* in jetbrains/gradle.properties) and each must be created
+      # once via the web UI + approved before the API can push updates to it.
+      #
+      # RETRY-SAFE: this whole job can legitimately be re-run without a version
+      # bump — e.g. GitHub Actions' "Re-run failed jobs" re-executes only this
+      # job while reusing the `release` job's already-computed NEW_VERSION, so a
+      # retry after a partial failure targets the exact same version again. The
+      # Marketplace API is not idempotent for either of two cases that then
+      # occur, so both are downgraded from a thrown error to a warning here
+      # (the job stays green; the ZIPs are already built and attached to the
+      # GitHub Release above regardless):
+      #   - "Cannot find plugin"                — the listing doesn't exist yet
+      #     (one-time bootstrap: create it once via https://plugins.jetbrains.com/
+      #     and let it clear moderation; every later run publishes normally).
+      #   - "already contains version ... in channel" — this exact version was
+      #     already published to this flavor by an earlier attempt of the same
+      #     job; there is nothing left to do.
+      # Any OTHER publish failure still fails the job.
       # -----------------------------------------------------------------------
       - name: Publish IntelliJ flavor to JetBrains Marketplace
         if: ${{ env.PUBLISH_TOKEN != '' }}
@@ -685,25 +703,19 @@ jobs:
           PRIVATE_KEY: ${{ secrets.JETBRAINS_PRIVATE_KEY }}
           PRIVATE_KEY_PASSWORD: ${{ secrets.JETBRAINS_PRIVATE_KEY_PASSWORD }}
         run: |
-          # publishPlugin depends on buildPlugin/signPlugin, so it reuses the
-          # already-patched pluginVersion. PUBLISH_TOKEN is inherited from the
-          # job env (from the JETBRAINS_MARKETPLACE_TOKEN secret).
-          gradle :intellij:publishPlugin --no-daemon
-          if ($LASTEXITCODE -ne 0) { throw "Gradle publishPlugin failed ($LASTEXITCODE)" }
-          Write-Host "Published :intellij flavor to the JetBrains Marketplace."
+          gradle :intellij:publishPlugin --no-daemon 2>&1 | Tee-Object -Variable captured | ForEach-Object { Write-Host $_ }
+          if ($LASTEXITCODE -ne 0) {
+            if ($captured -match 'Cannot find plugin') {
+              Write-Warning "IntelliJ flavor is not on the JetBrains Marketplace yet. Upload the first com.hunkontech.revgraph build manually via https://plugins.jetbrains.com/ and let it clear moderation; CI will publish updates automatically after that. Treating this one-time bootstrap failure as non-fatal."
+            } elseif ($captured -match 'already contains version .* in channel') {
+              Write-Warning "This version of the IntelliJ flavor is already published (likely a retry of this job at the same NEW_VERSION). Nothing to do."
+            } else {
+              throw "Gradle publishPlugin failed ($LASTEXITCODE)"
+            }
+          } else {
+            Write-Host "Published :intellij flavor to the JetBrains Marketplace."
+          }
 
-      # -----------------------------------------------------------------------
-      # Publish the :deveco flavor to the JetBrains Marketplace.
-      # DevEco Studio is itself built on the IntelliJ Platform, so it has no
-      # separate Huawei plugin store — its Settings > Plugins > Marketplace
-      # panel pulls from the same plugins.jetbrains.com Marketplace, just
-      # filtered to plugins whose build-number range covers DevEco Studio's
-      # platform build. Same guard/token/signing as the :intellij step above;
-      # this is a distinct listing under the `com.hunkontech.revgraph.deveco`
-      # plugin id (see pluginGroupDeveco in jetbrains/gradle.properties), which
-      # must likewise be created once via the web UI + approved before the API
-      # can push updates.
-      # -----------------------------------------------------------------------
       - name: Publish DevEco Studio flavor to JetBrains Marketplace
         if: ${{ env.PUBLISH_TOKEN != '' }}
         shell: powershell
@@ -713,33 +725,19 @@ jobs:
           PRIVATE_KEY: ${{ secrets.JETBRAINS_PRIVATE_KEY }}
           PRIVATE_KEY_PASSWORD: ${{ secrets.JETBRAINS_PRIVATE_KEY_PASSWORD }}
         run: |
-          gradle :deveco:publishPlugin --no-daemon
-          if ($LASTEXITCODE -ne 0) { throw "Gradle publishPlugin failed ($LASTEXITCODE)" }
-          Write-Host "Published :deveco flavor to the JetBrains Marketplace."
+          gradle :deveco:publishPlugin --no-daemon 2>&1 | Tee-Object -Variable captured | ForEach-Object { Write-Host $_ }
+          if ($LASTEXITCODE -ne 0) {
+            if ($captured -match 'Cannot find plugin') {
+              Write-Warning "DevEco Studio flavor is not on the JetBrains Marketplace yet. Upload the first com.hunkontech.revgraph.deveco build manually via https://plugins.jetbrains.com/ and let it clear moderation; CI will publish updates automatically after that. Treating this one-time bootstrap failure as non-fatal."
+            } elseif ($captured -match 'already contains version .* in channel') {
+              Write-Warning "This version of the DevEco Studio flavor is already published (likely a retry of this job at the same NEW_VERSION). Nothing to do."
+            } else {
+              throw "Gradle publishPlugin failed ($LASTEXITCODE)"
+            }
+          } else {
+            Write-Host "Published :deveco flavor to the JetBrains Marketplace."
+          }
 
-      # -----------------------------------------------------------------------
-      # Publish the :androidstudio flavor to the JetBrains Marketplace.
-      # Android Studio is itself built on the IntelliJ Platform, so it has no
-      # separate Google plugin store — its Settings > Plugins > Marketplace
-      # panel pulls from the same plugins.jetbrains.com Marketplace, just
-      # filtered to plugins whose build-number range covers Android Studio's
-      # platform build. Same guard/token/signing as the steps above; this is a
-      # distinct listing under the `com.hunkontech.revgraph.androidstudio`
-      # plugin id (see pluginGroupAndroidStudio in jetbrains/gradle.properties),
-      # which must likewise be created once via the web UI + approved before the
-      # API can push updates.
-      #
-      # BOOTSTRAP GRACE: because this flavor is newer than :intellij/:deveco, its
-      # Marketplace listing may not exist yet — the first publish attempt then
-      # fails with "Cannot find plugin" until someone uploads the initial build
-      # manually (once) via https://plugins.jetbrains.com/ and it clears
-      # moderation. That one-time bootstrap condition must NOT fail the whole
-      # release job (the ZIPs are already built and attached to the GitHub
-      # Release above), so we downgrade *only* that specific error to a warning.
-      # Any OTHER publish failure still fails the job. Once the listing exists
-      # this branch is never taken again. The older flavors above stay strict
-      # (their listings already exist, so a "not found" there is a real problem).
-      # -----------------------------------------------------------------------
       - name: Publish Android Studio flavor to JetBrains Marketplace
         if: ${{ env.PUBLISH_TOKEN != '' }}
         shell: powershell
@@ -749,11 +747,12 @@ jobs:
           PRIVATE_KEY: ${{ secrets.JETBRAINS_PRIVATE_KEY }}
           PRIVATE_KEY_PASSWORD: ${{ secrets.JETBRAINS_PRIVATE_KEY_PASSWORD }}
         run: |
-          $log = gradle :androidstudio:publishPlugin --no-daemon 2>&1 | Tee-Object -Variable captured
-          $captured | ForEach-Object { Write-Host $_ }
+          gradle :androidstudio:publishPlugin --no-daemon 2>&1 | Tee-Object -Variable captured | ForEach-Object { Write-Host $_ }
           if ($LASTEXITCODE -ne 0) {
             if ($captured -match 'Cannot find plugin') {
               Write-Warning "Android Studio flavor is not on the JetBrains Marketplace yet. Upload the first com.hunkontech.revgraph.androidstudio build manually via https://plugins.jetbrains.com/ and let it clear moderation; CI will publish updates automatically after that. Treating this one-time bootstrap failure as non-fatal."
+            } elseif ($captured -match 'already contains version .* in channel') {
+              Write-Warning "This version of the Android Studio flavor is already published (likely a retry of this job at the same NEW_VERSION). Nothing to do."
             } else {
               throw "Gradle publishPlugin failed ($LASTEXITCODE)"
             }

@@ -141,14 +141,20 @@ must be created **once per flavor** by uploading its first build manually via
 <https://plugins.jetbrains.com/> and passing moderation before CI can publish
 subsequent versions of that flavor.
 
-Until that one-time manual upload happens, the CI publish attempt for a new
-flavor fails with `Cannot find plugin`. So the `:androidstudio` publish step is
-written to treat **only** that specific "listing does not exist yet" error as a
-non-fatal warning — the release job still succeeds and the ZIP is already on the
-GitHub Release, it just isn't on the Marketplace until you do the manual upload.
-Every other publish error still fails the job, and the older `:intellij` /
-`:deveco` steps stay strict (their listings already exist). Once the Android
-Studio listing has been created + approved, its CI publishes go through normally.
+Each flavor's publish step in CI treats two specific Marketplace API errors as
+non-fatal warnings instead of failing the job — the ZIPs are already built and
+attached to the GitHub Release regardless of what the Marketplace publish does:
+- `Cannot find plugin` — the listing doesn't exist yet (the one-time-per-flavor
+  bootstrap state above; expected until the manual first upload + moderation).
+- `already contains version ... in channel` — this exact version was already
+  published to this flavor by an earlier attempt of the same job. This happens
+  because the job is not naturally idempotent: GitHub Actions' "Re-run failed
+  jobs" reuses the `release` job's already-computed version number rather than
+  bumping it, so retrying `build-jetbrains-plugins` after a partial failure
+  targets the same version again — flavors that already published it in the
+  first attempt would otherwise fail the retry for no reason.
+
+Every other publish error still fails the job.
 
 ## Trying it
 - Open a project that is inside a Git repo.
