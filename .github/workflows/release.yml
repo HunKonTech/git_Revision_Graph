@@ -215,8 +215,8 @@ jobs:
             "- [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/32627-revision-graph-for-git-svn-style-)",
             "",
             "### Auto-update centers",
-            "- NetBeans: add ``https://hunkontech.github.io/git_Revision_Graph/netbeans-update-center/updates.xml`` in Tools ▸ Plugins ▸ Settings",
-            "- Eclipse: add ``https://hunkontech.github.io/git_Revision_Graph/eclipse-update-site/`` in Help ▸ Install New Software"
+            "- NetBeans auto-update (Tools > Plugins > Settings > Add): https://hunkontech.github.io/git_Revision_Graph/netbeans-update-center/updates.xml",
+            "- Eclipse update site (Help > Install New Software): https://hunkontech.github.io/git_Revision_Graph/eclipse-update-site/"
           ) -join "`n"
 
           $headers = @{
