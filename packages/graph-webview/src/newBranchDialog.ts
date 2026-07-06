@@ -132,24 +132,24 @@ export function openNewBranchDialog(ctx: NewBranchContext): void {
     modal.appendChild(footer);
 
     // ---- Behaviour ----
+    // The name input holds the full branch path: picking a folder fills it with
+    // that folder's "location/" prefix (so the folder name is visible right in
+    // the field), and the user types the final segment after it.
     function fullName(): string {
-      const n = nameInput.value.trim();
-      return selectedFolder && n ? `${selectedFolder}/${n}` : n;
+      return nameInput.value.trim().replace(/^\/+/, "");
     }
     function refreshValidity(): void {
       const full = fullName();
-      const has = nameInput.value.trim().length > 0;
+      // A real branch segment must follow the last "/": a value that is only a
+      // folder prefix (ends with "/") is incomplete, not invalid.
+      const leafPart = full.slice(full.lastIndexOf("/") + 1);
+      const has = leafPart.length > 0;
       const validName = has && isValidBranchName(full);
       const duplicate = has && existing.has(full);
       const valid = validName && !duplicate;
-      // Full-name preview: the composed name once one is typed, or — when only a
-      // folder location is picked — the location prefix so the selection is
-      // visibly reflected instead of appearing to do nothing.
-      fullNameLine.textContent = full
-        ? t("newBranch.fullName", { name: full })
-        : selectedFolder
-          ? t("newBranch.fullName", { name: `${selectedFolder}/` })
-          : "";
+      // Full-name preview mirrors the field — including a bare "location/" prefix
+      // so a folder selection is visibly reflected instead of appearing to do nothing.
+      fullNameLine.textContent = full ? t("newBranch.fullName", { name: full }) : "";
       // Invalid characters and "already exists" are mutually exclusive messages —
       // a duplicate is by definition a syntactically valid name.
       invalidLine.classList.toggle("visible", has && !validName);
@@ -180,20 +180,31 @@ export function openNewBranchDialog(ctx: NewBranchContext): void {
       if (e.key === "Enter") submit();
     });
 
-    // Tree selection (event-delegated so it survives re-render). Folders set the
-    // location prefix; branch leaves additionally fill the name with that branch's
-    // own name — which then trips the "already exists" check.
+    // Tree selection (event-delegated so it survives re-render). Picking a folder
+    // fills the name field with its "location/" prefix so the folder name shows up
+    // there (ready for the user to append the final segment); picking a branch leaf
+    // fills the field with that branch's full path — which then trips the
+    // "already exists" check.
     treeBox.addEventListener("click", (e) => {
       const target = e.target as HTMLElement;
       const folder = target.closest(".newbranch-folder") as HTMLElement | null;
       const leaf = target.closest(".newbranch-leaf") as HTMLElement | null;
       if (folder) {
-        selectedFolder = folder.dataset.path ?? "";
+        const path = folder.dataset.path ?? "";
+        selectedFolder = path;
+        nameValue = path ? `${path}/` : "";
+        nameInput.value = nameValue;
+        // Keep the caret after the prefix so typing continues the branch name.
+        const end = nameValue.length;
+        setTimeout(() => {
+          nameInput.focus();
+          nameInput.setSelectionRange(end, end);
+        }, 0);
       } else if (leaf) {
         const path = leaf.dataset.path ?? "";
         const slash = path.lastIndexOf("/");
         selectedFolder = slash >= 0 ? path.slice(0, slash) : "";
-        nameValue = slash >= 0 ? path.slice(slash + 1) : path;
+        nameValue = path;
         nameInput.value = nameValue;
       } else {
         return;
