@@ -291,15 +291,19 @@ export function openChangesDialog(context: ChangesDialogContext): void {
     // ---- Header ----
     const header = el("div", "settings-modal-header");
     header.appendChild(el("span", "settings-modal-title", t("changes.title", { sha: ctx.sha.slice(0, 7) })));
+    // Window controls, grouped together on the right (Windows-style): maximize
+    // sits directly next to the close button rather than floating in the middle.
+    const controls = el("div", "settings-modal-controls");
     const maxBtn = button("settings-close-x changes-max-btn", "", toggleMaximize);
     maxBtn.innerHTML = maximized ? RESTORE_SVG : MAXIMIZE_SVG;
     const maxLabel = maximized ? t("changes.restore") : t("changes.maximize");
     maxBtn.title = maxLabel;
     maxBtn.setAttribute("aria-label", maxLabel);
-    header.appendChild(maxBtn);
+    controls.appendChild(maxBtn);
     const closeBtn = button("settings-close-x", "×", closeChangesDialog);
     closeBtn.setAttribute("aria-label", t("changes.close"));
-    header.appendChild(closeBtn);
+    controls.appendChild(closeBtn);
+    header.appendChild(controls);
     modal.appendChild(header);
 
     // ---- Body: file list (left) + diff (right) ----

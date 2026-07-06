@@ -904,6 +904,12 @@ body,
   height: calc(100vh - 16px);
   max-height: calc(100vh - 16px);
 }
+/* Window controls grouped on the right of the header (Windows-style). */
+.settings-modal-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
 .changes-max-btn {
   display: inline-flex;
   align-items: center;
