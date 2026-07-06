@@ -142,7 +142,14 @@ export function openNewBranchDialog(ctx: NewBranchContext): void {
       const validName = has && isValidBranchName(full);
       const duplicate = has && existing.has(full);
       const valid = validName && !duplicate;
-      fullNameLine.textContent = full ? t("newBranch.fullName", { name: full }) : "";
+      // Full-name preview: the composed name once one is typed, or — when only a
+      // folder location is picked — the location prefix so the selection is
+      // visibly reflected instead of appearing to do nothing.
+      fullNameLine.textContent = full
+        ? t("newBranch.fullName", { name: full })
+        : selectedFolder
+          ? t("newBranch.fullName", { name: `${selectedFolder}/` })
+          : "";
       // Invalid characters and "already exists" are mutually exclusive messages —
       // a duplicate is by definition a syntactically valid name.
       invalidLine.classList.toggle("visible", has && !validName);
