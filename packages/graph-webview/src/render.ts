@@ -233,7 +233,9 @@ export class GraphView {
    * dimming everything else. Side branches that were merged in along the way
    * (reachable only through a merge's second parent) stay dimmed, so selecting
    * a branch shows the branch itself and the trunk it forked from — not every
-   * historical branch that was ever merged below it. Pass null (or the already
+   * historical branch that was ever merged below it. Merges that landed *on the
+   * selected branch itself* (e.g. main refreshed into it) do light up their
+   * merge edge, so incoming merges stay visible. Pass null (or the already
    * selected node) to clear. Walks first-parent edges once (O(V)) and only
    * toggles a CSS class per element — no DOM rebuild — so it stays cheap on
    * large graphs.
@@ -249,10 +251,22 @@ export class GraphView {
 
     this.selectedNodeId = nodeId;
     const visited = this.lineOf(nodeId);
+    // The selected branch's own segment of the line is the part sharing the
+    // start node's lane (a phantom labels its anchor's commit, so its line's
+    // own segment is the anchor's lane). Below the fork point the line runs on
+    // the base branch's lane.
+    const start = this.nodeById.get(nodeId)!;
+    const lineStart = start.phantom ? this.nodeById.get(this.realNodeId.get(start.sha) ?? "") : start;
+    const lineLane = lineStart?.lane;
     this.viewport.classList.add("has-selection");
     for (const r of this.edgeRecords) {
-      // Merge edges lead to a second parent — never part of the first-parent line.
-      const on = !r.stash && !r.merge && visited.has(r.fromId) && visited.has(r.toId);
+      // A merge edge lights up only when the merge landed on the selected
+      // branch's own segment (e.g. a refreshed main merged into this branch);
+      // merges into the base branch below the fork point stay dim, as do the
+      // merged-in side branch's own commits.
+      const on = r.merge
+        ? !r.stash && visited.has(r.fromId) && this.nodeById.get(r.fromId)?.lane === lineLane
+        : !r.stash && visited.has(r.fromId) && visited.has(r.toId);
       r.el.classList.toggle("edge-path", on);
     }
     for (const r of this.nodeRecords) {
@@ -430,6 +444,15 @@ export class GraphView {
         stash: e.isStash === true,
         merge: e.isMerge === true,
       });
+      // Merge edges carry an arrowhead pointing at the commit that received the
+      // merge, so the direction of the merge is readable on the line itself. The
+      // arrow is its own element sharing the edge's record flags, so selection
+      // highlighting and dimming apply to both in lockstep.
+      if (e.isMerge && !e.isStash) {
+        const arrow = this.mergeArrow(e);
+        edgeLayer.appendChild(arrow);
+        this.edgeRecords.push({ el: arrow, fromId: e.fromId, toId: e.toId, stash: false, merge: true });
+      }
     }
     this.viewport.appendChild(edgeLayer);
 
@@ -573,6 +596,23 @@ export class GraphView {
     ];
     path.setAttribute("d", roundedPath(pts, 8));
     return path;
+  }
+
+  /**
+   * Solid arrowhead for a merge edge, sitting where the line meets the merge
+   * commit (the edge's child end) and pointing up into it — the merge flows
+   * from the second parent *into* that commit. Every merge edge leaves its
+   * child's bottom centre with a vertical drop, so a fixed upward triangle is
+   * always tangent to the line; no orientation math or SVG markers needed
+   * (markers render inconsistently across the embedded browser engines).
+   */
+  private mergeArrow(e: LayoutEdge): SVGPathElement {
+    const cx = this.boxX(e.fromLane) + BOX_W / 2;
+    const cy = this.boxY(e.fromRow) + (this.ownHeight.get(e.fromId) ?? CONTENT_H);
+    const arrow = document.createElementNS(SVG_NS, "path");
+    arrow.classList.add("edge", "edge-merge", "edge-arrow");
+    arrow.setAttribute("d", `M ${cx} ${cy + 1} L ${cx - 5} ${cy + 10} L ${cx + 5} ${cy + 10} Z`);
+    return arrow;
   }
 
   private nodeBox(c: PositionedCommit): SVGGElement {

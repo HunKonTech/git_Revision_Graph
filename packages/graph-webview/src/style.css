@@ -154,6 +154,13 @@ body,
   stroke: var(--stash-edge);
   stroke-dasharray: 3 3;
 }
+/* Merge-direction arrowhead: a solid triangle at the merge commit's end of the
+   line, filled (not stroked) so the dashed merge style doesn't hollow it out. */
+.edge-arrow {
+  fill: var(--edge-merge);
+  stroke: none;
+  stroke-dasharray: none;
+}
 
 /* Ancestry-path highlight: when a node is selected, everything dims except the
    connections and nodes on the path back to the root. Only class toggles drive
@@ -165,6 +172,10 @@ body,
   opacity: 1;
   stroke: var(--accent);
   stroke-width: 2.5;
+}
+.has-selection .edge.edge-arrow.edge-path {
+  fill: var(--accent);
+  stroke: none;
 }
 .has-selection .node {
   opacity: 0.3;

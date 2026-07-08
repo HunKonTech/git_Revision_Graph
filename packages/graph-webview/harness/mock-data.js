@@ -5,6 +5,9 @@ window.__MOCK_GRAPH__ = {
   gitCommand: "git log --exclude=refs/stash --all --topo-order --max-count=500",
   head: "h7777777",
   commits: [
+    // Merge going the *other* way: the refreshed main merged INTO a side branch.
+    // Selecting test/1.31 must light this merge edge (arrow pointing at t2222222).
+    { sha: "t2222222", parents: ["t1111111", "h5555555"], summary: "Merge main into test/1.31", author: "Ben", authorEmail: "ben@example.com", date: "2026-06-28T10:00:00Z" },
     { sha: "h7777777", parents: ["h6666666", "f2222222"], summary: "Merge feature/login", author: "Ben", authorEmail: "ben@example.com", date: "2026-06-25T10:00:00Z" },
     { sha: "f2222222", parents: ["f1111111"], summary: "Add login form validation", author: "Ben", authorEmail: "ben@example.com", date: "2026-06-24T15:00:00Z" },
     { sha: "h6666666", parents: ["h5555555"], summary: "Update README", author: "Ana", authorEmail: "ana@example.com", date: "2026-06-24T12:00:00Z" },
@@ -28,7 +31,7 @@ window.__MOCK_GRAPH__ = {
     { name: "v1.0.0", type: "tag", targetSha: "h5555555" },
     { name: "release/1.0", type: "localBranch", targetSha: "h5555555" },
     { name: "origin/release/1.0", type: "remoteBranch", targetSha: "h5555555", remote: "origin" },
-    { name: "test/1.31", type: "localBranch", targetSha: "t1111111" },
+    { name: "test/1.31", type: "localBranch", targetSha: "t2222222" },
   ],
   // Two stashes from different base commits — drawn in their own column.
   stashes: [
