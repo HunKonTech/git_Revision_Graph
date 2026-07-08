@@ -352,10 +352,14 @@ jobs:
             -personalAccessToken "$env:VS_PAT"
 
           if ($LASTEXITCODE -ne 0) {
-            Write-Error "VsixPublisher.exe exited with code $LASTEXITCODE"
-            exit $LASTEXITCODE
+            # Best-effort, like the JetBrains and Maven Central publishes: the
+            # VSIX is already built and attached to the GitHub Release, so a
+            # Marketplace hiccup (e.g. VsixPublisher's ~100s HTTP timeout to the
+            # Marketplace) must not fail the release. Warn and continue.
+            Write-Warning "VsixPublisher.exe exited with code $LASTEXITCODE (commonly a transient Marketplace HTTP timeout). The VSIX already shipped on the GitHub Release; continuing."
+          } else {
+            Write-Host "Successfully published to Visual Studio Marketplace."
           }
-          Write-Host "Successfully published to Visual Studio Marketplace."
 
   # -------------------------------------------------------------------------
   # Second job: build VS 2022 VSIX on the self-hosted Windows runner.
@@ -558,10 +562,13 @@ jobs:
             -publishManifest (Resolve-Path 'vs\publishManifest.json').Path `
             -personalAccessToken "$env:VS_PAT"
           if ($LASTEXITCODE -ne 0) {
-            Write-Error "VsixPublisher.exe exited with code $LASTEXITCODE"
-            exit $LASTEXITCODE
+            # Best-effort (see the same note in the release job's publish step):
+            # the vs2022 VSIX is already attached to the GitHub Release above, so
+            # a transient Marketplace timeout must not fail the job.
+            Write-Warning "VsixPublisher.exe exited with code $LASTEXITCODE (commonly a transient Marketplace HTTP timeout). The VSIX already shipped on the GitHub Release; continuing."
+          } else {
+            Write-Host "Successfully published to Visual Studio Marketplace."
           }
-          Write-Host "Successfully published to Visual Studio Marketplace."
 
   # -------------------------------------------------------------------------
   # Third job: build the JetBrains-family plugin (IntelliJ Platform / Gradle).
@@ -824,12 +831,33 @@ jobs:
           cp "$zip" dist/installers/RevisionGraph-eclipse-updatesite.zip
           echo "Update site -> RevisionGraph-eclipse-updatesite.zip"
 
+      # Upload via the GitHub REST API with curl, not the `gh` CLI: the
+      # self-hosted Linux runner has no `gh` (unlike the retired ubuntu-latest),
+      # so `gh release upload` was "command not found". curl + GITHUB_TOKEN is
+      # always available. Mirrors the Invoke-RestMethod upload the Windows jobs
+      # use.
       - name: Attach the update site to the GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload "v${NEW_VERSION}" \
-            dist/installers/RevisionGraph-eclipse-updatesite.zip --clobber
+          set -euo pipefail
+          name="RevisionGraph-eclipse-updatesite.zip"
+          file="dist/installers/$name"
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}"
+          auth="Authorization: Bearer ${GH_TOKEN}"
+          rel=$(curl -fsSL -H "$auth" "$api/releases/tags/v${NEW_VERSION}")
+          rid=$(printf '%s' "$rel" | grep -m1 '"id":' | grep -o '[0-9]\+' | head -n1)
+          # Delete an existing asset of the same name so the upload is idempotent.
+          existing=$(printf '%s' "$rel" \
+            | tr '}' '\n' | grep -F "\"name\": \"$name\"" | grep -o '"id": [0-9]\+' | grep -o '[0-9]\+' | head -n1 || true)
+          if [ -n "${existing:-}" ]; then
+            curl -fsSL -X DELETE -H "$auth" "$api/releases/assets/$existing" >/dev/null || true
+            echo "Removed old asset: $name"
+          fi
+          curl -fsSL -X POST -H "$auth" -H "Content-Type: application/zip" \
+            --data-binary @"$file" \
+            "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/$rid/assets?name=$name" >/dev/null
+          echo "Uploaded: $name"
 
       # Deploy the live p2 update site to GitHub Pages under /eclipse-update-site
       # so the Eclipse Marketplace listing can point at a stable URL. Best-effort
@@ -963,12 +991,29 @@ jobs:
           cp "$nbm" dist/installers/RevisionGraph-netbeans.nbm
           echo "NetBeans plugin -> RevisionGraph-netbeans.nbm"
 
+      # curl + REST, not `gh` (absent on the self-hosted Linux runner — see the
+      # identical note in build-eclipse-plugin).
       - name: Attach the .nbm to the GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload "v${NEW_VERSION}" \
-            dist/installers/RevisionGraph-netbeans.nbm --clobber
+          set -euo pipefail
+          name="RevisionGraph-netbeans.nbm"
+          file="dist/installers/$name"
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}"
+          auth="Authorization: Bearer ${GH_TOKEN}"
+          rel=$(curl -fsSL -H "$auth" "$api/releases/tags/v${NEW_VERSION}")
+          rid=$(printf '%s' "$rel" | grep -m1 '"id":' | grep -o '[0-9]\+' | head -n1)
+          existing=$(printf '%s' "$rel" \
+            | tr '}' '\n' | grep -F "\"name\": \"$name\"" | grep -o '"id": [0-9]\+' | grep -o '[0-9]\+' | head -n1 || true)
+          if [ -n "${existing:-}" ]; then
+            curl -fsSL -X DELETE -H "$auth" "$api/releases/assets/$existing" >/dev/null || true
+            echo "Removed old asset: $name"
+          fi
+          curl -fsSL -X POST -H "$auth" -H "Content-Type: application/octet-stream" \
+            --data-binary @"$file" \
+            "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/$rid/assets?name=$name" >/dev/null
+          echo "Uploaded: $name"
 
       # Deploy the NetBeans Autoupdate Center (updates.xml + .nbm) to GitHub Pages
       # under /netbeans-update-center so an IDE subscribed to that catalog URL
