@@ -1,5 +1,13 @@
 # Builds the interactive browser demo (shared webview bundle + mock data) and
-# publishes it to GitHub Pages on every push to main.
+# publishes it to GitHub Pages.
+#
+# It runs AFTER the "Build & Publish Extensions" (release) workflow finishes, not
+# directly on push. That release run bumps the EXTENSION_VERSION repo variable,
+# so by the time this starts the version is final — the demo footer shows the
+# real current release (vX.Y.Z), never a stale placeholder, and there is no race
+# with the version bump. Running here also keeps the demo build off the
+# self-hosted Windows runner while the heavy release build occupies it (the old
+# push-triggered demo build contended with it and got canceled mid-run).
 #
 # One-time setup: repo Settings → Pages → Build and deployment → Source =
 # "GitHub Actions". Then the demo is live at:
@@ -7,13 +15,10 @@
 name: Deploy demo to GitHub Pages
 
 on:
-  push:
-    branches: [main]
-    # Only rebuild when something that affects the demo changes.
-    paths:
-      - "packages/**"
-      - "scripts/build-demo.mjs"
-      - ".github/workflows/deploy-demo.yml"
+  workflow_run:
+    workflows: ["Build & Publish Extensions"]
+    types: [completed]
+  # Manual re-deploy (e.g. after changing this workflow) without a release.
   workflow_dispatch:
 
 # Allow the workflow to publish to Pages.
@@ -22,39 +27,43 @@ permissions:
   pages: write
   id-token: write
 
-# One concurrent deploy; newer pushes cancel an in-flight run.
+# One concurrent deploy; newer runs cancel an in-flight one so the live demo
+# always ends up on the most recent release.
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
   build:
-    # Pin to the Windows x64 self-hosted runner.
-    runs-on: [self-hosted, windows, X64]
+    # Deploy only for a successful release (skip when it failed or was
+    # cancelled), or when triggered by hand.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    # GitHub-hosted: the demo build is plain Node + esbuild (no Windows/VS SDK),
+    # so it needs neither the self-hosted runner nor its Git-Bash-over-WSL fix,
+    # and it can't contend with the release build for that machine.
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # No `cache: npm`: on this memory-constrained self-hosted runner the
-      # actions/cache restore fails to allocate its download buffer
-      # ("Array buffer allocation failed") and hangs for ~10 min before
-      # falling through. Skipping it removes a memory-pressure source.
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
 
       - name: Build demo
+        # The real current-release version lives in the EXTENSION_VERSION repo
+        # variable (bumped by the release workflow that just finished); the
+        # committed package.json only carries a placeholder. Inject it so the
+        # footer matches the latest release. Falls back to package.json when the
+        # variable is unset (e.g. a fresh fork).
+        env:
+          APP_VERSION: ${{ vars.EXTENSION_VERSION }}
         run: npm run build:demo
-
-      # upload-pages-artifact archives with `shell: bash`. On this self-hosted
-      # runner `bash` resolves to C:\Windows\System32\bash.exe (the WSL
-      # launcher), which has no distro installed and fails with
-      # WSL_E_DEFAULT_DISTRO_NOT_FOUND. Prepend Git's bin (real Git Bash + GNU
-      # tar) to PATH so the action uses Git Bash instead of WSL.
-      - name: Prefer Git Bash over WSL bash
-        run: Add-Content -Path $env:GITHUB_PATH -Value "C:\Program Files\Git\bin"
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
@@ -63,11 +72,6 @@ jobs:
 
   deploy:
     needs: build
-    # The deploy step only calls the GitHub Pages REST API (no build, tar, or
-    # bash), so it has no reason to run on the self-hosted runner — doing so
-    # exposed it to that machine's memory pressure and runner contention with
-    # the concurrent release build, which canceled the job mid-poll. This repo
-    # is public, so GitHub-hosted runners are free and reliable here.
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:

@@ -6,9 +6,13 @@ import { mkdir, writeFile, rm, readFile } from "node:fs/promises";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const watch = process.argv.includes("--watch");
 
-// Single source of truth for the version shown in the footer: the repo root
-// package.json, so it never needs to be bumped in more than one place.
+// Version shown in the footer. The committed root package.json holds a
+// placeholder; the real current-release version lives in the repo's
+// EXTENSION_VERSION variable, which the release CI never commits back. So an
+// explicit APP_VERSION env var (set by the demo-deploy workflow from that
+// variable) wins when present, and the package.json value is the local fallback.
 const rootPkg = JSON.parse(await readFile(resolve(__dirname, "../../package.json"), "utf8"));
+const appVersion = process.env.APP_VERSION?.trim() || rootPkg.version;
 
 /** @type {import('esbuild').BuildOptions} */
 const options = {
@@ -21,7 +25,7 @@ const options = {
   loader: { ".css": "css" },
   sourcemap: true,
   logLevel: "info",
-  define: { __APP_VERSION__: JSON.stringify(rootPkg.version) },
+  define: { __APP_VERSION__: JSON.stringify(appVersion) },
 };
 
 // Emit standalone .svg files of the dialog/display schematics from the shared,
