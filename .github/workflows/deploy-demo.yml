@@ -5,9 +5,15 @@
 # directly on push. That release run bumps the EXTENSION_VERSION repo variable,
 # so by the time this starts the version is final — the demo footer shows the
 # real current release (vX.Y.Z), never a stale placeholder, and there is no race
-# with the version bump. Running here also keeps the demo build off the
-# self-hosted Windows runner while the heavy release build occupies it (the old
-# push-triggered demo build contended with it and got canceled mid-run).
+# with the version bump. Sequencing after the release also keeps the demo build
+# from contending with it: the release runs on the self-hosted *Windows* runner,
+# while this runs on the self-hosted *Linux* runner (a different machine), so
+# they never fight for the same host (the old push-triggered demo build shared
+# the Windows runner and got canceled mid-run).
+#
+# Everything here runs on self-hosted runners only (org policy). The demo build
+# is plain Node + esbuild — no Windows/VS SDK — so the self-hosted Linux runner
+# fits and needs no Git-Bash-over-WSL workaround (bash + tar are native there).
 #
 # One-time setup: repo Settings → Pages → Build and deployment → Source =
 # "GitHub Actions". Then the demo is live at:
@@ -40,17 +46,18 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
-    # GitHub-hosted: the demo build is plain Node + esbuild (no Windows/VS SDK),
-    # so it needs neither the self-hosted runner nor its Git-Bash-over-WSL fix,
-    # and it can't contend with the release build for that machine.
-    runs-on: ubuntu-latest
+    # Self-hosted Linux (the org's ARM64 Linux runner) — separate machine from
+    # the release build's self-hosted Windows runner, so no contention.
+    runs-on: [self-hosted, Linux, ARM64]
     steps:
       - uses: actions/checkout@v4
 
+      # No `cache: npm`: on the memory-constrained self-hosted runners the
+      # actions/cache restore can fail to allocate its download buffer and hang
+      # before falling through, so npm's own cache is left to do the job.
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: npm
 
       - name: Install dependencies
         run: npm ci
@@ -72,7 +79,9 @@ jobs:
 
   deploy:
     needs: build
-    runs-on: ubuntu-latest
+    # deploy-pages just calls the Pages REST API; run it on the same self-hosted
+    # Linux runner (org policy allows self-hosted only).
+    runs-on: [self-hosted, Linux, ARM64]
     timeout-minutes: 10
     environment:
       name: github-pages
