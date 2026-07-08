@@ -254,13 +254,17 @@ export class GraphView {
     const ownSegment = this.ownSegmentOf(nodeId);
     this.viewport.classList.add("has-selection");
     for (const r of this.edgeRecords) {
-      // A merge edge lights up only when the merge landed on the selected
-      // branch's own segment (e.g. a refreshed main merged into this branch);
-      // merges that happened before the branch existed — into the base branch
-      // at or below the fork point — stay dim, as do the merged-in side
-      // branch's own commits.
+      // A merge edge lights up only when a *more central* branch was merged into
+      // the selected branch's own segment — e.g. a refreshed main (lower lane)
+      // merged into this side branch. A feature branch merged the other way,
+      // *into* this branch from a lane further right (like feature/login into
+      // main), stays dim: that's an old side branch being absorbed, exactly the
+      // history the selection is meant to hide. Merges before the branch existed
+      // (into the base branch at/below the fork point) also stay dim.
       const on = r.merge
-        ? !r.stash && ownSegment.has(r.fromId)
+        ? !r.stash &&
+          ownSegment.has(r.fromId) &&
+          (this.nodeById.get(r.toId)?.lane ?? 0) < (this.nodeById.get(r.fromId)?.lane ?? 0)
         : !r.stash && visited.has(r.fromId) && visited.has(r.toId);
       r.el.classList.toggle("edge-path", on);
     }
