@@ -251,21 +251,16 @@ export class GraphView {
 
     this.selectedNodeId = nodeId;
     const visited = this.lineOf(nodeId);
-    // The selected branch's own segment of the line is the part sharing the
-    // start node's lane (a phantom labels its anchor's commit, so its line's
-    // own segment is the anchor's lane). Below the fork point the line runs on
-    // the base branch's lane.
-    const start = this.nodeById.get(nodeId)!;
-    const lineStart = start.phantom ? this.nodeById.get(this.realNodeId.get(start.sha) ?? "") : start;
-    const lineLane = lineStart?.lane;
+    const ownSegment = this.ownSegmentOf(nodeId);
     this.viewport.classList.add("has-selection");
     for (const r of this.edgeRecords) {
       // A merge edge lights up only when the merge landed on the selected
       // branch's own segment (e.g. a refreshed main merged into this branch);
-      // merges into the base branch below the fork point stay dim, as do the
-      // merged-in side branch's own commits.
+      // merges that happened before the branch existed — into the base branch
+      // at or below the fork point — stay dim, as do the merged-in side
+      // branch's own commits.
       const on = r.merge
-        ? !r.stash && visited.has(r.fromId) && this.nodeById.get(r.fromId)?.lane === lineLane
+        ? !r.stash && ownSegment.has(r.fromId)
         : !r.stash && visited.has(r.fromId) && visited.has(r.toId);
       r.el.classList.toggle("edge-path", on);
     }
@@ -295,6 +290,31 @@ export class GraphView {
       sha = this.adjacency.get(sha)?.[0];
     }
     return visited;
+  }
+
+  /**
+   * The selected branch's *own* segment of the line: the contiguous run of real
+   * commits from the selection downward that still sit in the selection's lane.
+   * It ends at the fork point, where the line hops to the base branch's lane.
+   * A phantom occupies a lane of its own with no commits, so its segment holds
+   * no real commits — a merge sitting at or under a brand-new branch's start is
+   * the base branch's history, not the new branch's.
+   */
+  private ownSegmentOf(nodeId: string): Set<string> {
+    const segment = new Set<string>();
+    const start = this.nodeById.get(nodeId);
+    if (!start || start.stash) return segment;
+    const seen = new Set<string>();
+    let sha: string | undefined = start.sha;
+    while (sha !== undefined && !seen.has(sha)) {
+      seen.add(sha);
+      const realId = this.realNodeId.get(sha);
+      const node = realId !== undefined ? this.nodeById.get(realId) : undefined;
+      if (!node || node.lane !== start.lane) break;
+      segment.add(node.nodeId);
+      sha = this.adjacency.get(sha)?.[0];
+    }
+    return segment;
   }
 
   /** Reset the view to the top-left of the graph (the trunk). */
@@ -444,14 +464,16 @@ export class GraphView {
         stash: e.isStash === true,
         merge: e.isMerge === true,
       });
-      // Merge edges carry an arrowhead pointing at the commit that received the
-      // merge, so the direction of the merge is readable on the line itself. The
-      // arrow is its own element sharing the edge's record flags, so selection
-      // highlighting and dimming apply to both in lockstep.
+      // Merge edges carry arrowheads (start, middle, end of the line) pointing
+      // at the commit that received the merge, so the direction of the merge is
+      // readable anywhere along the line. Each arrow is its own element sharing
+      // the edge's record flags, so selection highlighting and dimming apply to
+      // the line and its arrows in lockstep.
       if (e.isMerge && !e.isStash) {
-        const arrow = this.mergeArrow(e);
-        edgeLayer.appendChild(arrow);
-        this.edgeRecords.push({ el: arrow, fromId: e.fromId, toId: e.toId, stash: false, merge: true });
+        for (const arrow of this.mergeArrows(e)) {
+          edgeLayer.appendChild(arrow);
+          this.edgeRecords.push({ el: arrow, fromId: e.fromId, toId: e.toId, stash: false, merge: true });
+        }
       }
     }
     this.viewport.appendChild(edgeLayer);
@@ -566,9 +588,22 @@ export class GraphView {
     }
 
     // Cross-lane: route orthogonally through the empty corridors so the line
-    // never crosses a box. Horizontal runs stay in the row gaps (the box-free
-    // bands between rows); the vertical run stays in a gutter (the box-free strip
-    // between two box columns). Corners are rounded for a softer look.
+    // never crosses a box (see parentEdgePoints). Corners are rounded for a
+    // softer look.
+    path.setAttribute("d", roundedPath(this.parentEdgePoints(e), 8));
+    return path;
+  }
+
+  /**
+   * Waypoints of a cross-lane parent edge, child end first. Horizontal runs stay
+   * in the row gaps (the box-free bands between rows); the vertical run stays in
+   * a gutter (the box-free strip between two box columns).
+   */
+  private parentEdgePoints(e: LayoutEdge): Array<[number, number]> {
+    const cx = this.boxX(e.fromLane) + BOX_W / 2;
+    const cy = this.boxY(e.fromRow) + (this.ownHeight.get(e.fromId) ?? CONTENT_H);
+    const px = this.boxX(e.toLane) + BOX_W / 2;
+    const py = this.boxY(e.toRow); // parent top
     const y1 = this.rowBottom(e.fromRow) + ROW_GAP / 2; // gap just below the child's row
     const y2 = this.boxY(e.toRow) - ROW_GAP / 2; // gap just above the parent's row
     const rightLane = Math.max(e.fromLane, e.toLane);
@@ -586,7 +621,7 @@ export class GraphView {
     }
     const xCorr = this.boxX(rightLane) - (LANE_W - BOX_W) / 2 + fanOffset; // gutter left of the right column
 
-    const pts: Array<[number, number]> = [
+    return [
       [cx, cy],
       [cx, y1],
       [xCorr, y1],
@@ -594,24 +629,62 @@ export class GraphView {
       [px, y2],
       [px, py],
     ];
-    path.setAttribute("d", roundedPath(pts, 8));
-    return path;
   }
 
   /**
-   * Solid arrowhead for a merge edge, sitting where the line meets the merge
-   * commit (the edge's child end) and pointing up into it — the merge flows
-   * from the second parent *into* that commit. Every merge edge leaves its
-   * child's bottom centre with a vertical drop, so a fixed upward triangle is
-   * always tangent to the line; no orientation math or SVG markers needed
-   * (markers render inconsistently across the embedded browser engines).
+   * Solid arrowheads for a merge edge, all pointing along the merge's flow —
+   * from the second parent *into* the merge commit: one where the line leaves
+   * the source commit, one on the line's longest run (its visual middle), and
+   * one where it enters the merge commit. Drawn as plain paths, not SVG
+   * markers, which render inconsistently across the embedded browser engines.
    */
-  private mergeArrow(e: LayoutEdge): SVGPathElement {
+  private mergeArrows(e: LayoutEdge): SVGPathElement[] {
     const cx = this.boxX(e.fromLane) + BOX_W / 2;
     const cy = this.boxY(e.fromRow) + (this.ownHeight.get(e.fromId) ?? CONTENT_H);
+    const px = this.boxX(e.toLane) + BOX_W / 2;
+    const py = this.boxY(e.toRow);
+    const arrows = [
+      this.arrowAt(cx, cy + 5, 0, -1), // entering the merge commit (line end)
+      this.arrowAt(px, py - 7, 0, -1), // leaving the source commit (line start)
+    ];
+    // Mid-line arrow on the route's longest run. Both ends leave their boxes
+    // vertically, so the polyline is walked child-first and the flow direction
+    // at any segment is simply "toward the child end".
+    const pts: Array<[number, number]> =
+      e.fromLane === e.toLane ? [[cx, cy], [px, py]] : this.parentEdgePoints(e);
+    let best = 0;
+    let bi = -1;
+    for (let i = 1; i < pts.length; i++) {
+      const len = Math.abs(pts[i][0] - pts[i - 1][0]) + Math.abs(pts[i][1] - pts[i - 1][1]);
+      if (len > best) {
+        best = len;
+        bi = i;
+      }
+    }
+    // Skip the third arrow on very short runs — the two end arrows already
+    // cover the whole line there.
+    if (bi > 0 && best > 34) {
+      const [x2, y2] = pts[bi]; // parent-side end of the run
+      const [x1, y1] = pts[bi - 1]; // child-side end of the run
+      arrows.push(this.arrowAt((x1 + x2) / 2, (y1 + y2) / 2, Math.sign(x1 - x2), Math.sign(y1 - y2)));
+    }
+    return arrows;
+  }
+
+  /** One filled triangle centred on (x, y), pointing along the axis-aligned unit direction (dx, dy). */
+  private arrowAt(x: number, y: number, dx: number, dy: number): SVGPathElement {
+    const tipX = x + dx * 5;
+    const tipY = y + dy * 5;
+    const bx = x - dx * 4; // base centre
+    const by = y - dy * 4;
+    const nx = -dy; // perpendicular to the flow
+    const ny = dx;
     const arrow = document.createElementNS(SVG_NS, "path");
     arrow.classList.add("edge", "edge-merge", "edge-arrow");
-    arrow.setAttribute("d", `M ${cx} ${cy + 1} L ${cx - 5} ${cy + 10} L ${cx + 5} ${cy + 10} Z`);
+    arrow.setAttribute(
+      "d",
+      `M ${tipX} ${tipY} L ${bx + nx * 5} ${by + ny * 5} L ${bx - nx * 5} ${by - ny * 5} Z`,
+    );
     return arrow;
   }
 
