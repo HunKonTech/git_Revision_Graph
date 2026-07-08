@@ -736,12 +736,13 @@ jobs:
   # update-site URL. So "publishing" here means (a) attaching the installable
   # update-site zip to the GitHub Release, and (b) deploying the live update
   # site to GitHub Pages for the Marketplace listing to reference. See
-  # eclipse/BUILD.md. Tycho is cross-platform, so this runs on a stock
-  # ubuntu-latest runner (it needs network access to the Eclipse p2 repos).
+  # eclipse/BUILD.md. Tycho is cross-platform, so this runs on the self-hosted
+  # Linux runner (org policy: self-hosted only; it needs network access to the
+  # Eclipse p2 repos).
   # -------------------------------------------------------------------------
   build-eclipse-plugin:
     needs: release
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, ARM64]
     if: success() || needs.release.result == 'success'
 
     env:
@@ -820,8 +821,8 @@ jobs:
   # own (see netbeans/pom.xml's kotlin-maven-plugin sourceDirs). Independent of
   # the VS, JetBrains and Eclipse jobs — runs in parallel, also after `release`
   # so the GitHub Release already exists. Tycho-like, the build is cross-platform
-  # so it runs on stock ubuntu-latest (JDK 17 via setup-java, which bundles
-  # Maven).
+  # so it runs on the self-hosted Linux runner (org policy: self-hosted only;
+  # JDK 17 via setup-java, which bundles Maven).
   #
   # Publishing note: unlike the JetBrains Marketplace, the Apache NetBeans Plugin
   # Portal has no token-based push API — it only lists plugins hosted on Maven
@@ -840,7 +841,7 @@ jobs:
   # -------------------------------------------------------------------------
   build-netbeans-plugin:
     needs: release
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, ARM64]
     if: success() || needs.release.result == 'success'
 
     env:
@@ -990,7 +991,7 @@ jobs:
       - build-vs-vsix
       - build-jetbrains-plugins
       - build-netbeans-plugin
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, ARM64]
 
     steps:
       - uses: actions/checkout@v4
