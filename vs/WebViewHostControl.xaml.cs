@@ -227,7 +227,17 @@ namespace RevisionGraph
                 case "browseGitPath":
                     BrowseGitPath();
                     break;
+                case "openExternal":
+                    OpenExternal(msg.Url);
+                    break;
             }
+        }
+
+        /// <summary>Opens a URL in the OS-default browser (e.g. the footer's GitHub link).</summary>
+        private static void OpenExternal(string url)
+        {
+            if (string.IsNullOrEmpty(url)) return;
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
         }
 
         /// <summary>

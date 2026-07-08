@@ -257,6 +257,7 @@ class NetBeansWebViewHost {
                 "sync" -> runRemoteOp("Sync") { it.sync() }
                 "setGitPath" -> GitService.setCustomGitPath(msg.gitPath)
                 "browseGitPath" -> browseGitPath()
+                "openExternal" -> msg.url?.let { org.openide.awt.HtmlBrowser.URLDisplayer.getDefault().showURL(java.net.URL(it)) }
             }
         } catch (e: Exception) {
             postToWebview(mapOf("type" to "error", "message" to (e.message ?: e.toString())))

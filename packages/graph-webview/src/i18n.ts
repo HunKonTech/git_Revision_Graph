@@ -205,6 +205,7 @@ type Dict = {
   "search.visibilityToolbar": string;
   "search.visibilityAlwaysVisible": string;
   "search.visibilityHint": string;
+  "footer.github": string;
 };
 
 const DICTS: Record<Lang, Dict> = {
@@ -394,6 +395,7 @@ const DICTS: Record<Lang, Dict> = {
     "search.visibilityToolbar": "Toolbar button",
     "search.visibilityAlwaysVisible": "Always-visible bar",
     "search.visibilityHint": "Show search as a toolbar icon or persistent bar at the top.",
+    "footer.github": "GitHub",
   },
   hu: {
     "toolbar.refresh": "⟳ Frissítés",
@@ -581,6 +583,7 @@ const DICTS: Record<Lang, Dict> = {
     "search.visibilityToolbar": "Toolbar gomb",
     "search.visibilityAlwaysVisible": "Mindig látható sáv",
     "search.visibilityHint": "A keresést toolbar ikonként vagy állandó sávként mutasd.",
+    "footer.github": "GitHub",
   },
   zh: {
     "toolbar.refresh": "⟳ 刷新",
@@ -755,6 +758,7 @@ const DICTS: Record<Lang, Dict> = {
     "status.merging": "正在合并…",
     "status.merged": "合并完成。",
     "status.mergeConflict": "合并存在冲突 — 请在编辑器中解决，然后提交。",
+    "footer.github": "GitHub",
   },
   ru: {
     "toolbar.refresh": "⟳ Обновить",
@@ -929,6 +933,7 @@ const DICTS: Record<Lang, Dict> = {
     "status.merging": "Слияние…",
     "status.merged": "Слияние завершено.",
     "status.mergeConflict": "В слиянии есть конфликты — разрешите их в редакторе, затем сделайте коммит.",
+    "footer.github": "GitHub",
   },
 };
 

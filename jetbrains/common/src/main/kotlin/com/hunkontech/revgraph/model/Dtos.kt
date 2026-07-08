@@ -127,4 +127,6 @@ class WebviewMessage {
     /** Custom git binary path for setGitPath; null means use the built-in git. */
     @SerializedName("gitPath")
     var gitPath: String? = null
+    /** Target URL for openExternal. */
+    var url: String? = null
 }

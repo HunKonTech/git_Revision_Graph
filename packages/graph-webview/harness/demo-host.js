@@ -318,6 +318,10 @@
       if (p && p.trim()) send({ type: "gitPathSelected", path: p.trim() });
     },
 
+    openExternal(msg) {
+      if (msg.url) window.open(msg.url, "_blank", "noopener,noreferrer");
+    },
+
     // Serve the hand-authored mock changes for the "View changes…" dialog. The
     // real hosts compute these from git; here they come from window.__MOCK_CHANGES__.
     requestCommitChanges(msg) {

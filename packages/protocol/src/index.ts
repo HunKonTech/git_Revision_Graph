@@ -227,7 +227,10 @@ export type WebviewToHost =
   // Override the git binary path. `null` = revert to the IDE's built-in git.
   | { type: "setGitPath"; path: string | null }
   // Ask the host to open an OS file-picker so the user can select a git binary.
-  | { type: "browseGitPath" };
+  | { type: "browseGitPath" }
+  // Ask the host to open a URL in the system's default browser (e.g. the
+  // project's GitHub page link in the footer).
+  | { type: "openExternal"; url: string };
 
 /** Type guard helper used by hosts when handling untyped postMessage data. */
 export function isWebviewToHost(value: unknown): value is WebviewToHost {

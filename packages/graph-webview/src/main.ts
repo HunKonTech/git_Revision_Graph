@@ -22,6 +22,11 @@ import type { GraphData, ThemeTokens, OpKind, OpResult } from "@rev-graph/protoc
 import type { PositionedCommit } from "@rev-graph/graph-core";
 import "./style.css";
 
+// Injected by esbuild's `define` (see build.mjs) from the repo root package.json.
+declare const __APP_VERSION__: string;
+
+const GITHUB_URL = "https://github.com/HunKonTech/git_Revision_Graph";
+
 const DEFAULT_THEME: ThemeTokens = {
   kind: "dark",
   background: "#1e1e1e",
@@ -36,12 +41,30 @@ function boot(): void {
   const statusBar = document.createElement("div");
   statusBar.className = "status-bar";
 
+  const statusText = document.createElement("span");
+  statusText.className = "status-bar-text";
+  statusBar.appendChild(statusText);
+
+  const footerLinks = document.createElement("div");
+  footerLinks.className = "status-bar-footer";
+  const versionLabel = document.createElement("span");
+  versionLabel.className = "footer-version";
+  versionLabel.textContent = `v${__APP_VERSION__}`;
+  const githubLink = document.createElement("a");
+  githubLink.className = "footer-github";
+  githubLink.href = GITHUB_URL;
+  githubLink.textContent = t("footer.github");
+  githubLink.title = GITHUB_URL;
+  footerLinks.appendChild(versionLabel);
+  footerLinks.appendChild(githubLink);
+  statusBar.appendChild(footerLinks);
+
   // The current status is held as a closure so it can be re-rendered in the
   // active language whenever the user switches languages.
   let statusFn: () => string = () => t("status.loading");
   function renderStatus(fn: () => string): void {
     statusFn = fn;
-    statusBar.textContent = statusFn();
+    statusText.textContent = statusFn();
   }
   renderStatus(statusFn);
 
@@ -68,6 +91,13 @@ function boot(): void {
   root.appendChild(statusBar);
 
   const bridge = createHostBridge();
+
+  // Route the click through the host so every embedding (VS Code, VS, the JVM
+  // IDE hosts) opens it in the system browser instead of navigating in-place.
+  githubLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    bridge.post({ type: "openExternal", url: GITHUB_URL });
+  });
 
   const view = new GraphView(canvas, {
     onNodeContextMenu(commit, x, y) {
@@ -489,7 +519,8 @@ function boot(): void {
     resetBtn.textContent = t("toolbar.reset");
     settingsBtn.textContent = t("toolbar.settings");
     relabelLegend(legend);
-    statusBar.textContent = statusFn();
+    statusText.textContent = statusFn();
+    githubLink.textContent = t("footer.github");
   });
 
   // Notify the host of custom git path whenever it changes in the settings panel.

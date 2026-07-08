@@ -181,6 +181,8 @@ public final class Dtos {
         public String status;
         /** Custom git binary path for setGitPath; null means use the built-in git. */
         public String gitPath;
+        /** Target URL for openExternal. */
+        public String url;
 
         /** Parse one webview-&gt;host JSON message, or return null if malformed. */
         public static WebviewMessage fromJson(String json) {
@@ -209,6 +211,7 @@ public final class Dtos {
             msg.oldPath = str(m, "oldPath");
             msg.status = str(m, "status");
             msg.gitPath = str(m, "gitPath");
+            msg.url = str(m, "url");
             return msg;
         }
 

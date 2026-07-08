@@ -1,10 +1,14 @@
 import * as esbuild from "esbuild";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, resolve } from "node:path";
-import { mkdir, writeFile, rm } from "node:fs/promises";
+import { mkdir, writeFile, rm, readFile } from "node:fs/promises";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const watch = process.argv.includes("--watch");
+
+// Single source of truth for the version shown in the footer: the repo root
+// package.json, so it never needs to be bumped in more than one place.
+const rootPkg = JSON.parse(await readFile(resolve(__dirname, "../../package.json"), "utf8"));
 
 /** @type {import('esbuild').BuildOptions} */
 const options = {
@@ -17,6 +21,7 @@ const options = {
   loader: { ".css": "css" },
   sourcemap: true,
   logLevel: "info",
+  define: { __APP_VERSION__: JSON.stringify(rootPkg.version) },
 };
 
 // Emit standalone .svg files of the dialog/display schematics from the shared,

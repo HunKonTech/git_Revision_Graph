@@ -4,6 +4,7 @@ import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.hunkontech.revgraph.git.GitService
 import com.hunkontech.revgraph.model.WebviewMessage
+import com.intellij.ide.BrowserUtil
 import com.intellij.ide.ui.LafManagerListener
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
@@ -213,6 +214,7 @@ class WebViewHostPanel(private val project: Project) : Disposable {
                 "sync" -> runRemoteOp("Sync") { it.sync() }
                 "setGitPath" -> GitService.setCustomGitPath(msg.gitPath)
                 "browseGitPath" -> browseGitPath()
+                "openExternal" -> msg.url?.let { BrowserUtil.browse(it) }
             }
         } catch (e: Exception) {
             postToWebview(mapOf("type" to "error", "message" to (e.message ?: e.toString())))

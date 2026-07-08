@@ -130,5 +130,7 @@ namespace RevisionGraph.Model
         public string Status { get; set; }
         /// <summary>Custom git binary path for setGitPath; null means use the built-in git.</summary>
         public string GitPath { get; set; }
+        /// <summary>Target URL for openExternal.</summary>
+        public string Url { get; set; }
     }
 }

@@ -389,6 +389,11 @@ public final class WebViewHost {
                 case "browseGitPath":
                     browseGitPath();
                     break;
+                case "openExternal":
+                    if (msg.url != null) {
+                        org.eclipse.swt.program.Program.launch(msg.url);
+                    }
+                    break;
                 default:
                     break;
             }
