@@ -55,12 +55,16 @@ export class GraphView {
   private hasCurrentRef = false;
   /** First-parent-and-beyond adjacency (sha → parent shas present in the graph). */
   private adjacency = new Map<string, string[]>();
-  /** Edge DOM elements with their endpoint shas, for path highlighting. */
-  private edgeRecords: Array<{ el: SVGPathElement; from: string; to: string; stash: boolean; merge: boolean }> = [];
-  /** Node DOM elements with their sha, for path highlighting. */
-  private nodeRecords: Array<{ el: SVGGElement; sha: string }> = [];
-  /** Sha of the node whose ancestry path is currently highlighted, if any. */
-  private selectedSha: string | null = null;
+  /** Edge DOM elements with their endpoint node ids, for path highlighting. */
+  private edgeRecords: Array<{ el: SVGPathElement; fromId: string; toId: string; stash: boolean; merge: boolean }> = [];
+  /** Node DOM elements with their node id, for path highlighting. */
+  private nodeRecords: Array<{ el: SVGGElement; id: string }> = [];
+  /** Every positioned node by its unique nodeId (real, phantom and stash). */
+  private nodeById = new Map<string, PositionedCommit>();
+  /** The non-phantom node id carrying each sha (phantoms are label duplicates). */
+  private realNodeId = new Map<string, string>();
+  /** Node id whose line is currently highlighted, if any. */
+  private selectedNodeId: string | null = null;
   /**
    * For branch/stash connectors that attach to a commit box's *right side*: this
    * edge's slot among all such connectors on the same box, so several branches or
@@ -182,13 +186,19 @@ export class GraphView {
   setData(data: GraphData, mainBranch?: string): void {
     this.layout = computeLayout(data, { mainBranch });
     this.head = data.head ?? null;
-    this.selectedSha = null;
-    // Parent adjacency for ancestry highlighting — real commits only (skip stash
+    this.selectedNodeId = null;
+    // Parent adjacency for line highlighting — real commits only (skip stash
     // nodes), keyed by sha so phantom duplicates collapse onto the same entry.
+    // realNodeId resolves a sha back to the box that actually draws the commit
+    // (phantoms are extra label boxes sharing a sha and must not light up).
     this.adjacency = new Map();
+    this.nodeById = new Map();
+    this.realNodeId = new Map();
     for (const c of this.layout.commits) {
+      this.nodeById.set(c.nodeId, c);
       if (c.stash) continue;
       this.adjacency.set(c.sha, c.parents);
+      if (!c.phantom) this.realNodeId.set(c.sha, c.nodeId);
     }
     // Rows are structural levels and several commits may share a row, so a row's
     // height is the tallest box on it (each box is sized to list all its refs).
@@ -224,45 +234,51 @@ export class GraphView {
    * (reachable only through a merge's second parent) stay dimmed, so selecting
    * a branch shows the branch itself and the trunk it forked from — not every
    * historical branch that was ever merged below it. Pass null (or the already
-   * selected sha) to clear. Walks first-parent edges once (O(V)) and only
+   * selected node) to clear. Walks first-parent edges once (O(V)) and only
    * toggles a CSS class per element — no DOM rebuild — so it stays cheap on
    * large graphs.
    */
-  selectPath(sha: string | null): void {
-    if (sha === null || sha === this.selectedSha || !this.adjacency.has(sha)) {
-      this.selectedSha = null;
+  selectPath(nodeId: string | null): void {
+    if (nodeId === null || nodeId === this.selectedNodeId || !this.nodeById.has(nodeId)) {
+      this.selectedNodeId = null;
       this.viewport.classList.remove("has-selection");
       for (const r of this.edgeRecords) r.el.classList.remove("edge-path");
       for (const r of this.nodeRecords) r.el.classList.remove("node-path");
       return;
     }
 
-    this.selectedSha = sha;
-    const visited = this.ancestorsOf(sha);
+    this.selectedNodeId = nodeId;
+    const visited = this.lineOf(nodeId);
     this.viewport.classList.add("has-selection");
     for (const r of this.edgeRecords) {
       // Merge edges lead to a second parent — never part of the first-parent line.
-      const on = !r.stash && !r.merge && visited.has(r.from) && visited.has(r.to);
+      const on = !r.stash && !r.merge && visited.has(r.fromId) && visited.has(r.toId);
       r.el.classList.toggle("edge-path", on);
     }
     for (const r of this.nodeRecords) {
-      r.el.classList.toggle("node-path", visited.has(r.sha));
+      r.el.classList.toggle("node-path", visited.has(r.id));
     }
   }
 
   /**
-   * The first-parent line of `sha` (inclusive): follow parents[0] links down to
-   * the root. Second parents of merges are deliberately skipped so previously
-   * merged side branches don't light up with the selection.
+   * Node ids on the first-parent line of `nodeId` (inclusive): follow parents[0]
+   * links down to the root. Second parents of merges are deliberately skipped so
+   * previously merged side branches don't light up with the selection, and only
+   * the real box of each commit is included — a phantom sibling (another branch
+   * label sitting on the same sha) stays dimmed. Selecting the phantom itself
+   * includes both it and the commit box it labels.
    */
-  private ancestorsOf(sha: string): Set<string> {
-    const visited = new Set<string>([sha]);
-    let cur: string | undefined = sha;
-    while (cur !== undefined) {
-      const first: string | undefined = this.adjacency.get(cur)?.[0];
-      if (first === undefined || visited.has(first)) break;
-      visited.add(first);
-      cur = first;
+  private lineOf(nodeId: string): Set<string> {
+    const visited = new Set<string>([nodeId]);
+    const start = this.nodeById.get(nodeId);
+    if (!start || start.stash) return visited;
+    const seen = new Set<string>();
+    let sha: string | undefined = start.sha;
+    while (sha !== undefined && !seen.has(sha)) {
+      seen.add(sha);
+      const realId = this.realNodeId.get(sha);
+      if (realId !== undefined) visited.add(realId);
+      sha = this.adjacency.get(sha)?.[0];
     }
     return visited;
   }
@@ -315,8 +331,8 @@ export class GraphView {
       this.ty = rect.height / 2 - this.scale * cy;
       this.applyTransform();
     }
-    this.selectedSha = null; // force selectPath to apply (it no-ops on re-select)
-    this.selectPath(node.sha);
+    this.selectedNodeId = null; // force selectPath to apply (it no-ops on re-select)
+    this.selectPath(node.nodeId);
     return true;
   }
 
@@ -409,8 +425,8 @@ export class GraphView {
       edgeLayer.appendChild(el);
       this.edgeRecords.push({
         el,
-        from: e.fromSha,
-        to: e.toSha,
+        fromId: e.fromId,
+        toId: e.toId,
         stash: e.isStash === true,
         merge: e.isMerge === true,
       });
@@ -422,7 +438,7 @@ export class GraphView {
     for (const c of this.layout.commits) {
       const el = this.nodeBox(c);
       nodeLayer.appendChild(el);
-      this.nodeRecords.push({ el, sha: c.sha });
+      this.nodeRecords.push({ el, id: c.nodeId });
     }
     this.viewport.appendChild(nodeLayer);
   }
