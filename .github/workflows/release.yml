@@ -940,8 +940,17 @@ jobs:
       # `package` also runs the nbm-maven-plugin `autoupdate` execution (bound to
       # the package phase in netbeans/pom.xml), so this one command produces both
       # the .nbm and the Autoupdate Center under netbeans/target/netbeans_site/.
+      #
+      # -Djavafx.platform=linux pins the bundled JavaFX WebView natives to the
+      # x86_64-Linux classifier. OpenJFX's pom picks the native jar via the
+      # `${javafx.platform}` property (os-activated by default); this runner is
+      # ARM64 Linux, for which OpenJFX publishes NO natives on Maven Central
+      # (org.openjfx:*:linux-aarch64 is 404), so the default would fail to
+      # resolve. Forcing `linux` bundles the x86_64 natives instead — the same
+      # host-platform-specific .nbm the previous x86_64 CI produced (full
+      # multi-platform bundling stays the documented follow-up; see BUILD.md).
       - name: Build the NetBeans module (.nbm) + Autoupdate Center
-        run: mvn -B -f netbeans/pom.xml -DskipTests clean package
+        run: mvn -B -f netbeans/pom.xml -DskipTests -Djavafx.platform=linux clean package
 
       - name: Stage the .nbm
         run: |
@@ -1030,6 +1039,7 @@ jobs:
           #    failure here (e.g. a 401 from a wrong/expired Sonatype user token)
           #    is downgraded to a warning so the release stays green.
           if mvn -B -f netbeans/pom.xml -Pcentral-deploy -DskipTests \
+               -Djavafx.platform=linux \
                -Dgpg.passphrase="${MAVEN_GPG_PASSPHRASE}" \
                deploy; then
             echo "Deployed io.github.benkoncsik:netbeans:${NEW_VERSION} to Maven Central (validated; Publish it in the Central UI, then Add Plugin on the NetBeans Plugin Portal)."
