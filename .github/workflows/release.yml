@@ -759,6 +759,37 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      # The self-hosted Linux runner (unlike the retired GitHub-hosted
+      # ubuntu-latest) ships no Maven, so `mvn` would be "command not found".
+      # Provide it in-workflow: if the runner already has mvn on PATH (e.g. a
+      # future `apt-get install maven`), use that; otherwise download the
+      # official Apache Maven binary into the runner's temp and export it onto
+      # PATH for later steps. No sudo, self-contained, arch-independent.
+      - name: Set up Apache Maven
+        env:
+          MAVEN_VERSION: '3.9.9'
+        run: |
+          set -euo pipefail
+          if command -v mvn >/dev/null 2>&1; then
+            echo "Maven already on PATH: $(mvn -v | head -n1)"
+            exit 0
+          fi
+          dest="${RUNNER_TEMP:-/tmp}/apache-maven"
+          mkdir -p "$dest"
+          tgz="${RUNNER_TEMP:-/tmp}/maven.tar.gz"
+          # dlcdn keeps only current releases; archive.apache.org is the durable
+          # fallback for older ones.
+          for base in \
+            "https://dlcdn.apache.org/maven/maven-3/${MAVEN_VERSION}/binaries" \
+            "https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries"; do
+            if curl -fsSL "$base/apache-maven-${MAVEN_VERSION}-bin.tar.gz" -o "$tgz"; then
+              break
+            fi
+          done
+          tar -xzf "$tgz" -C "$dest" --strip-components=1
+          echo "$dest/bin" >> "$GITHUB_PATH"
+          "$dest/bin/mvn" -v
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -861,6 +892,32 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+
+      # The self-hosted Linux runner ships no Maven (see the identical step in
+      # build-eclipse-plugin). Provide `mvn` in-workflow: reuse it if already on
+      # PATH, otherwise download the official Apache Maven binary. No sudo.
+      - name: Set up Apache Maven
+        env:
+          MAVEN_VERSION: '3.9.9'
+        run: |
+          set -euo pipefail
+          if command -v mvn >/dev/null 2>&1; then
+            echo "Maven already on PATH: $(mvn -v | head -n1)"
+            exit 0
+          fi
+          dest="${RUNNER_TEMP:-/tmp}/apache-maven"
+          mkdir -p "$dest"
+          tgz="${RUNNER_TEMP:-/tmp}/maven.tar.gz"
+          for base in \
+            "https://dlcdn.apache.org/maven/maven-3/${MAVEN_VERSION}/binaries" \
+            "https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries"; do
+            if curl -fsSL "$base/apache-maven-${MAVEN_VERSION}-bin.tar.gz" -o "$tgz"; then
+              break
+            fi
+          done
+          tar -xzf "$tgz" -C "$dest" --strip-components=1
+          echo "$dest/bin" >> "$GITHUB_PATH"
+          "$dest/bin/mvn" -v
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
