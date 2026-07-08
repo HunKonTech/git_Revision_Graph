@@ -56,7 +56,7 @@ export class GraphView {
   /** First-parent-and-beyond adjacency (sha → parent shas present in the graph). */
   private adjacency = new Map<string, string[]>();
   /** Edge DOM elements with their endpoint shas, for path highlighting. */
-  private edgeRecords: Array<{ el: SVGPathElement; from: string; to: string; stash: boolean }> = [];
+  private edgeRecords: Array<{ el: SVGPathElement; from: string; to: string; stash: boolean; merge: boolean }> = [];
   /** Node DOM elements with their sha, for path highlighting. */
   private nodeRecords: Array<{ el: SVGGElement; sha: string }> = [];
   /** Sha of the node whose ancestry path is currently highlighted, if any. */
@@ -219,10 +219,14 @@ export class GraphView {
   }
 
   /**
-   * Highlight the ancestry path of a commit: every connection through which it is
-   * reached from the root(s), dimming everything else. Pass null (or the already
-   * selected sha) to clear. Walks parent edges once (O(V+E)) and only toggles a
-   * CSS class per element — no DOM rebuild — so it stays cheap on large graphs.
+   * Highlight the line of a commit: its first-parent chain down to the root,
+   * dimming everything else. Side branches that were merged in along the way
+   * (reachable only through a merge's second parent) stay dimmed, so selecting
+   * a branch shows the branch itself and the trunk it forked from — not every
+   * historical branch that was ever merged below it. Pass null (or the already
+   * selected sha) to clear. Walks first-parent edges once (O(V)) and only
+   * toggles a CSS class per element — no DOM rebuild — so it stays cheap on
+   * large graphs.
    */
   selectPath(sha: string | null): void {
     if (sha === null || sha === this.selectedSha || !this.adjacency.has(sha)) {
@@ -237,7 +241,8 @@ export class GraphView {
     const visited = this.ancestorsOf(sha);
     this.viewport.classList.add("has-selection");
     for (const r of this.edgeRecords) {
-      const on = !r.stash && visited.has(r.from) && visited.has(r.to);
+      // Merge edges lead to a second parent — never part of the first-parent line.
+      const on = !r.stash && !r.merge && visited.has(r.from) && visited.has(r.to);
       r.el.classList.toggle("edge-path", on);
     }
     for (const r of this.nodeRecords) {
@@ -245,20 +250,19 @@ export class GraphView {
     }
   }
 
-  /** All ancestors of `sha` (inclusive), following parent links breadth-first. */
+  /**
+   * The first-parent line of `sha` (inclusive): follow parents[0] links down to
+   * the root. Second parents of merges are deliberately skipped so previously
+   * merged side branches don't light up with the selection.
+   */
   private ancestorsOf(sha: string): Set<string> {
     const visited = new Set<string>([sha]);
-    const stack = [sha];
-    while (stack.length > 0) {
-      const cur = stack.pop()!;
-      const parents = this.adjacency.get(cur);
-      if (!parents) continue;
-      for (const p of parents) {
-        if (!visited.has(p)) {
-          visited.add(p);
-          stack.push(p);
-        }
-      }
+    let cur: string | undefined = sha;
+    while (cur !== undefined) {
+      const first: string | undefined = this.adjacency.get(cur)?.[0];
+      if (first === undefined || visited.has(first)) break;
+      visited.add(first);
+      cur = first;
     }
     return visited;
   }
@@ -403,7 +407,13 @@ export class GraphView {
     for (const e of this.layout.edges) {
       const el = this.edgePath(e);
       edgeLayer.appendChild(el);
-      this.edgeRecords.push({ el, from: e.fromSha, to: e.toSha, stash: e.isStash === true });
+      this.edgeRecords.push({
+        el,
+        from: e.fromSha,
+        to: e.toSha,
+        stash: e.isStash === true,
+        merge: e.isMerge === true,
+      });
     }
     this.viewport.appendChild(edgeLayer);
 
