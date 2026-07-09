@@ -288,10 +288,11 @@ export class GraphView {
    * a branch shows the branch itself and the trunk it forked from — not every
    * historical branch that was ever merged below it. Merges that landed *on the
    * selected branch itself* (e.g. main refreshed into it) do light up their
-   * merge edge, so incoming merges stay visible. Pass null (or the already
-   * selected node) to clear. Walks first-parent edges once (O(V)) and only
-   * toggles a CSS class per element — no DOM rebuild — so it stays cheap on
-   * large graphs.
+   * merge edge, so incoming merges stay visible. When the selected commit itself
+   * was merged into another branch, only that outgoing merge connector lights up;
+   * the target branch's history stays dimmed. Pass null (or the already selected
+   * node) to clear. Walks first-parent edges once (O(V)) and only toggles a CSS
+   * class per element — no DOM rebuild — so it stays cheap on large graphs.
    */
   selectPath(nodeId: string | null): void {
     if (nodeId === null || nodeId === this.selectedNodeId || !this.nodeById.has(nodeId)) {
@@ -324,6 +325,7 @@ export class GraphView {
     // only the merge's tip left the merged-in trunk lit at each merge point but
     // dim in between; pulling in its ancestry makes it a continuous lit line.
     const lit = new Set(visited);
+    const selectedMergeSources = this.mergeSourceIdsFor(nodeId);
     const mergedTips = new Set<string>();
     for (const r of this.edgeRecords) {
       if (landsOnSelection(r)) mergedTips.add(r.toId);
@@ -334,9 +336,14 @@ export class GraphView {
 
     for (const r of this.edgeRecords) {
       // Merge edges light only when they landed on the selected branch (above);
+      // or when the selected commit is the source being merged into another
+      // branch. That second case lights the connector and its arrows only, not
+      // the target branch's first-parent line.
       // solid first-parent edges light whenever both ends are lit — which now
       // covers the merged-in trunk's own internal line, not just the selection's.
-      const on = landsOnSelection(r) || (!r.merge && !r.stash && lit.has(r.fromId) && lit.has(r.toId));
+      const leavesSelection = r.merge && !r.stash && selectedMergeSources.has(r.toId);
+      const on =
+        landsOnSelection(r) || leavesSelection || (!r.merge && !r.stash && lit.has(r.fromId) && lit.has(r.toId));
       r.el.classList.toggle("edge-path", on);
     }
     for (const r of this.nodeRecords) {
@@ -390,6 +397,20 @@ export class GraphView {
       sha = this.adjacency.get(sha)?.[0];
     }
     return segment;
+  }
+
+  /**
+   * Node ids that represent the selected commit as a merge source. A phantom can
+   * share a sha with a real commit, so include both the clicked label node and
+   * the real node for that sha; merge edges point to the real source commit.
+   */
+  private mergeSourceIdsFor(nodeId: string): Set<string> {
+    const ids = new Set<string>([nodeId]);
+    const node = this.nodeById.get(nodeId);
+    if (!node || node.stash) return ids;
+    const realId = this.realNodeId.get(node.sha);
+    if (realId !== undefined) ids.add(realId);
+    return ids;
   }
 
   /** Reset the view to the top-left of the graph (the trunk). */
