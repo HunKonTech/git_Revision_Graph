@@ -101,8 +101,8 @@ netbeans/              — Apache NetBeans plugin (Kotlin, NetBeans module, Java
 `packages/protocol/src/index.ts` defines all message shapes. The C# Visual Studio host mirrors these by hand — **any change here must be reflected in `vs/` too**.
 
 Key message types:
-- `HostToWebview`: `setData` | `setTheme` | `branchCreated` | `error`
-- `WebviewToHost`: `ready` | `requestRefresh` | `createBranch` | `deleteBranch` | `renameCommit` | `checkout` | `copySha` | `fetch` | `pull` | `push` | `sync`
+- `HostToWebview`: `setData` | `setTheme` | `branchCreated` | `opResult` | `commitChanges` | `commitTree` | `fileDiff` | `fileContent` | `workingTreeChanges` | `workingTreeFileDiff` | `commitCreated` | `mergePreview` | `mergeFileDiff` | `searchResults` | `searchError` | `gitPathSelected` | `error`
+- `WebviewToHost`: `ready` | `requestRefresh` | `createBranch` | `deleteBranch` | `renameCommit` | `requestCommitChanges` | `requestCommitTree` | `requestFileDiff` | `requestFileContent` | `requestWorkingTreeChanges` | `requestWorkingTreeFileDiff` | `commitWorkingTreeChanges` | `checkout` | `copySha` | `fetch` | `pull` | `push` | `sync`
 
 ### Webview internals
 
@@ -137,7 +137,7 @@ Key message types:
 2. Add i18n keys to both `en` and `hu` dicts in `packages/graph-webview/src/i18n.ts`.
 3. Add the menu item in `packages/graph-webview/src/main.ts` (`onNodeContextMenu`).
 4. Handle the message in `vscode/src/panel.ts: onMessage`.
-5. Implement the git operation in `vscode/src/gitData.ts`.
+5. Implement the git operation in `vscode/src/gitData.ts`. For new working-tree commit flows, add the same list/diff/commit trio as `requestWorkingTreeChanges`, `requestWorkingTreeFileDiff`, and `commitWorkingTreeChanges`.
 6. Mirror the protocol change in `vs/` (C# side): `vs/WebViewHostControl.xaml.cs` + `vs/Git/GitService.cs` + `vs/Model/Dtos.cs`.
 7. Mirror the protocol change in `jetbrains/` (Kotlin side): `jetbrains/common/.../WebViewHostPanel.kt` + `jetbrains/common/.../git/GitService.kt` + `jetbrains/common/.../model/Dtos.kt`.
 8. Mirror the protocol change in `eclipse/` (Java side): `eclipse/com.hunkontech.revgraph/src/com/hunkontech/revgraph/WebViewHost.java` + `.../git/GitService.java` + `.../model/Dtos.java` (new `WebviewMessage` fields go in `Dtos.java`'s `fromJson`).

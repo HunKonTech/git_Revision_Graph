@@ -192,6 +192,15 @@ namespace RevisionGraph
                 case "requestFileContent":
                     await HandleFileContentAsync(msg.Sha, msg.Path).ConfigureAwait(true);
                     break;
+                case "requestWorkingTreeChanges":
+                    await HandleWorkingTreeChangesAsync().ConfigureAwait(true);
+                    break;
+                case "requestWorkingTreeFileDiff":
+                    await HandleWorkingTreeFileDiffAsync(msg.Path, msg.Status, msg.OldPath).ConfigureAwait(true);
+                    break;
+                case "commitWorkingTreeChanges":
+                    await CommitWorkingTreeChangesAsync(msg.Message, msg.Files).ConfigureAwait(true);
+                    break;
                 case "requestMergePreview":
                     await HandleMergePreviewAsync(msg.Source).ConfigureAwait(true);
                     break;
@@ -634,6 +643,50 @@ namespace RevisionGraph
             catch (Exception ex)
             {
                 PostToWebview(new { type = "error", message = "Failed to read file diff: " + ex.Message });
+            }
+        }
+
+        private async Task HandleWorkingTreeChangesAsync()
+        {
+            if (_git == null) return;
+            try
+            {
+                var files = await _git.ReadWorkingTreeChangesAsync().ConfigureAwait(true);
+                PostToWebview(new { type = "workingTreeChanges", files });
+            }
+            catch (Exception ex)
+            {
+                PostToWebview(new { type = "error", message = "Failed to read working tree changes: " + ex.Message });
+            }
+        }
+
+        private async Task HandleWorkingTreeFileDiffAsync(string path, string status, string oldPath)
+        {
+            if (_git == null || string.IsNullOrEmpty(path)) return;
+            try
+            {
+                var diff = await _git.ReadWorkingTreeFileDiffAsync(path, status, oldPath).ConfigureAwait(true);
+                PostToWebview(new { type = "workingTreeFileDiff", diff });
+            }
+            catch (Exception ex)
+            {
+                PostToWebview(new { type = "error", message = "Failed to read working tree diff: " + ex.Message });
+            }
+        }
+
+        private async Task CommitWorkingTreeChangesAsync(string message, List<string> files)
+        {
+            if (_git == null) return;
+            try
+            {
+                var sha = await _git.CommitWorkingTreeChangesAsync(message, files).ConfigureAwait(true);
+                var subject = (message ?? "").Trim().Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)[0];
+                PostToWebview(new { type = "commitCreated", sha, message = subject });
+                await RefreshAsync().ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                PostToWebview(new { type = "error", message = "Commit failed: " + ex.Message });
             }
         }
 

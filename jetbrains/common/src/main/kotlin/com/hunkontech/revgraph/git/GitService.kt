@@ -464,6 +464,91 @@ class GitService(private val repoRoot: String) {
         return diff
     }
 
+    /** Current working-tree files available for a local commit. */
+    fun readWorkingTreeChanges(): List<WorkingTreeFile> {
+        val out = tryRun("status", "--porcelain=v1", "-z")
+        val files = mutableListOf<WorkingTreeFile>()
+        val parts = out.split(NUL)
+        var i = 0
+        while (i < parts.size) {
+            val rec = parts.getOrNull(i++) ?: continue
+            if (rec.length < 4) continue
+            val x = rec[0]
+            val y = rec[1]
+            val path = rec.substring(3)
+            if (path.isEmpty()) continue
+            var oldPath: String? = null
+            if (x == 'R' || x == 'C') oldPath = parts.getOrNull(i++)?.ifEmpty { null }
+            files.add(WorkingTreeFile(path, oldPath, mapWorkingTreeStatus(x, y), (x != ' ' && x != '?').takeIf { it }))
+        }
+        return files.sortedBy { it.path.lowercase() }
+    }
+
+    private fun mapWorkingTreeStatus(x: Char, y: Char): String = when {
+        x == 'R' || y == 'R' || x == 'C' || y == 'C' -> "renamed"
+        x == 'D' || y == 'D' -> "deleted"
+        x == 'A' || y == 'A' || x == '?' || y == '?' -> "added"
+        else -> "modified"
+    }
+
+    private fun fileSize(path: String): Long = try {
+        val f = File(path)
+        if (f.isFile) f.length() else -1
+    } catch (e: Exception) {
+        -1
+    }
+
+    private fun fileText(path: String): String = try {
+        File(path).readText(StandardCharsets.UTF_8)
+    } catch (e: Exception) {
+        ""
+    }
+
+    /** Before/after text of one working-tree file, comparing HEAD to disk. */
+    fun readWorkingTreeFileDiff(path: String, status: String, oldPath: String?): FileDiff {
+        val diff = FileDiff("", path, status)
+        val beforePath = oldPath?.ifEmpty { null } ?: path
+        val abs = File(repoRoot, path.replace('/', File.separatorChar)).path
+        val needOld = status != "added"
+        val needNew = status != "deleted"
+        val oldSize = if (needOld) blobSize("HEAD", beforePath) else 0
+        val newSize = if (needNew) fileSize(abs) else 0
+        if (oldSize > MAX_DIFF_BYTES || newSize > MAX_DIFF_BYTES) {
+            diff.tooLarge = true
+            return diff
+        }
+        val oldText = if (needOld) blobText("HEAD", beforePath) else ""
+        val newText = if (needNew) fileText(abs) else ""
+        if (oldText.contains(NUL) || newText.contains(NUL)) {
+            diff.binary = true
+            return diff
+        }
+        diff.oldText = oldText
+        diff.newText = newText
+        return diff
+    }
+
+    /** Create a local commit from exactly the selected working-tree paths. */
+    fun commitWorkingTreeChanges(message: String?, selectedPaths: List<String>?): String {
+        val msg = message?.trim().orEmpty()
+        if (msg.isEmpty()) throw RuntimeException("Commit message is required.")
+        if (selectedPaths.isNullOrEmpty()) throw RuntimeException("Select at least one file to commit.")
+        val selected = selectedPaths.toHashSet()
+        val pathspecs = linkedSetOf<String>()
+        for (f in readWorkingTreeChanges()) {
+            if (!selected.contains(f.path)) continue
+            pathspecs.add(f.path)
+            if (!f.oldPath.isNullOrEmpty()) pathspecs.add(f.oldPath)
+        }
+        if (pathspecs.isEmpty()) throw RuntimeException("None of the selected files still have changes.")
+        val existing = pathspecs.filter { File(repoRoot, it.replace('/', File.separatorChar)).isFile }
+        if (existing.isNotEmpty()) {
+            try { run(listOf("add", "-N", "--") + existing) } catch (e: Exception) { /* best effort */ }
+        }
+        run(listOf("commit", "-m", msg, "--only", "--") + pathspecs.toList())
+        return run(listOf("rev-parse", "HEAD")).trim()
+    }
+
     // ------------------------------------------------------------------
     // Checkout
     // ------------------------------------------------------------------

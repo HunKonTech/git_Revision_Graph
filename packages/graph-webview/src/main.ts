@@ -11,6 +11,12 @@ import {
   setFileDiff,
   setFileContent,
 } from "./changesDialog.js";
+import {
+  openCommitDialog,
+  closeCommitDialog,
+  setWorkingTreeFiles,
+  setWorkingTreeFileDiff,
+} from "./commitDialog.js";
 import { openMergeDialog, closeMergeDialog, setMergePreview, setMergeFileDiff } from "./mergeDialog.js";
 import { getBranchDialogMode } from "./branchDialogMode.js";
 import { getMainBranch, onMainBranchChange } from "./mainBranch.js";
@@ -330,6 +336,17 @@ function boot(): void {
       case "fileDiff":
         setFileDiff(msg.diff);
         break;
+      case "workingTreeChanges":
+        setWorkingTreeFiles(msg.files);
+        break;
+      case "workingTreeFileDiff":
+        setWorkingTreeFileDiff(msg.diff);
+        break;
+      case "commitCreated":
+        closeCommitDialog();
+        renderStatus(() => t("status.commitCreated", { sha: msg.sha.slice(0, 7), message: msg.message }));
+        bridge.post({ type: "requestRefresh" });
+        break;
       case "fileContent":
         setFileContent(msg.sha, msg.path, msg.text, msg.binary, msg.tooLarge);
         break;
@@ -390,6 +407,7 @@ function boot(): void {
     closeContextMenu();
     closeNewBranchDialog();
     closeChangesDialog();
+    closeCommitDialog();
     closeMergeDialog();
     detailsPanel.dataset.hidden = "";
     currentHead = data.head ?? null;
@@ -403,6 +421,23 @@ function boot(): void {
         refs: data.refs.length,
       });
       return data.gitCommand ? `${summary} — ${data.gitCommand}` : summary;
+    });
+  }
+
+  function startCommit(): void {
+    openCommitDialog({
+      onRequestChanges: () => bridge.post({ type: "requestWorkingTreeChanges" }),
+      onRequestDiff: (file) =>
+        bridge.post({
+          type: "requestWorkingTreeFileDiff",
+          path: file.path,
+          status: file.status,
+          oldPath: file.oldPath,
+        }),
+      onCommit: (message, files) => {
+        renderStatus(() => t("status.committing"));
+        bridge.post({ type: "commitWorkingTreeChanges", message, files });
+      },
     });
   }
 
@@ -479,6 +514,7 @@ function boot(): void {
   const fetchBtn = makeButton("fetch", "toolbar.fetch");
   const pullBtn = makeButton("pull", "toolbar.pull");
   const pushBtn = makeButton("push", "toolbar.push");
+  const commitBtn = makeButton("commit", "toolbar.commit");
   const syncBtn = makeButton("sync", "toolbar.sync");
   const jumpBtn = makeButton("jumpHead", "toolbar.jumpHead");
   const resetBtn = makeButton("reset", "toolbar.reset");
@@ -503,7 +539,7 @@ function boot(): void {
   const searchCount = document.createElement("span");
   searchCount.className = "toolbar-search-count";
   searchBox.append(searchInput, searchPrevBtn, searchNextBtn, searchCount);
-  toolbar.append(refreshBtn, fetchBtn, pullBtn, pushBtn, syncBtn, jumpBtn, resetBtn, settingsBtn, searchBox);
+  toolbar.append(refreshBtn, commitBtn, fetchBtn, pullBtn, pushBtn, syncBtn, jumpBtn, resetBtn, settingsBtn, searchBox);
 
   let searchMatches: PositionedCommit[] = [];
   let activeSearchIndex = -1;
@@ -585,6 +621,7 @@ function boot(): void {
       renderStatus(() => t("status.pulling"));
       bridge.post({ type: "pull" });
     }
+    if (act === "commit") startCommit();
     if (act === "push") {
       renderStatus(() => t("status.pushing"));
       bridge.post({ type: "push" });
@@ -608,6 +645,7 @@ function boot(): void {
     fetchBtn.textContent = t("toolbar.fetch");
     pullBtn.textContent = t("toolbar.pull");
     pushBtn.textContent = t("toolbar.push");
+    commitBtn.textContent = t("toolbar.commit");
     syncBtn.textContent = t("toolbar.sync");
     jumpBtn.textContent = t("toolbar.jumpHead");
     resetBtn.textContent = t("toolbar.reset");

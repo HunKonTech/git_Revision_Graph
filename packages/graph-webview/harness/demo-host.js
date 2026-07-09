@@ -15,6 +15,26 @@
 
   const send = (msg) => window.postMessage(msg, "*");
   const refresh = () => send({ type: "setData", data: clone(state) });
+  let workingTree = [
+    {
+      path: "packages/graph-webview/src/render.ts",
+      status: "modified",
+      oldText: "export function paint() {\n  drawGraph();\n}\n",
+      newText: "export function paint() {\n  drawGraph();\n  drawCommitBadges();\n}\n",
+    },
+    {
+      path: "docs/commit-workflow.md",
+      status: "added",
+      oldText: "",
+      newText: "# Commit workflow\n\nPick files, review the diff, then create a local commit.\n",
+    },
+    {
+      path: "old-notes.txt",
+      status: "deleted",
+      oldText: "Temporary notes\nRemove after the commit UI lands.\n",
+      newText: "",
+    },
+  ];
 
   const findLocal = (name) =>
     state.refs.find((r) => r.type === "localBranch" && r.name === name);
@@ -371,6 +391,60 @@
       }
       if (!text) text = "// " + msg.path + "\n// (no mock content available in the demo)";
       send({ type: "fileContent", sha: msg.sha, path: msg.path, text });
+    },
+
+    requestWorkingTreeChanges() {
+      send({
+        type: "workingTreeChanges",
+        files: workingTree.map((f) => ({
+          path: f.path,
+          oldPath: f.oldPath,
+          status: f.status,
+          staged: !!f.staged,
+        })),
+      });
+    },
+
+    requestWorkingTreeFileDiff(msg) {
+      const f = workingTree.find((x) => x.path === msg.path);
+      send({
+        type: "workingTreeFileDiff",
+        diff: f
+          ? {
+              sha: "",
+              path: f.path,
+              status: f.status,
+              oldText: f.oldText || "",
+              newText: f.newText || "",
+            }
+          : { sha: "", path: msg.path, status: msg.status, oldText: "", newText: "" },
+      });
+    },
+
+    commitWorkingTreeChanges(msg) {
+      const selected = new Set(msg.files || []);
+      if (selected.size === 0 || !(msg.message || "").trim()) {
+        send({ type: "error", message: "Select files and enter a commit message." });
+        return;
+      }
+      const current = state.refs.find((r) => r.type === "localBranch" && r.isCurrent);
+      const parent = state.head;
+      const sha = "c" + Math.floor(performance.now()).toString(16).padStart(6, "0").slice(-7);
+      state.commits.unshift({
+        sha,
+        parents: parent ? [parent] : [],
+        summary: msg.message.trim().split(/\r?\n/)[0],
+        author: "You",
+        authorEmail: "you@example.com",
+        date: new Date().toISOString(),
+      });
+      if (current) current.targetSha = sha;
+      state.head = sha;
+      const headRef = state.refs.find((r) => r.type === "head");
+      if (headRef) headRef.targetSha = sha;
+      workingTree = workingTree.filter((f) => !selected.has(f.path));
+      refresh();
+      send({ type: "commitCreated", sha, message: msg.message.trim().split(/\r?\n/)[0] });
     },
 
     // Remote ops have no server in the demo — no-ops.

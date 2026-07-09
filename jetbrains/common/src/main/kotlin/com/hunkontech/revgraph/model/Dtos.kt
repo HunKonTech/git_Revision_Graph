@@ -74,6 +74,16 @@ class FileDiff(
     var tooLarge: Boolean? = null,
 )
 
+/** One file currently changed in the working tree. */
+class WorkingTreeFile(
+    val path: String,
+    val oldPath: String? = null,
+    /** One of: added | modified | deleted | renamed. */
+    var status: String,
+    /** True when the file already has staged changes. */
+    var staged: Boolean? = null,
+)
+
 /** One file a (hypothetical) merge would change. */
 class MergePreviewFile(
     val path: String,
@@ -129,4 +139,6 @@ class WebviewMessage {
     var gitPath: String? = null
     /** Target URL for openExternal. */
     var url: String? = null
+    /** Selected file paths for commitWorkingTreeChanges. */
+    var files: List<String>? = null
 }

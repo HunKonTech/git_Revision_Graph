@@ -204,6 +204,9 @@ class WebViewHostPanel(private val project: Project) : Disposable {
                 "requestCommitTree" -> handleCommitTree(msg.sha)
                 "requestFileDiff" -> handleFileDiff(msg.sha, msg.path, msg.status, msg.oldPath)
                 "requestFileContent" -> handleFileContent(msg.sha, msg.path)
+                "requestWorkingTreeChanges" -> handleWorkingTreeChanges()
+                "requestWorkingTreeFileDiff" -> handleWorkingTreeFileDiff(msg.path, msg.status, msg.oldPath)
+                "commitWorkingTreeChanges" -> commitWorkingTreeChanges(msg.message, msg.files)
                 "requestMergePreview" -> handleMergePreview(msg.source)
                 "requestMergeFileDiff" -> handleMergeFileDiff(msg.source, msg.path, msg.status)
                 "merge" -> mergeBranch(msg.source, msg.message, msg.noFastForward ?: false)
@@ -421,6 +424,37 @@ class WebViewHostPanel(private val project: Project) : Disposable {
         } catch (e: Exception) {
             postToWebview(mapOf("type" to "error", "message" to "Failed to read file diff: ${e.message}"))
         }
+    }
+
+    private fun handleWorkingTreeChanges() {
+        val g = git ?: return
+        try {
+            postToWebview(mapOf("type" to "workingTreeChanges", "files" to g.readWorkingTreeChanges()))
+        } catch (e: Exception) {
+            postToWebview(mapOf("type" to "error", "message" to "Failed to read working tree changes: ${e.message}"))
+        }
+    }
+
+    private fun handleWorkingTreeFileDiff(path: String?, status: String?, oldPath: String?) {
+        val g = git ?: return
+        if (path.isNullOrEmpty()) return
+        try {
+            postToWebview(mapOf("type" to "workingTreeFileDiff", "diff" to g.readWorkingTreeFileDiff(path, status ?: "modified", oldPath)))
+        } catch (e: Exception) {
+            postToWebview(mapOf("type" to "error", "message" to "Failed to read working tree diff: ${e.message}"))
+        }
+    }
+
+    private fun commitWorkingTreeChanges(message: String?, files: List<String>?) {
+        val g = git ?: return
+        try {
+            val sha = g.commitWorkingTreeChanges(message, files)
+            val subject = message?.trim()?.lineSequence()?.firstOrNull().orEmpty()
+            postToWebview(mapOf("type" to "commitCreated", "sha" to sha, "message" to subject))
+        } catch (e: Exception) {
+            postToWebview(mapOf("type" to "error", "message" to "Commit failed: ${e.message}"))
+        }
+        refresh()
     }
 
     private fun handleMergePreview(source: String?) {

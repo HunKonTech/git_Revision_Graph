@@ -25,6 +25,7 @@ type Dict = {
   "toolbar.fetch": string;
   "toolbar.pull": string;
   "toolbar.push": string;
+  "toolbar.commit": string;
   "toolbar.sync": string;
   "toolbar.jumpHead": string;
   "toolbar.reset": string;
@@ -63,6 +64,11 @@ type Dict = {
   "settings.diffMinimapOff": string;
   "settings.diffMinimapOnHint": string;
   "settings.diffMinimapOffHint": string;
+  "settings.commitReview": string;
+  "settings.commitReviewOn": string;
+  "settings.commitReviewOff": string;
+  "settings.commitReviewOnHint": string;
+  "settings.commitReviewOffHint": string;
   "settings.svnBranchDialog": string;
   "settings.svnBranchDialogHint": string;
   "settings.branchDialog": string;
@@ -130,6 +136,21 @@ type Dict = {
   "changes.noSearchResults": string;
   "changes.maximize": string;
   "changes.restore": string;
+  "commit.title": string;
+  "commit.close": string;
+  "commit.loading": string;
+  "commit.noChanges": string;
+  "commit.selectFile": string;
+  "commit.selectAll": string;
+  "commit.selectNone": string;
+  "commit.message": string;
+  "commit.messagePlaceholder": string;
+  "commit.selectedCount": string;
+  "commit.review": string;
+  "commit.reviewTitle": string;
+  "commit.reviewSummary": string;
+  "commit.back": string;
+  "commit.commit": string;
   "menu.stashApply": string;
   "menu.stashPop": string;
   "menu.stashDrop": string;
@@ -177,6 +198,8 @@ type Dict = {
   "status.fetching": string;
   "status.pulling": string;
   "status.pushing": string;
+  "status.committing": string;
+  "status.commitCreated": string;
   "status.syncing": string;
   "status.noHead": string;
   "status.undoing": string;
@@ -218,6 +241,7 @@ const DICTS: Record<Lang, Dict> = {
     "toolbar.fetch": "⤓ Fetch",
     "toolbar.pull": "⇩ Pull",
     "toolbar.push": "⇧ Push",
+    "toolbar.commit": "✓ Commit",
     "toolbar.sync": "⇅ Sync",
     "toolbar.jumpHead": "⌖ Go to checkout",
     "toolbar.reset": "⤢ Reset view",
@@ -256,6 +280,11 @@ const DICTS: Record<Lang, Dict> = {
     "settings.diffMinimapOff": "Hidden",
     "settings.diffMinimapOnHint": "Show a VS Code-style overview strip beside the diff — drag it to scroll; change markers included.",
     "settings.diffMinimapOffHint": "No overview strip — scroll the diff normally.",
+    "settings.commitReview": "Commit review",
+    "settings.commitReviewOn": "Ask before commit",
+    "settings.commitReviewOff": "Commit directly",
+    "settings.commitReviewOnHint": "Show a final file list and message check before creating the local commit.",
+    "settings.commitReviewOffHint": "The Commit button creates the local commit immediately.",
     "settings.svnBranchDialog": "SVN-style branch dialog",
     "settings.svnBranchDialogHint":
       "Show a folder-tree picker when creating a branch (instead of a simple prompt).",
@@ -324,6 +353,21 @@ const DICTS: Record<Lang, Dict> = {
     "changes.noSearchResults": "No files match your search.",
     "changes.maximize": "Maximize",
     "changes.restore": "Restore size",
+    "commit.title": "Commit Changes",
+    "commit.close": "Close",
+    "commit.loading": "Reading working tree…",
+    "commit.noChanges": "There are no local changes to commit.",
+    "commit.selectFile": "Select a file to see its diff.",
+    "commit.selectAll": "Select all",
+    "commit.selectNone": "Clear all",
+    "commit.message": "Commit message",
+    "commit.messagePlaceholder": "Describe the change",
+    "commit.selectedCount": "{count} file(s) selected",
+    "commit.review": "Review",
+    "commit.reviewTitle": "Final check before commit",
+    "commit.reviewSummary": "Commit {count} file(s) with message: {message}",
+    "commit.back": "Back",
+    "commit.commit": "Create local commit",
     "menu.stashApply": "Apply stash",
     "menu.stashPop": "Pop stash (apply & remove)",
     "menu.stashDrop": "Drop stash…",
@@ -371,6 +415,8 @@ const DICTS: Record<Lang, Dict> = {
     "status.fetching": "Fetching…",
     "status.pulling": "Pulling…",
     "status.pushing": "Pushing…",
+    "status.committing": "Creating local commit…",
+    "status.commitCreated": "Created local commit {sha}: {message}",
     "status.syncing": "Syncing…",
     "status.noHead": "No current checkout found in the graph.",
     "status.undoing": "Undoing commit…",
@@ -410,6 +456,7 @@ const DICTS: Record<Lang, Dict> = {
     "toolbar.fetch": "⤓ Fetch",
     "toolbar.pull": "⇩ Pull",
     "toolbar.push": "⇧ Push",
+    "toolbar.commit": "✓ Commit",
     "toolbar.sync": "⇅ Szinkron",
     "toolbar.jumpHead": "⌖ Ugrás a checkout-ra",
     "toolbar.reset": "⤢ Nézet visszaállítása",
@@ -448,6 +495,11 @@ const DICTS: Record<Lang, Dict> = {
     "settings.diffMinimapOff": "Rejtett",
     "settings.diffMinimapOnHint": "VS Code-stílusú áttekintő sáv a diff mellett — húzva görgethető; a változásokat is jelöli.",
     "settings.diffMinimapOffHint": "Nincs áttekintő sáv — a diff hagyományosan görgethető.",
+    "settings.commitReview": "Commit előtti ellenőrzés",
+    "settings.commitReviewOn": "Rákérdezés",
+    "settings.commitReviewOff": "Azonnali commit",
+    "settings.commitReviewOnHint": "Commit előtt még egyszer megjelenik a fájllista és az üzenet ellenőrzésre.",
+    "settings.commitReviewOffHint": "A Commit gomb rögtön létrehozza a lokális commitot.",
     "settings.svnBranchDialog": "SVN-stílusú branch ablak",
     "settings.svnBranchDialogHint":
       "Branch létrehozásakor mappafa-választó jelenjen meg (egyszerű beírás helyett).",
@@ -516,6 +568,21 @@ const DICTS: Record<Lang, Dict> = {
     "changes.noSearchResults": "Nincs a keresésnek megfelelő fájl.",
     "changes.maximize": "Nagyítás",
     "changes.restore": "Eredeti méret",
+    "commit.title": "Változások commitolása",
+    "commit.close": "Bezárás",
+    "commit.loading": "Working tree beolvasása…",
+    "commit.noChanges": "Nincs lokális változás, amit commitolni lehetne.",
+    "commit.selectFile": "Válassz egy fájlt a diff megtekintéséhez.",
+    "commit.selectAll": "Összes kijelölése",
+    "commit.selectNone": "Kijelölés törlése",
+    "commit.message": "Commit üzenet",
+    "commit.messagePlaceholder": "Írd le a változást",
+    "commit.selectedCount": "{count} fájl kijelölve",
+    "commit.review": "Ellenőrzés",
+    "commit.reviewTitle": "Utolsó ellenőrzés commit előtt",
+    "commit.reviewSummary": "{count} fájl commitolása ezzel az üzenettel: {message}",
+    "commit.back": "Vissza",
+    "commit.commit": "Lokális commit létrehozása",
     "menu.stashApply": "Stash alkalmazása",
     "menu.stashPop": "Stash kivétele (alkalmaz és töröl)",
     "menu.stashDrop": "Stash eldobása…",
@@ -563,6 +630,8 @@ const DICTS: Record<Lang, Dict> = {
     "status.fetching": "Fetch folyamatban…",
     "status.pulling": "Pull folyamatban…",
     "status.pushing": "Push folyamatban…",
+    "status.committing": "Lokális commit létrehozása…",
+    "status.commitCreated": "Lokális commit létrejött {sha}: {message}",
     "status.syncing": "Szinkronizálás…",
     "status.noHead": "Nincs aktuális checkout a gráfban.",
     "status.undoing": "Commit visszavonása…",
@@ -602,6 +671,7 @@ const DICTS: Record<Lang, Dict> = {
     "toolbar.fetch": "⤓ 抓取",
     "toolbar.pull": "⇩ 拉取",
     "toolbar.push": "⇧ 推送",
+    "toolbar.commit": "✓ 提交",
     "toolbar.sync": "⇅ 同步",
     "toolbar.jumpHead": "⌖ 跳转到检出位置",
     "toolbar.reset": "⤢ 重置视图",
@@ -640,6 +710,11 @@ const DICTS: Record<Lang, Dict> = {
     "settings.diffMinimapOff": "隐藏",
     "settings.diffMinimapOnHint": "在差异旁显示 VS Code 风格的概览条 — 拖动它可滚动；包含更改标记。",
     "settings.diffMinimapOffHint": "无概览条 — 正常滚动差异。",
+    "settings.commitReview": "提交前检查",
+    "settings.commitReviewOn": "提交前询问",
+    "settings.commitReviewOff": "直接提交",
+    "settings.commitReviewOnHint": "创建本地提交前显示最终文件列表和提交信息。",
+    "settings.commitReviewOffHint": "Commit 按钮会立即创建本地提交。",
     "settings.svnBranchDialog": "SVN 风格分支对话框",
     "settings.svnBranchDialogHint":
       "创建分支时显示文件夹树选择器（而非简单的输入框）。",
@@ -708,6 +783,21 @@ const DICTS: Record<Lang, Dict> = {
     "changes.noSearchResults": "没有匹配的文件。",
     "changes.maximize": "最大化",
     "changes.restore": "还原大小",
+    "commit.title": "提交更改",
+    "commit.close": "关闭",
+    "commit.loading": "正在读取工作区…",
+    "commit.noChanges": "没有可提交的本地更改。",
+    "commit.selectFile": "选择文件以查看差异。",
+    "commit.selectAll": "全选",
+    "commit.selectNone": "清除选择",
+    "commit.message": "提交信息",
+    "commit.messagePlaceholder": "描述此更改",
+    "commit.selectedCount": "已选择 {count} 个文件",
+    "commit.review": "检查",
+    "commit.reviewTitle": "提交前最终检查",
+    "commit.reviewSummary": "使用信息“{message}”提交 {count} 个文件",
+    "commit.back": "返回",
+    "commit.commit": "创建本地提交",
     "menu.stashApply": "应用储藏",
     "menu.stashPop": "弹出储藏（应用并移除）",
     "menu.stashDrop": "丢弃储藏…",
@@ -755,6 +845,8 @@ const DICTS: Record<Lang, Dict> = {
     "status.fetching": "正在抓取…",
     "status.pulling": "正在拉取…",
     "status.pushing": "正在推送…",
+    "status.committing": "正在创建本地提交…",
+    "status.commitCreated": "已创建本地提交 {sha}: {message}",
     "status.syncing": "正在同步…",
     "status.noHead": "在图形中未找到当前检出。",
     "status.undoing": "正在撤销提交…",
@@ -794,6 +886,7 @@ const DICTS: Record<Lang, Dict> = {
     "toolbar.fetch": "⤓ Получить",
     "toolbar.pull": "⇩ Затянуть",
     "toolbar.push": "⇧ Отправить",
+    "toolbar.commit": "✓ Commit",
     "toolbar.sync": "⇅ Синхр.",
     "toolbar.jumpHead": "⌖ Перейти к checkout",
     "toolbar.reset": "⤢ Сбросить вид",
@@ -832,6 +925,11 @@ const DICTS: Record<Lang, Dict> = {
     "settings.diffMinimapOff": "Скрыта",
     "settings.diffMinimapOnHint": "Показать полосу обзора в стиле VS Code рядом с различиями — перетаскивайте её для прокрутки; включая маркеры изменений.",
     "settings.diffMinimapOffHint": "Без полосы обзора — прокручивайте различия обычным образом.",
+    "settings.commitReview": "Проверка перед commit",
+    "settings.commitReviewOn": "Спрашивать перед commit",
+    "settings.commitReviewOff": "Commit сразу",
+    "settings.commitReviewOnHint": "Перед локальным commit показать итоговый список файлов и сообщение.",
+    "settings.commitReviewOffHint": "Кнопка Commit сразу создает локальный commit.",
     "settings.svnBranchDialog": "Диалог веток в стиле SVN",
     "settings.svnBranchDialogHint":
       "Показывать выбор дерева папок при создании ветки (вместо простого ввода).",
@@ -900,6 +998,21 @@ const DICTS: Record<Lang, Dict> = {
     "changes.noSearchResults": "Нет файлов, соответствующих поиску.",
     "changes.maximize": "Развернуть",
     "changes.restore": "Восстановить размер",
+    "commit.title": "Commit Changes",
+    "commit.close": "Закрыть",
+    "commit.loading": "Чтение working tree…",
+    "commit.noChanges": "Нет локальных изменений для commit.",
+    "commit.selectFile": "Выберите файл, чтобы увидеть diff.",
+    "commit.selectAll": "Выбрать все",
+    "commit.selectNone": "Снять выбор",
+    "commit.message": "Commit message",
+    "commit.messagePlaceholder": "Опишите изменение",
+    "commit.selectedCount": "Выбрано файлов: {count}",
+    "commit.review": "Проверить",
+    "commit.reviewTitle": "Финальная проверка перед commit",
+    "commit.reviewSummary": "Commit {count} file(s) with message: {message}",
+    "commit.back": "Назад",
+    "commit.commit": "Создать локальный commit",
     "menu.stashApply": "Применить stash",
     "menu.stashPop": "Извлечь stash (применить и удалить)",
     "menu.stashDrop": "Отбросить stash…",
@@ -947,6 +1060,8 @@ const DICTS: Record<Lang, Dict> = {
     "status.fetching": "Получение…",
     "status.pulling": "Затягивание…",
     "status.pushing": "Отправка…",
+    "status.committing": "Создание локального commit…",
+    "status.commitCreated": "Создан локальный commit {sha}: {message}",
     "status.syncing": "Синхронизация…",
     "status.noHead": "Текущий checkout не найден в графе.",
     "status.undoing": "Отмена коммита…",
@@ -1007,6 +1122,7 @@ const JARGON: Partial<Record<Lang, Partial<Record<MsgKey, JargonEntry>>>> = {
     "toolbar.fetch": { tr: "⤓ Lekérés" },
     "toolbar.pull": { tr: "⇩ Lehúzás" },
     "toolbar.push": { tr: "⇧ Feltöltés" },
+    "toolbar.commit": { tr: "✓ Beküldés" },
     "toolbar.sync": { en: "⇅ Sync" },
     "toolbar.jumpHead": { tr: "⌖ Ugrás a váltásra" },
     "details.header": { tr: "Beküldés részletei" },
@@ -1027,6 +1143,9 @@ const JARGON: Partial<Record<Lang, Partial<Record<MsgKey, JargonEntry>>>> = {
     "menu.stashPop": { tr: "Félretett munka kivétele (alkalmaz és töröl)" },
     "menu.stashDrop": { tr: "Félretett munka eldobása…" },
     "changes.changed": { tr: "Ebben a beküldésben" },
+    "commit.title": { tr: "Változások beküldése" },
+    "commit.message": { tr: "Beküldés üzenet" },
+    "commit.commit": { tr: "Lokális beküldés létrehozása" },
     "merge.title": { en: "Branch merge", tr: "Ág összeolvasztása" },
     "merge.route": { tr: "Összeolvasztás az aktuális ágba" },
     "merge.merge": { en: "Merge" },
@@ -1034,6 +1153,8 @@ const JARGON: Partial<Record<Lang, Partial<Record<MsgKey, JargonEntry>>>> = {
     "status.fetching": { tr: "Lekérés folyamatban…" },
     "status.pulling": { tr: "Lehúzás folyamatban…" },
     "status.pushing": { tr: "Feltöltés folyamatban…" },
+    "status.committing": { tr: "Lokális beküldés létrehozása…" },
+    "status.commitCreated": { tr: "Lokális beküldés létrejött {sha}: {message}" },
     "status.syncing": { en: "Sync folyamatban…" },
     "status.commitUndone": { tr: "Beküldés visszavonva — a változások visszakerültek a working tree-be." },
     "status.stashApplying": { tr: "Félretett munka alkalmazása…" },
@@ -1050,6 +1171,7 @@ const JARGON: Partial<Record<Lang, Partial<Record<MsgKey, JargonEntry>>>> = {
     "toolbar.fetch": { en: "⤓ Fetch" },
     "toolbar.pull": { en: "⇩ Pull" },
     "toolbar.push": { en: "⇧ Push" },
+    "toolbar.commit": { en: "✓ Commit" },
     "toolbar.sync": { en: "⇅ Sync" },
     "toolbar.jumpHead": { en: "⌖ 跳转到 checkout 位置" },
     "details.header": { en: "Commit 详情" },
@@ -1070,6 +1192,9 @@ const JARGON: Partial<Record<Lang, Partial<Record<MsgKey, JargonEntry>>>> = {
     "menu.stashPop": { en: "弹出 stash（应用并移除）" },
     "menu.stashDrop": { en: "丢弃 stash…" },
     "changes.changed": { en: "此 commit" },
+    "commit.title": { en: "Commit Changes" },
+    "commit.message": { en: "Commit message" },
+    "commit.commit": { en: "Create local commit" },
     "merge.title": { en: "Merge branch" },
     "merge.route": { en: "Merge 到当前 branch" },
     "merge.merge": { en: "Merge" },
@@ -1077,6 +1202,8 @@ const JARGON: Partial<Record<Lang, Partial<Record<MsgKey, JargonEntry>>>> = {
     "status.fetching": { en: "正在 Fetch…" },
     "status.pulling": { en: "正在 Pull…" },
     "status.pushing": { en: "正在 Push…" },
+    "status.committing": { en: "正在创建本地 commit…" },
+    "status.commitCreated": { en: "已创建本地 commit {sha}: {message}" },
     "status.syncing": { en: "正在 Sync…" },
     "status.commitUndone": { en: "Commit 已撤销 — 更改已回到工作树中。" },
     "status.stashApplying": { en: "正在应用 stash…" },
@@ -1093,6 +1220,7 @@ const JARGON: Partial<Record<Lang, Partial<Record<MsgKey, JargonEntry>>>> = {
     "toolbar.fetch": { en: "⤓ Fetch" },
     "toolbar.pull": { en: "⇩ Pull" },
     "toolbar.push": { en: "⇧ Push" },
+    "toolbar.commit": { en: "✓ Commit" },
     "toolbar.sync": { en: "⇅ Sync" },
     "toolbar.jumpHead": { tr: "⌖ Перейти к переключению" },
     "details.header": { en: "Сведения о commit’е" },
@@ -1113,6 +1241,9 @@ const JARGON: Partial<Record<Lang, Partial<Record<MsgKey, JargonEntry>>>> = {
     "menu.stashPop": { tr: "Извлечь спрятанное (применить и удалить)" },
     "menu.stashDrop": { tr: "Отбросить спрятанное…" },
     "changes.changed": { en: "Этот commit" },
+    "commit.title": { en: "Commit Changes" },
+    "commit.message": { en: "Commit message" },
+    "commit.commit": { en: "Создать локальный commit" },
     "merge.title": { en: "Merge branch" },
     "merge.route": { en: "Merge в текущий branch" },
     "merge.merge": { en: "Merge" },
@@ -1120,6 +1251,8 @@ const JARGON: Partial<Record<Lang, Partial<Record<MsgKey, JargonEntry>>>> = {
     "status.fetching": { en: "Fetch…" },
     "status.pulling": { en: "Pull…" },
     "status.pushing": { en: "Push…" },
+    "status.committing": { en: "Создание локального commit…" },
+    "status.commitCreated": { en: "Создан локальный commit {sha}: {message}" },
     "status.syncing": { en: "Sync…" },
     "status.commitUndone": { en: "Commit отменён — изменения вернулись в рабочее дерево." },
     "status.stashApplying": { tr: "Применение спрятанного…" },

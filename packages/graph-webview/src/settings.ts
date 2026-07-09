@@ -12,6 +12,7 @@ import { getDisplayMode, setDisplayMode, type DisplayMode } from "./displayMode.
 import { getBranchDialogMode, setBranchDialogMode } from "./branchDialogMode.js";
 import { getThemeChoice, setThemeChoice, type ThemeChoice } from "./theme.js";
 import { getDiffMinimap, setDiffMinimap } from "./diffMinimap.js";
+import { getCommitReviewBeforeCommit, setCommitReviewBeforeCommit } from "./commitReviewSetting.js";
 import { detectHost } from "./host.js";
 import { getGitMode, getCustomGitPath, setGitSource, onGitSourceChange, type GitMode } from "./gitPathSetting.js";
 import {
@@ -123,6 +124,7 @@ export function toggleSettings(ctx: SettingsContext): void {
     // Changes-view section: the diff minimap toggle.
     const changes = section(t("settings.sectionChanges"));
     changes.appendChild(diffMinimapRow());
+    changes.appendChild(commitReviewRow());
     body.appendChild(changes);
 
     // Advanced section: git executable source — collapsed by default.
@@ -425,6 +427,40 @@ function diffMinimapRow(): HTMLElement {
     },
   ];
   row.appendChild(cardGroup(cards, getDiffMinimap() ? "on" : "off", (key) => setDiffMinimap(key === "on")));
+  return row;
+}
+
+/** Commit safety picker: pause for a final file/message review before committing. */
+function commitReviewRow(): HTMLElement {
+  const row = stackedRow(t("settings.commitReview"));
+  const seg = document.createElement("div");
+  seg.className = "settings-segmented";
+  const onBtn = document.createElement("button");
+  onBtn.type = "button";
+  onBtn.textContent = t("settings.commitReviewOn");
+  const offBtn = document.createElement("button");
+  offBtn.type = "button";
+  offBtn.textContent = t("settings.commitReviewOff");
+  const hint = document.createElement("div");
+  hint.className = "settings-hint";
+
+  function paint(): void {
+    const on = getCommitReviewBeforeCommit();
+    onBtn.classList.toggle("selected", on);
+    offBtn.classList.toggle("selected", !on);
+    hint.textContent = on ? t("settings.commitReviewOnHint") : t("settings.commitReviewOffHint");
+  }
+  onBtn.addEventListener("click", () => {
+    setCommitReviewBeforeCommit(true);
+    paint();
+  });
+  offBtn.addEventListener("click", () => {
+    setCommitReviewBeforeCommit(false);
+    paint();
+  });
+  seg.append(onBtn, offBtn);
+  row.append(seg, hint);
+  paint();
   return row;
 }
 

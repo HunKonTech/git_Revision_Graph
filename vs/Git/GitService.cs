@@ -564,6 +564,120 @@ namespace RevisionGraph.Git
             return diff;
         }
 
+        /// <summary>Current working-tree files available for a local commit.</summary>
+        public async Task<List<WorkingTreeFile>> ReadWorkingTreeChangesAsync()
+        {
+            var outp = await TryRunAsync("status", "--porcelain=v1", "-z").ConfigureAwait(false);
+            var files = new List<WorkingTreeFile>();
+            var parts = (outp ?? string.Empty).Split('\0');
+            int i = 0;
+            while (i < parts.Length)
+            {
+                var rec = parts[i++];
+                if (string.IsNullOrEmpty(rec) || rec.Length < 4) continue;
+                var x = rec[0];
+                var y = rec[1];
+                var path = rec.Substring(3);
+                string oldPath = null;
+                if (x == 'R' || x == 'C')
+                {
+                    oldPath = i < parts.Length ? parts[i++] : null;
+                    if (string.IsNullOrEmpty(oldPath)) oldPath = null;
+                }
+                files.Add(new WorkingTreeFile
+                {
+                    Path = path,
+                    OldPath = oldPath,
+                    Status = MapWorkingTreeStatus(x, y),
+                    Staged = x != ' ' && x != '?',
+                });
+            }
+            files.Sort((a, b) => string.Compare(a.Path, b.Path, StringComparison.OrdinalIgnoreCase));
+            return files;
+        }
+
+        private static string MapWorkingTreeStatus(char x, char y)
+        {
+            if (x == 'R' || y == 'R' || x == 'C' || y == 'C') return "renamed";
+            if (x == 'D' || y == 'D') return "deleted";
+            if (x == 'A' || y == 'A' || x == '?' || y == '?') return "added";
+            return "modified";
+        }
+
+        private static long FileSize(string path)
+        {
+            try { return File.Exists(path) ? new FileInfo(path).Length : -1; }
+            catch { return -1; }
+        }
+
+        private static string FileText(string path)
+            => File.Exists(path) ? File.ReadAllText(path, Encoding.UTF8) : "";
+
+        /// <summary>Before/after text of one working-tree file, comparing HEAD to disk.</summary>
+        public Task<FileDiff> ReadWorkingTreeFileDiffAsync(string path, string status, string oldPath)
+        {
+            var diff = new FileDiff { Sha = "", Path = path, Status = status, OldText = "", NewText = "" };
+            var beforePath = string.IsNullOrEmpty(oldPath) ? path : oldPath;
+            var abs = System.IO.Path.Combine(_repoRoot, path.Replace('/', System.IO.Path.DirectorySeparatorChar));
+            var needOld = status != "added";
+            var needNew = status != "deleted";
+
+            var oldSize = needOld ? BlobSizeAsync("HEAD", beforePath).GetAwaiter().GetResult() : 0;
+            var newSize = needNew ? FileSize(abs) : 0;
+            if (oldSize > MaxDiffBytes || newSize > MaxDiffBytes)
+            {
+                diff.TooLarge = true;
+                return Task.FromResult(diff);
+            }
+
+            var oldText = needOld ? BlobTextAsync("HEAD", beforePath).GetAwaiter().GetResult() : "";
+            var newText = needNew ? FileText(abs) : "";
+            if (oldText.IndexOf('\0') >= 0 || newText.IndexOf('\0') >= 0)
+            {
+                diff.Binary = true;
+                return Task.FromResult(diff);
+            }
+            diff.OldText = oldText;
+            diff.NewText = newText;
+            return Task.FromResult(diff);
+        }
+
+        /// <summary>Create a local commit from exactly the selected working-tree paths.</summary>
+        public async Task<string> CommitWorkingTreeChangesAsync(string message, List<string> selectedPaths)
+        {
+            var msg = (message ?? "").Trim();
+            if (string.IsNullOrEmpty(msg)) throw new InvalidOperationException("Commit message is required.");
+            if (selectedPaths == null || selectedPaths.Count == 0) throw new InvalidOperationException("Select at least one file to commit.");
+
+            var selected = new HashSet<string>(selectedPaths);
+            var changes = await ReadWorkingTreeChangesAsync().ConfigureAwait(false);
+            var pathspecs = new HashSet<string>();
+            foreach (var f in changes)
+            {
+                if (!selected.Contains(f.Path)) continue;
+                pathspecs.Add(f.Path);
+                if (!string.IsNullOrEmpty(f.OldPath)) pathspecs.Add(f.OldPath);
+            }
+            if (pathspecs.Count == 0) throw new InvalidOperationException("None of the selected files still have changes.");
+
+            var existing = new List<string>();
+            foreach (var p in pathspecs)
+            {
+                var abs = System.IO.Path.Combine(_repoRoot, p.Replace('/', System.IO.Path.DirectorySeparatorChar));
+                if (File.Exists(abs)) existing.Add(p);
+            }
+            if (existing.Count > 0)
+            {
+                var addArgs = new List<string> { "add", "-N", "--" };
+                addArgs.AddRange(existing);
+                try { await RunAsync(_repoRoot, addArgs.ToArray()).ConfigureAwait(false); } catch { /* best effort */ }
+            }
+            var commitArgs = new List<string> { "commit", "-m", msg, "--only", "--" };
+            commitArgs.AddRange(pathspecs);
+            await RunAsync(_repoRoot, commitArgs.ToArray()).ConfigureAwait(false);
+            return (await RunAsync(_repoRoot, "rev-parse", "HEAD").ConfigureAwait(false)).Trim();
+        }
+
         /// <summary>Outcome of an op that can leave conflicts for the IDE to resolve.</summary>
         public enum OpOutcome { Ok, Conflict }
 

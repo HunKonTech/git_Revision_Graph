@@ -10,6 +10,7 @@ import type {
   RefType,
   StashEntry,
   CommitChangeFile,
+  WorkingTreeFile,
   DiffFileStatus,
   FileDiff,
   MergePreview,
@@ -870,6 +871,106 @@ export async function readFileDiff(
     return { ...base, binary: true };
   }
   return { ...base, oldText, newText };
+}
+
+/** Current working-tree files available for a local commit. */
+export async function readWorkingTreeChanges(repoRoot: string): Promise<WorkingTreeFile[]> {
+  const out = await git(repoRoot, ["status", "--porcelain=v1", "-z"]).catch(() => "");
+  const files: WorkingTreeFile[] = [];
+  const parts = out.split("\0");
+  let i = 0;
+  while (i < parts.length) {
+    const rec = parts[i++];
+    if (!rec) continue;
+    const x = rec[0] ?? " ";
+    const y = rec[1] ?? " ";
+    const path = rec.slice(3);
+    if (!path) continue;
+    let oldPath: string | undefined;
+    if (x === "R" || x === "C") {
+      oldPath = parts[i++] || undefined;
+    }
+    const status = mapWorkingTreeStatus(x, y);
+    files.push({ path, oldPath, status, staged: x !== " " && x !== "?" });
+  }
+  files.sort((a, b) => a.path.localeCompare(b.path));
+  return files;
+}
+
+function mapWorkingTreeStatus(x: string, y: string): DiffFileStatus {
+  if (x === "R" || y === "R" || x === "C" || y === "C") return "renamed";
+  if (x === "D" || y === "D") return "deleted";
+  if (x === "A" || y === "A" || x === "?" || y === "?") return "added";
+  return "modified";
+}
+
+async function fileSize(filePath: string): Promise<number> {
+  try {
+    const stat = await fs.stat(filePath);
+    return stat.size;
+  } catch {
+    return -1;
+  }
+}
+
+async function fileText(filePath: string): Promise<string> {
+  return fs.readFile(filePath, "utf8").catch(() => "");
+}
+
+/** Before/after text of one working-tree file, comparing HEAD to disk. */
+export async function readWorkingTreeFileDiff(
+  repoRoot: string,
+  filePath: string,
+  status: DiffFileStatus,
+  oldPath?: string,
+): Promise<FileDiff> {
+  const base: FileDiff = { sha: "", path: filePath, status, oldText: "", newText: "" };
+  const beforePath = oldPath ?? filePath;
+  const abs = path.join(repoRoot, filePath);
+  const needOld = status !== "added";
+  const needNew = status !== "deleted";
+  const sizes = await Promise.all([
+    needOld ? blobSize(repoRoot, "HEAD", beforePath) : Promise.resolve(0),
+    needNew ? fileSize(abs) : Promise.resolve(0),
+  ]);
+  if (sizes.some((s) => s > MAX_DIFF_BYTES)) return { ...base, tooLarge: true };
+  const [oldText, newText] = await Promise.all([
+    needOld ? blobText(repoRoot, "HEAD", beforePath) : Promise.resolve(""),
+    needNew ? fileText(abs) : Promise.resolve(""),
+  ]);
+  if (hasNulByte(oldText) || hasNulByte(newText)) return { ...base, binary: true };
+  return { ...base, oldText, newText };
+}
+
+/** Create a local commit from exactly the selected working-tree paths. */
+export async function commitWorkingTreeChanges(
+  repoRoot: string,
+  message: string,
+  selectedPaths: string[],
+): Promise<string> {
+  const msg = message.trim();
+  if (!msg) throw new Error("Commit message is required.");
+  if (selectedPaths.length === 0) throw new Error("Select at least one file to commit.");
+
+  const selected = new Set(selectedPaths);
+  const changes = await readWorkingTreeChanges(repoRoot);
+  const pathspecs = new Set<string>();
+  for (const f of changes) {
+    if (!selected.has(f.path)) continue;
+    pathspecs.add(f.path);
+    if (f.oldPath) pathspecs.add(f.oldPath);
+  }
+  if (pathspecs.size === 0) throw new Error("None of the selected files still have changes.");
+
+  // `git commit --only -- <paths>` ignores unrelated staged files. Untracked
+  // selected files need intent-to-add first so git recognizes their pathspec.
+  const existing: string[] = [];
+  for (const p of pathspecs) {
+    if ((await fileSize(path.join(repoRoot, p))) >= 0) existing.push(p);
+  }
+  if (existing.length > 0) await git(repoRoot, ["add", "-N", "--", ...existing]).catch(() => "");
+  await git(repoRoot, ["commit", "-m", msg, "--only", "--", ...pathspecs]);
+  return (await git(repoRoot, ["rev-parse", "HEAD"])).trim();
 }
 
 /** A commit's current subject line (first line of its message). */

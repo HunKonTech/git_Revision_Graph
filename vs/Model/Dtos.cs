@@ -78,6 +78,17 @@ namespace RevisionGraph.Model
         public bool? TooLarge { get; set; }
     }
 
+    /// <summary>One file currently changed in the working tree.</summary>
+    public sealed class WorkingTreeFile
+    {
+        public string Path { get; set; }
+        public string OldPath { get; set; }
+        /// <summary>One of: added | modified | deleted | renamed.</summary>
+        public string Status { get; set; }
+        /// <summary>True when the file already has staged changes.</summary>
+        public bool? Staged { get; set; }
+    }
+
     /// <summary>One file a (hypothetical) merge would change.</summary>
     public sealed class MergePreviewFile
     {
@@ -132,5 +143,7 @@ namespace RevisionGraph.Model
         public string GitPath { get; set; }
         /// <summary>Target URL for openExternal.</summary>
         public string Url { get; set; }
+        /// <summary>Selected file paths for commitWorkingTreeChanges.</summary>
+        public List<string> Files { get; set; } = new List<string>();
     }
 }

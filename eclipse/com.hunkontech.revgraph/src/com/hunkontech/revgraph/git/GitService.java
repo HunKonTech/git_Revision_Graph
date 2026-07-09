@@ -21,6 +21,7 @@ import com.hunkontech.revgraph.model.Dtos.GraphData;
 import com.hunkontech.revgraph.model.Dtos.MergePreview;
 import com.hunkontech.revgraph.model.Dtos.MergePreviewFile;
 import com.hunkontech.revgraph.model.Dtos.StashEntry;
+import com.hunkontech.revgraph.model.Dtos.WorkingTreeFile;
 
 /**
  * Reads git history and performs branch/commit operations via the git CLI.
@@ -637,6 +638,139 @@ public final class GitService {
         diff.oldText = oldText;
         diff.newText = newText;
         return diff;
+    }
+
+    /** Current working-tree files available for a local commit. */
+    public List<WorkingTreeFile> readWorkingTreeChanges() {
+        String out = tryRun("status", "--porcelain=v1", "-z");
+        List<WorkingTreeFile> files = new ArrayList<>();
+        String[] parts = out.split(String.valueOf(NUL), -1);
+        int i = 0;
+        while (i < parts.length) {
+            String rec = i < parts.length ? parts[i++] : null;
+            if (rec == null || rec.length() < 4) {
+                continue;
+            }
+            char x = rec.charAt(0);
+            char y = rec.charAt(1);
+            String path = rec.substring(3);
+            if (path.isEmpty()) {
+                continue;
+            }
+            String oldPath = null;
+            if (x == 'R' || x == 'C') {
+                oldPath = i < parts.length ? emptyToNull(parts[i++]) : null;
+            }
+            files.add(new WorkingTreeFile(path, oldPath, mapWorkingTreeStatus(x, y), (x != ' ' && x != '?') ? Boolean.TRUE : null));
+        }
+        files.sort((a, b) -> a.path.compareToIgnoreCase(b.path));
+        return files;
+    }
+
+    private static String mapWorkingTreeStatus(char x, char y) {
+        if (x == 'R' || y == 'R' || x == 'C' || y == 'C') {
+            return "renamed";
+        }
+        if (x == 'D' || y == 'D') {
+            return "deleted";
+        }
+        if (x == 'A' || y == 'A' || x == '?' || y == '?') {
+            return "added";
+        }
+        return "modified";
+    }
+
+    private static long fileSize(String path) {
+        try {
+            File f = new File(path);
+            return f.isFile() ? f.length() : -1;
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
+    private static String fileText(String path) {
+        try {
+            return new String(java.nio.file.Files.readAllBytes(new File(path).toPath()), StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    /** Before/after text of one working-tree file, comparing HEAD to disk. */
+    public FileDiff readWorkingTreeFileDiff(String path, String status, String oldPath) {
+        FileDiff diff = new FileDiff("", path, status);
+        String beforePath = oldPath != null && !oldPath.isEmpty() ? oldPath : path;
+        String abs = new File(repoRoot, path.replace('/', File.separatorChar)).getPath();
+        boolean needOld = !"added".equals(status);
+        boolean needNew = !"deleted".equals(status);
+        long oldSize = needOld ? blobSize("HEAD", beforePath) : 0;
+        long newSize = needNew ? fileSize(abs) : 0;
+        if (oldSize > MAX_DIFF_BYTES || newSize > MAX_DIFF_BYTES) {
+            diff.tooLarge = Boolean.TRUE;
+            return diff;
+        }
+        String oldText = needOld ? blobText("HEAD", beforePath) : "";
+        String newText = needNew ? fileText(abs) : "";
+        if (oldText.indexOf(NUL) >= 0 || newText.indexOf(NUL) >= 0) {
+            diff.binary = Boolean.TRUE;
+            return diff;
+        }
+        diff.oldText = oldText;
+        diff.newText = newText;
+        return diff;
+    }
+
+    /** Create a local commit from exactly the selected working-tree paths. */
+    public String commitWorkingTreeChanges(String message, List<String> selectedPaths) {
+        String msg = message == null ? "" : message.trim();
+        if (msg.isEmpty()) {
+            throw new RuntimeException("Commit message is required.");
+        }
+        if (selectedPaths == null || selectedPaths.isEmpty()) {
+            throw new RuntimeException("Select at least one file to commit.");
+        }
+        Set<String> selected = new HashSet<>(selectedPaths);
+        Set<String> pathspecs = new java.util.LinkedHashSet<>();
+        for (WorkingTreeFile f : readWorkingTreeChanges()) {
+            if (!selected.contains(f.path)) {
+                continue;
+            }
+            pathspecs.add(f.path);
+            if (f.oldPath != null && !f.oldPath.isEmpty()) {
+                pathspecs.add(f.oldPath);
+            }
+        }
+        if (pathspecs.isEmpty()) {
+            throw new RuntimeException("None of the selected files still have changes.");
+        }
+        List<String> existing = new ArrayList<>();
+        for (String p : pathspecs) {
+            if (new File(repoRoot, p.replace('/', File.separatorChar)).isFile()) {
+                existing.add(p);
+            }
+        }
+        if (!existing.isEmpty()) {
+            List<String> addArgs = new ArrayList<>();
+            addArgs.add("add");
+            addArgs.add("-N");
+            addArgs.add("--");
+            addArgs.addAll(existing);
+            try {
+                run(addArgs);
+            } catch (Exception e) {
+                // best effort
+            }
+        }
+        List<String> commitArgs = new ArrayList<>();
+        commitArgs.add("commit");
+        commitArgs.add("-m");
+        commitArgs.add(msg);
+        commitArgs.add("--only");
+        commitArgs.add("--");
+        commitArgs.addAll(pathspecs);
+        run(commitArgs);
+        return run(Arrays.asList("rev-parse", "HEAD")).trim();
     }
 
     // ------------------------------------------------------------------

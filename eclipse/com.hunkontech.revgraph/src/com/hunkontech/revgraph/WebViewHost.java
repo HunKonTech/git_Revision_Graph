@@ -356,6 +356,15 @@ public final class WebViewHost {
                 case "requestFileContent":
                     handleFileContent(msg.sha, msg.path);
                     break;
+                case "requestWorkingTreeChanges":
+                    handleWorkingTreeChanges();
+                    break;
+                case "requestWorkingTreeFileDiff":
+                    handleWorkingTreeFileDiff(msg.path, msg.status, msg.oldPath);
+                    break;
+                case "commitWorkingTreeChanges":
+                    commitWorkingTreeChanges(msg.message, msg.files);
+                    break;
                 case "requestMergePreview":
                     handleMergePreview(msg.source);
                     break;
@@ -572,6 +581,68 @@ public final class WebViewHost {
         } catch (Exception e) {
             postToWebview(errorMap("Failed to read file diff: " + e.getMessage()));
         }
+    }
+
+    private void handleWorkingTreeChanges() {
+        GitService g = git;
+        if (g == null) {
+            return;
+        }
+        try {
+            Map<String, Object> msg = new LinkedHashMap<>();
+            msg.put("type", "workingTreeChanges");
+            msg.put("files", g.readWorkingTreeChanges());
+            postToWebview(msg);
+        } catch (Exception e) {
+            postToWebview(errorMap("Failed to read working tree changes: " + e.getMessage()));
+        }
+    }
+
+    private void handleWorkingTreeFileDiff(String path, String status, String oldPath) {
+        GitService g = git;
+        if (g == null || path == null || path.isEmpty()) {
+            return;
+        }
+        try {
+            Map<String, Object> msg = new LinkedHashMap<>();
+            msg.put("type", "workingTreeFileDiff");
+            msg.put("diff", g.readWorkingTreeFileDiff(path, status != null ? status : "modified", oldPath));
+            postToWebview(msg);
+        } catch (Exception e) {
+            postToWebview(errorMap("Failed to read working tree diff: " + e.getMessage()));
+        }
+    }
+
+    private void commitWorkingTreeChanges(String message, List<String> files) {
+        GitService g = git;
+        if (g == null) {
+            return;
+        }
+        try {
+            String sha = g.commitWorkingTreeChanges(message, files);
+            Map<String, Object> msg = new LinkedHashMap<>();
+            msg.put("type", "commitCreated");
+            msg.put("sha", sha);
+            msg.put("message", firstLine(message));
+            postToWebview(msg);
+        } catch (Exception e) {
+            postToWebview(errorMap("Commit failed: " + e.getMessage()));
+        }
+        refreshAsync();
+    }
+
+    private static String firstLine(String s) {
+        if (s == null) {
+            return "";
+        }
+        String trimmed = s.trim();
+        int rn = trimmed.indexOf('\r');
+        int n = trimmed.indexOf('\n');
+        int cut = rn >= 0 ? rn : n;
+        if (n >= 0 && (cut < 0 || n < cut)) {
+            cut = n;
+        }
+        return cut >= 0 ? trimmed.substring(0, cut) : trimmed;
     }
 
     private void handleMergePreview(String source) {

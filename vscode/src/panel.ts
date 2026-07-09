@@ -24,6 +24,9 @@ import {
   readCommitTree,
   readFileContent,
   readFileDiff,
+  readWorkingTreeChanges,
+  readWorkingTreeFileDiff,
+  commitWorkingTreeChanges,
   computeMergePreview,
   mergeCli,
   readMergeFileDiff,
@@ -164,6 +167,15 @@ export class GraphPanel {
         break;
       case "requestFileContent":
         await this.handleFileContent(msg.sha, msg.path);
+        break;
+      case "requestWorkingTreeChanges":
+        await this.handleWorkingTreeChanges();
+        break;
+      case "requestWorkingTreeFileDiff":
+        await this.handleWorkingTreeFileDiff(msg.path, msg.status, msg.oldPath);
+        break;
+      case "commitWorkingTreeChanges":
+        await this.handleCommitWorkingTreeChanges(msg.message, msg.files);
         break;
       case "requestMergePreview":
         await this.handleMergePreview(msg.source);
@@ -527,6 +539,48 @@ export class GraphPanel {
     } catch (err) {
       this.post({ type: "error", message: `Failed to read file diff: ${String(err)}` });
     }
+  }
+
+  private async handleWorkingTreeChanges(): Promise<void> {
+    const repo = await resolveRepository();
+    if (!repo) return;
+    try {
+      const files = await readWorkingTreeChanges(repo.rootUri.fsPath);
+      this.post({ type: "workingTreeChanges", files });
+    } catch (err) {
+      this.post({ type: "error", message: `Failed to read working tree changes: ${String(err)}` });
+    }
+  }
+
+  private async handleWorkingTreeFileDiff(
+    path: string,
+    status: DiffFileStatus,
+    oldPath?: string,
+  ): Promise<void> {
+    if (!path) return;
+    const repo = await resolveRepository();
+    if (!repo) return;
+    try {
+      const diff = await readWorkingTreeFileDiff(repo.rootUri.fsPath, path, status, oldPath);
+      this.post({ type: "workingTreeFileDiff", diff });
+    } catch (err) {
+      this.post({ type: "error", message: `Failed to read working tree diff: ${String(err)}` });
+    }
+  }
+
+  private async handleCommitWorkingTreeChanges(message: string, files: string[]): Promise<void> {
+    const repo = await resolveRepository();
+    if (!repo) return;
+    try {
+      const sha = await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: "Creating local commit…", cancellable: false },
+        () => commitWorkingTreeChanges(repo.rootUri.fsPath, message, files),
+      );
+      this.post({ type: "commitCreated", sha, message: message.trim().split(/\r?\n/)[0] ?? "" });
+    } catch (err) {
+      this.post({ type: "error", message: `Commit failed: ${String(err)}` });
+    }
+    await this.refresh();
   }
 
   /** Compute and send a dry-run preview of merging `source` into the current branch. */

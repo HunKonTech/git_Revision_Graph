@@ -1,11 +1,13 @@
 /**
  * Shared host <-> webview message contracts.
  *
- * The same protocol is implemented by both hosts:
- *  - the VS Code extension (TypeScript), and
- *  - the Visual Studio VSIX (C#, mirrored by hand).
+ * The same protocol is implemented by every host:
+ *  - the VS Code extension (TypeScript),
+ *  - the Visual Studio VSIX (C#, mirrored by hand),
+ *  - the JetBrains/NetBeans shared Kotlin layer, and
+ *  - the Eclipse Java layer.
  *
- * Keep this file the single source of truth. The C# side mirrors these shapes.
+ * Keep this file the single source of truth. Non-TypeScript hosts mirror these shapes.
  */
 
 /** Kind of git reference pointing at a commit. */
@@ -60,6 +62,12 @@ export interface CommitChangeFile {
   /** For renames: the path the file had in the parent. */
   oldPath?: string;
   status: DiffFileStatus;
+}
+
+/** One file currently changed in the working tree, available for a new commit. */
+export interface WorkingTreeFile extends CommitChangeFile {
+  /** True when the file already has staged changes in the index. */
+  staged?: boolean;
 }
 
 /**
@@ -162,6 +170,12 @@ export type HostToWebview =
   | { type: "commitTree"; sha: string; paths: string[] }
   // The before/after content of one file (answers `requestFileDiff`).
   | { type: "fileDiff"; diff: FileDiff }
+  // Current working-tree files available for the SVN-style commit dialog.
+  | { type: "workingTreeChanges"; files: WorkingTreeFile[] }
+  // Before/after content of one working-tree file (answers `requestWorkingTreeFileDiff`).
+  | { type: "workingTreeFileDiff"; diff: FileDiff }
+  // A local commit was created from the selected working-tree files.
+  | { type: "commitCreated"; sha: string; message: string }
   // Raw content of one file at a commit (answers `requestFileContent`).
   | { type: "fileContent"; sha: string; path: string; text: string; binary?: boolean; tooLarge?: boolean }
   // A dry-run merge preview (answers `requestMergePreview`).
@@ -200,6 +214,12 @@ export type WebviewToHost =
   | { type: "requestFileDiff"; sha: string; path: string; status: DiffFileStatus; oldPath?: string }
   // Ask the host for the raw content of one file at a commit (for unchanged files).
   | { type: "requestFileContent"; sha: string; path: string }
+  // Ask the host for the current working-tree file list.
+  | { type: "requestWorkingTreeChanges" }
+  // Ask the host for the before/after content of one working-tree file.
+  | { type: "requestWorkingTreeFileDiff"; path: string; status: DiffFileStatus; oldPath?: string }
+  // Create a local commit from exactly the selected working-tree files.
+  | { type: "commitWorkingTreeChanges"; message: string; files: string[] }
   // Ask the host for a dry-run preview of merging `source` into the current branch.
   | { type: "requestMergePreview"; source: string }
   // Ask the host for the before/after content of one file the merge would change

@@ -183,6 +183,171 @@ body,
   cursor: default;
 }
 
+.commit-modal {
+  width: min(1100px, calc(100vw - 48px));
+  height: min(760px, calc(100vh - 48px));
+  display: flex;
+  flex-direction: column;
+}
+
+.commit-body {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.commit-list {
+  width: 330px;
+  min-width: 240px;
+  max-width: 45%;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: rgba(128, 128, 128, 0.04);
+}
+
+.commit-list-toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.commit-file-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px;
+}
+
+.commit-file {
+  min-height: 26px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.commit-file:hover {
+  background: rgba(128, 128, 128, 0.12);
+}
+
+.commit-file.selected {
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+.commit-file input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.commit-file-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.commit-staged-dot {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.commit-diff {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.commit-footer {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  padding: 10px;
+}
+
+.commit-message-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.commit-message-label {
+  opacity: 0.82;
+}
+
+.commit-message-input {
+  min-height: 62px;
+  max-height: 130px;
+  resize: vertical;
+  background: rgba(128, 128, 128, 0.08);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 7px 8px;
+  font: inherit;
+}
+
+.commit-message-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.commit-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.commit-selection-count {
+  opacity: 0.78;
+}
+
+.commit-review-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.commit-review-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.commit-review-summary {
+  margin-bottom: 12px;
+}
+
+.commit-review-files {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.commit-review-file {
+  padding: 5px 8px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.18);
+}
+
+.commit-review-file:last-child {
+  border-bottom: 0;
+}
+
 /* edges */
 .edge {
   fill: none;

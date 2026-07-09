@@ -122,6 +122,23 @@ public final class Dtos {
         }
     }
 
+    /** One file currently changed in the working tree. */
+    public static final class WorkingTreeFile {
+        public final String path;
+        public String oldPath;
+        /** One of: added | modified | deleted | renamed. */
+        public String status;
+        /** True when the file already has staged changes. */
+        public Boolean staged;
+
+        public WorkingTreeFile(String path, String oldPath, String status, Boolean staged) {
+            this.path = path;
+            this.oldPath = oldPath;
+            this.status = status;
+            this.staged = staged;
+        }
+    }
+
     /** One file a (hypothetical) merge would change. */
     public static final class MergePreviewFile {
         public final String path;
@@ -183,6 +200,8 @@ public final class Dtos {
         public String gitPath;
         /** Target URL for openExternal. */
         public String url;
+        /** Selected file paths for commitWorkingTreeChanges. */
+        public List<String> files = Collections.emptyList();
 
         /** Parse one webview-&gt;host JSON message, or return null if malformed. */
         public static WebviewMessage fromJson(String json) {
@@ -212,6 +231,7 @@ public final class Dtos {
             msg.status = str(m, "status");
             msg.gitPath = str(m, "gitPath");
             msg.url = str(m, "url");
+            msg.files = stringList(m, "files");
             return msg;
         }
 
@@ -228,6 +248,20 @@ public final class Dtos {
         private static Integer intVal(Map<String, Object> m, String key) {
             Object v = m.get(key);
             return v instanceof Number ? Integer.valueOf(((Number) v).intValue()) : null;
+        }
+
+        private static List<String> stringList(Map<String, Object> m, String key) {
+            Object v = m.get(key);
+            if (!(v instanceof List)) {
+                return Collections.emptyList();
+            }
+            List<String> out = new java.util.ArrayList<>();
+            for (Object item : (List<?>) v) {
+                if (item instanceof String) {
+                    out.add((String) item);
+                }
+            }
+            return out;
         }
     }
 }
