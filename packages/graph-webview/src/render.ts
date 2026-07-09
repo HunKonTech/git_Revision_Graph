@@ -19,6 +19,14 @@ const REF_PAD = 6;
 /** Vertical gap between a box's bottom and the next box's top. */
 const ROW_GAP = 26;
 const MARGIN = 28;
+/**
+ * How far a merge (dashed) edge attaches to the *side* of a box's centre, toward
+ * the lane it travels to. A merge commit's first parent drops straight from the
+ * box's centre as a solid line; shifting the merge edge (and its arrowheads) off
+ * that centre keeps the two from piling onto the same point — otherwise the merge
+ * arrow lands right on the solid trunk and the join is unreadable.
+ */
+const MERGE_END_DX = 16;
 
 /** Distinct hues per ref kind, echoing the SVN graph (grey trunk, green branch, yellow tag). */
 type NodeKind = "head" | "localBranch" | "remoteBranch" | "tag" | "commit" | "stash";
@@ -492,6 +500,17 @@ export class GraphView {
     this.viewport.appendChild(nodeLayer);
   }
 
+  /**
+   * Horizontal offset applied to *both* ends of a merge edge so it peels away
+   * from the box centre (where the solid first-parent line sits) toward the lane
+   * it travels to. Non-merge edges get no shift. A same-lane merge (no clear
+   * direction) defaults to the right so it still clears the centred trunk.
+   */
+  private mergeShift(e: LayoutEdge): number {
+    if (!e.isMerge) return 0;
+    return (Math.sign(e.toLane - e.fromLane) || 1) * MERGE_END_DX;
+  }
+
   private boxX(lane: number): number {
     return MARGIN + lane * LANE_W;
   }
@@ -585,9 +604,13 @@ export class GraphView {
     if (e.fromLane === e.toLane) {
       // Same column: a straight drop with a gentle S-curve. A column reserves its
       // whole row span, so nothing else sits between the two boxes — it can never
-      // pass under another box.
+      // pass under another box. A same-lane *merge* is shifted sideways so its
+      // dashed line runs parallel to (not on top of) the solid first-parent trunk.
+      const s = this.mergeShift(e);
+      const scx = cx + s;
+      const spx = px + s;
       const midY = (cy + py) / 2;
-      path.setAttribute("d", `M ${cx} ${cy} C ${cx} ${midY}, ${px} ${midY}, ${px} ${py}`);
+      path.setAttribute("d", `M ${scx} ${cy} C ${scx} ${midY}, ${spx} ${midY}, ${spx} ${py}`);
       return path;
     }
 
@@ -604,9 +627,12 @@ export class GraphView {
    * a gutter (the box-free strip between two box columns).
    */
   private parentEdgePoints(e: LayoutEdge): Array<[number, number]> {
-    const cx = this.boxX(e.fromLane) + BOX_W / 2;
+    // Merge edges attach off-centre (toward their travel direction) so they clear
+    // the solid first-parent trunk that drops from the same box's centre.
+    const s = this.mergeShift(e);
+    const cx = this.boxX(e.fromLane) + BOX_W / 2 + s;
     const cy = this.boxY(e.fromRow) + (this.ownHeight.get(e.fromId) ?? CONTENT_H);
-    const px = this.boxX(e.toLane) + BOX_W / 2;
+    const px = this.boxX(e.toLane) + BOX_W / 2 + s;
     const py = this.boxY(e.toRow); // parent top
     const y1 = this.rowBottom(e.fromRow) + ROW_GAP / 2; // gap just below the child's row
     const y2 = this.boxY(e.toRow) - ROW_GAP / 2; // gap just above the parent's row
@@ -643,9 +669,12 @@ export class GraphView {
    * markers, which render inconsistently across the embedded browser engines.
    */
   private mergeArrows(e: LayoutEdge): SVGPathElement[] {
-    const cx = this.boxX(e.fromLane) + BOX_W / 2;
+    // Same off-centre shift as the merge line itself (see mergeShift), so the end
+    // arrowheads sit on the dashed line and clear the solid first-parent trunk.
+    const s = this.mergeShift(e);
+    const cx = this.boxX(e.fromLane) + BOX_W / 2 + s;
     const cy = this.boxY(e.fromRow) + (this.ownHeight.get(e.fromId) ?? CONTENT_H);
-    const px = this.boxX(e.toLane) + BOX_W / 2;
+    const px = this.boxX(e.toLane) + BOX_W / 2 + s;
     const py = this.boxY(e.toRow);
     const arrows = [
       this.arrowAt(cx, cy + 5, 0, -1), // entering the merge commit (line end)
