@@ -5,6 +5,9 @@ import type { DisplayMode } from "./displayMode.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
+/** An edge's DOM element plus its endpoint node ids and flags, for highlighting. */
+type EdgeRecord = { el: SVGPathElement; fromId: string; toId: string; stash: boolean; merge: boolean };
+
 /** Pixel geometry of the grid. Tuned to resemble the TortoiseSVN graph. */
 const LANE_W = 210;
 const BOX_W = 170;
@@ -64,7 +67,7 @@ export class GraphView {
   /** First-parent-and-beyond adjacency (sha → parent shas present in the graph). */
   private adjacency = new Map<string, string[]>();
   /** Edge DOM elements with their endpoint node ids, for path highlighting. */
-  private edgeRecords: Array<{ el: SVGPathElement; fromId: string; toId: string; stash: boolean; merge: boolean }> = [];
+  private edgeRecords: EdgeRecord[] = [];
   /** Node DOM elements with their node id, for path highlighting. */
   private nodeRecords: Array<{ el: SVGGElement; id: string }> = [];
   /** Every positioned node by its unique nodeId (real, phantom and stash). */
@@ -261,29 +264,41 @@ export class GraphView {
     const visited = this.lineOf(nodeId);
     const ownSegment = this.ownSegmentOf(nodeId);
     this.viewport.classList.add("has-selection");
-    // Commits pulled in by a lit merge edge (a merge's second parent). They sit
-    // off the selected first-parent line, so `visited` misses them — but the
-    // highlighted merge edge points straight at them, so the box it lands on must
-    // light up too, otherwise the merge appears to connect to a dimmed commit.
-    const mergedIn = new Set<string>();
+
+    // A merge edge "lands on" the selected branch when it flows from the branch's
+    // own segment down into a *more central* lane — i.e. a trunk (e.g. a refreshed
+    // main) that was merged *into* the selected branch. A feature branch absorbed
+    // the other way (merged into this branch from a lane further right) does NOT
+    // land on it and stays dim: that's old history the selection means to hide.
+    const landsOnSelection = (r: EdgeRecord): boolean =>
+      r.merge &&
+      !r.stash &&
+      ownSegment.has(r.fromId) &&
+      (this.nodeById.get(r.toId)?.lane ?? 0) < (this.nodeById.get(r.fromId)?.lane ?? 0);
+
+    // Everything highlighted: the selected first-parent line, plus — for every
+    // merge that landed on it — the *whole history* of the commit that was merged
+    // in (that commit AND its first-parent ancestry, via lineOf). Highlighting
+    // only the merge's tip left the merged-in trunk lit at each merge point but
+    // dim in between; pulling in its ancestry makes it a continuous lit line.
+    const lit = new Set(visited);
+    const mergedTips = new Set<string>();
     for (const r of this.edgeRecords) {
-      // A merge edge lights up only when a *more central* branch was merged into
-      // the selected branch's own segment — e.g. a refreshed main (lower lane)
-      // merged into this side branch. A feature branch merged the other way,
-      // *into* this branch from a lane further right (like feature/login into
-      // main), stays dim: that's an old side branch being absorbed, exactly the
-      // history the selection is meant to hide. Merges before the branch existed
-      // (into the base branch at/below the fork point) also stay dim.
-      const on = r.merge
-        ? !r.stash &&
-          ownSegment.has(r.fromId) &&
-          (this.nodeById.get(r.toId)?.lane ?? 0) < (this.nodeById.get(r.fromId)?.lane ?? 0)
-        : !r.stash && visited.has(r.fromId) && visited.has(r.toId);
+      if (landsOnSelection(r)) mergedTips.add(r.toId);
+    }
+    for (const tip of mergedTips) {
+      for (const id of this.lineOf(tip)) lit.add(id);
+    }
+
+    for (const r of this.edgeRecords) {
+      // Merge edges light only when they landed on the selected branch (above);
+      // solid first-parent edges light whenever both ends are lit — which now
+      // covers the merged-in trunk's own internal line, not just the selection's.
+      const on = landsOnSelection(r) || (!r.merge && !r.stash && lit.has(r.fromId) && lit.has(r.toId));
       r.el.classList.toggle("edge-path", on);
-      if (on && r.merge) mergedIn.add(r.toId);
     }
     for (const r of this.nodeRecords) {
-      r.el.classList.toggle("node-path", visited.has(r.id) || mergedIn.has(r.id));
+      r.el.classList.toggle("node-path", lit.has(r.id));
     }
   }
 
