@@ -261,6 +261,11 @@ export class GraphView {
     const visited = this.lineOf(nodeId);
     const ownSegment = this.ownSegmentOf(nodeId);
     this.viewport.classList.add("has-selection");
+    // Commits pulled in by a lit merge edge (a merge's second parent). They sit
+    // off the selected first-parent line, so `visited` misses them — but the
+    // highlighted merge edge points straight at them, so the box it lands on must
+    // light up too, otherwise the merge appears to connect to a dimmed commit.
+    const mergedIn = new Set<string>();
     for (const r of this.edgeRecords) {
       // A merge edge lights up only when a *more central* branch was merged into
       // the selected branch's own segment — e.g. a refreshed main (lower lane)
@@ -275,9 +280,10 @@ export class GraphView {
           (this.nodeById.get(r.toId)?.lane ?? 0) < (this.nodeById.get(r.fromId)?.lane ?? 0)
         : !r.stash && visited.has(r.fromId) && visited.has(r.toId);
       r.el.classList.toggle("edge-path", on);
+      if (on && r.merge) mergedIn.add(r.toId);
     }
     for (const r of this.nodeRecords) {
-      r.el.classList.toggle("node-path", visited.has(r.id));
+      r.el.classList.toggle("node-path", visited.has(r.id) || mergedIn.has(r.id));
     }
   }
 
