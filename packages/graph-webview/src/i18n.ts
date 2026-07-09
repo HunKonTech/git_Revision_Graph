@@ -195,6 +195,10 @@ type Dict = {
   "search.title": string;
   "search.tooltip": string;
   "search.placeholder": string;
+  "search.previous": string;
+  "search.next": string;
+  "search.noResults": string;
+  "search.resultCount": string;
   "search.filter": string;
   "search.highlight": string;
   "search.filterMode": string;
@@ -385,6 +389,10 @@ const DICTS: Record<Lang, Dict> = {
     "search.title": "Search",
     "search.tooltip": "Search commits",
     "search.placeholder": "Search commits…",
+    "search.previous": "Previous result",
+    "search.next": "Next result",
+    "search.noResults": "No results",
+    "search.resultCount": "{index}/{count}",
     "search.filter": "Filter mode",
     "search.highlight": "Highlight mode",
     "search.filterMode": "Search display",
@@ -573,6 +581,10 @@ const DICTS: Record<Lang, Dict> = {
     "search.title": "Keresés",
     "search.tooltip": "Commitok keresése",
     "search.placeholder": "Commitok keresése…",
+    "search.previous": "Előző találat",
+    "search.next": "Következő találat",
+    "search.noResults": "Nincs találat",
+    "search.resultCount": "{index}/{count}",
     "search.filter": "Szűrés mód",
     "search.highlight": "Kiemelés mód",
     "search.filterMode": "Keresési megjelenítés",
@@ -758,6 +770,23 @@ const DICTS: Record<Lang, Dict> = {
     "status.merging": "正在合并…",
     "status.merged": "合并完成。",
     "status.mergeConflict": "合并存在冲突 — 请在编辑器中解决，然后提交。",
+    "search.title": "搜索",
+    "search.tooltip": "搜索提交",
+    "search.placeholder": "搜索提交…",
+    "search.previous": "上一个结果",
+    "search.next": "下一个结果",
+    "search.noResults": "无结果",
+    "search.resultCount": "{index}/{count}",
+    "search.filter": "筛选模式",
+    "search.highlight": "高亮模式",
+    "search.filterMode": "搜索显示",
+    "search.filterModeFilter": "筛选（隐藏不匹配项）",
+    "search.filterModeHighlight": "高亮（显示全部并标记匹配项）",
+    "search.filterModeHint": "选择搜索结果在图中的显示方式。",
+    "search.visibility": "搜索位置",
+    "search.visibilityToolbar": "工具栏按钮",
+    "search.visibilityAlwaysVisible": "始终可见的栏",
+    "search.visibilityHint": "将搜索显示为工具栏图标或顶部固定栏。",
     "footer.github": "GitHub",
   },
   ru: {
@@ -933,6 +962,23 @@ const DICTS: Record<Lang, Dict> = {
     "status.merging": "Слияние…",
     "status.merged": "Слияние завершено.",
     "status.mergeConflict": "В слиянии есть конфликты — разрешите их в редакторе, затем сделайте коммит.",
+    "search.title": "Поиск",
+    "search.tooltip": "Искать коммиты",
+    "search.placeholder": "Искать коммиты…",
+    "search.previous": "Предыдущий результат",
+    "search.next": "Следующий результат",
+    "search.noResults": "Нет результатов",
+    "search.resultCount": "{index}/{count}",
+    "search.filter": "Режим фильтра",
+    "search.highlight": "Режим подсветки",
+    "search.filterMode": "Отображение поиска",
+    "search.filterModeFilter": "Фильтр (скрыть несовпадения)",
+    "search.filterModeHighlight": "Подсветка (показать всё и отметить совпадения)",
+    "search.filterModeHint": "Выберите, как показывать результаты поиска на графе.",
+    "search.visibility": "Расположение поиска",
+    "search.visibilityToolbar": "Кнопка панели",
+    "search.visibilityAlwaysVisible": "Всегда видимая строка",
+    "search.visibilityHint": "Показывать поиск кнопкой на панели или постоянной строкой сверху.",
     "footer.github": "GitHub",
   },
 };

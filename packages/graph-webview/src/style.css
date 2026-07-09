@@ -49,10 +49,12 @@ body,
 
 .toolbar {
   display: flex;
+  align-items: center;
   gap: 6px;
   padding: 6px 8px;
   border-bottom: 1px solid var(--border);
   flex: 0 0 auto;
+  flex-wrap: wrap;
 }
 
 .toolbar button {
@@ -66,6 +68,47 @@ body,
 }
 .toolbar button:hover {
   border-color: var(--accent);
+}
+.toolbar button:disabled {
+  opacity: 0.45;
+  cursor: default;
+  border-color: var(--border);
+}
+.toolbar-search {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 220px;
+  max-width: 420px;
+  flex: 1 1 260px;
+}
+.toolbar-search-input {
+  min-width: 120px;
+  width: 100%;
+  background: rgba(128, 128, 128, 0.08);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+.toolbar-search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.toolbar-search-nav {
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  flex: 0 0 auto;
+}
+.toolbar-search-count {
+  min-width: 42px;
+  font-size: 11px;
+  opacity: 0.75;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .graph-canvas {
@@ -183,6 +226,12 @@ body,
 .has-selection .node.node-path {
   opacity: 1;
 }
+.has-selection .node.node-search-match {
+  opacity: 0.82;
+}
+.has-selection .node.node-search-active {
+  opacity: 1;
+}
 
 /* nodes */
 .node {
@@ -215,6 +264,14 @@ body,
 .node:hover .node-rect {
   stroke: var(--accent);
   stroke-width: 2;
+}
+.node-search-match .node-rect {
+  stroke: #f2cc60;
+  stroke-width: 2;
+}
+.node-search-active .node-rect {
+  stroke: #ffffff;
+  stroke-width: 3;
 }
 /* Phantom = a branch with no commits of its own; drawn as a dashed label box. */
 .node-phantom .node-rect {

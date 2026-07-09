@@ -395,6 +395,7 @@ function boot(): void {
     currentHead = data.head ?? null;
     lastData = data;
     view.setData(data, getMainBranch());
+    updateCommitSearch(false);
     renderStatus(() => {
       const summary = t("status.summary", {
         repo: data.repoName ? `${data.repoName} — ` : "",
@@ -462,7 +463,10 @@ function boot(): void {
 
   // Re-lay-out the existing data when the user changes the main branch.
   onMainBranchChange(() => {
-    if (lastData) view.setData(lastData, getMainBranch());
+    if (lastData) {
+      view.setData(lastData, getMainBranch());
+      updateCommitSearch(false);
+    }
   });
 
   // Switch the canvas between the modern and classic navigation styles.
@@ -479,7 +483,97 @@ function boot(): void {
   const jumpBtn = makeButton("jumpHead", "toolbar.jumpHead");
   const resetBtn = makeButton("reset", "toolbar.reset");
   const settingsBtn = makeButton("settings", "toolbar.settings");
-  toolbar.append(refreshBtn, fetchBtn, pullBtn, pushBtn, syncBtn, jumpBtn, resetBtn, settingsBtn);
+  const searchBox = document.createElement("div");
+  searchBox.className = "toolbar-search";
+  const searchInput = document.createElement("input");
+  searchInput.type = "search";
+  searchInput.className = "toolbar-search-input";
+  searchInput.placeholder = t("search.placeholder");
+  searchInput.setAttribute("aria-label", t("search.tooltip"));
+  const searchPrevBtn = document.createElement("button");
+  searchPrevBtn.type = "button";
+  searchPrevBtn.className = "toolbar-search-nav";
+  searchPrevBtn.textContent = "↑";
+  searchPrevBtn.title = t("search.previous");
+  const searchNextBtn = document.createElement("button");
+  searchNextBtn.type = "button";
+  searchNextBtn.className = "toolbar-search-nav";
+  searchNextBtn.textContent = "↓";
+  searchNextBtn.title = t("search.next");
+  const searchCount = document.createElement("span");
+  searchCount.className = "toolbar-search-count";
+  searchBox.append(searchInput, searchPrevBtn, searchNextBtn, searchCount);
+  toolbar.append(refreshBtn, fetchBtn, pullBtn, pushBtn, syncBtn, jumpBtn, resetBtn, settingsBtn, searchBox);
+
+  let searchMatches: PositionedCommit[] = [];
+  let activeSearchIndex = -1;
+
+  function updateSearchCount(): void {
+    if (!searchInput.value.trim()) {
+      searchCount.textContent = "";
+    } else if (searchMatches.length === 0) {
+      searchCount.textContent = t("search.noResults");
+    } else {
+      searchCount.textContent = t("search.resultCount", {
+        index: activeSearchIndex + 1,
+        count: searchMatches.length,
+      });
+    }
+    const hasSeveral = searchMatches.length > 1;
+    searchPrevBtn.disabled = !hasSeveral;
+    searchNextBtn.disabled = !hasSeveral;
+  }
+
+  function focusSearchMatch(): void {
+    const active = searchMatches[activeSearchIndex];
+    const activeNodeId = active?.nodeId ?? null;
+    view.setSearchMatches(searchMatches.map((c) => c.nodeId), activeNodeId);
+    if (!active) {
+      detailsPanel.dataset.hidden = "";
+      updateSearchCount();
+      return;
+    }
+    view.jumpToNode(active.nodeId);
+    showCommitDetails(detailsPanel, active, currentHead);
+    updateSearchCount();
+  }
+
+  function updateCommitSearch(resetIndex = true): void {
+    const query = searchInput.value.trim();
+    searchMatches = query ? view.findCommitMessages(query) : [];
+    if (resetIndex) activeSearchIndex = searchMatches.length > 0 ? 0 : -1;
+    else if (searchMatches.length === 0) activeSearchIndex = -1;
+    else activeSearchIndex = Math.min(Math.max(activeSearchIndex, 0), searchMatches.length - 1);
+    focusSearchMatch();
+  }
+
+  function moveSearch(delta: number): void {
+    if (searchMatches.length === 0) return;
+    activeSearchIndex = (activeSearchIndex + delta + searchMatches.length) % searchMatches.length;
+    focusSearchMatch();
+  }
+
+  searchInput.addEventListener("input", () => updateCommitSearch(true));
+  searchInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      moveSearch(e.shiftKey ? -1 : 1);
+    } else if (e.key === "Escape") {
+      searchInput.value = "";
+      updateCommitSearch(true);
+      searchInput.blur();
+    }
+  });
+  searchPrevBtn.addEventListener("click", () => moveSearch(-1));
+  searchNextBtn.addEventListener("click", () => moveSearch(1));
+  window.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLocaleLowerCase() === "f") {
+      e.preventDefault();
+      searchInput.focus();
+      searchInput.select();
+    }
+  });
+
   toolbar.addEventListener("click", (e) => {
     const act = (e.target as HTMLElement).dataset.act;
     if (act === "refresh") bridge.post({ type: "requestRefresh" });
@@ -518,6 +612,11 @@ function boot(): void {
     jumpBtn.textContent = t("toolbar.jumpHead");
     resetBtn.textContent = t("toolbar.reset");
     settingsBtn.textContent = t("toolbar.settings");
+    searchInput.placeholder = t("search.placeholder");
+    searchInput.setAttribute("aria-label", t("search.tooltip"));
+    searchPrevBtn.title = t("search.previous");
+    searchNextBtn.title = t("search.next");
+    updateSearchCount();
     relabelLegend(legend);
     statusText.textContent = statusFn();
     githubLink.textContent = t("footer.github");

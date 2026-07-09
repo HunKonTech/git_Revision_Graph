@@ -76,6 +76,10 @@ export class GraphView {
   private realNodeId = new Map<string, string>();
   /** Node id whose line is currently highlighted, if any. */
   private selectedNodeId: string | null = null;
+  /** Commit nodes matching the current toolbar search. */
+  private searchMatchIds = new Set<string>();
+  /** The currently focused search result. */
+  private activeSearchNodeId: string | null = null;
   /**
    * For branch/stash connectors that attach to a commit box's *right side*: this
    * edge's slot among all such connectors on the same box, so several branches or
@@ -198,6 +202,8 @@ export class GraphView {
     this.layout = computeLayout(data, { mainBranch });
     this.head = data.head ?? null;
     this.selectedNodeId = null;
+    this.searchMatchIds.clear();
+    this.activeSearchNodeId = null;
     // Parent adjacency for line highlighting — real commits only (skip stash
     // nodes), keyed by sha so phantom duplicates collapse onto the same entry.
     // realNodeId resolves a sha back to the box that actually draws the commit
@@ -237,6 +243,42 @@ export class GraphView {
 
   getPositionedCommit(sha: string): PositionedCommit | undefined {
     return this.layout?.commits.find((c) => c.sha === sha);
+  }
+
+  findCommitMessages(query: string): PositionedCommit[] {
+    const q = query.trim().toLocaleLowerCase();
+    if (!q || !this.layout) return [];
+    return this.layout.commits.filter(
+      (c) => !c.stash && !c.phantom && c.summary.toLocaleLowerCase().includes(q),
+    );
+  }
+
+  setSearchMatches(nodeIds: string[], activeNodeId: string | null): void {
+    this.searchMatchIds = new Set(nodeIds);
+    this.activeSearchNodeId = activeNodeId;
+    this.updateSearchClasses();
+  }
+
+  jumpToNode(nodeId: string): boolean {
+    const node = this.nodeById.get(nodeId);
+    if (!node) return false;
+    const cx = this.boxX(node.lane) + BOX_W / 2;
+    const h = this.ownHeight.get(node.nodeId) ?? CONTENT_H;
+    const cy = this.boxY(node.row) + h / 2;
+    if (this.mode === "classic") {
+      const vw = this.scrollEl.clientWidth;
+      const vh = this.scrollEl.clientHeight;
+      this.scrollEl.scrollLeft = Math.max(0, cx - vw / 2);
+      this.scrollEl.scrollTop = Math.max(0, cy - vh / 2);
+    } else {
+      const rect = this.svg.getBoundingClientRect();
+      this.tx = rect.width / 2 - this.scale * cx;
+      this.ty = rect.height / 2 - this.scale * cy;
+      this.applyTransform();
+    }
+    this.selectedNodeId = null;
+    this.selectPath(nodeId);
+    return true;
   }
 
   /**
@@ -519,6 +561,14 @@ export class GraphView {
       this.nodeRecords.push({ el, id: c.nodeId });
     }
     this.viewport.appendChild(nodeLayer);
+    this.updateSearchClasses();
+  }
+
+  private updateSearchClasses(): void {
+    for (const r of this.nodeRecords) {
+      r.el.classList.toggle("node-search-match", this.searchMatchIds.has(r.id));
+      r.el.classList.toggle("node-search-active", r.id === this.activeSearchNodeId);
+    }
   }
 
   /**
