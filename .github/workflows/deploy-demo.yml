@@ -1,15 +1,11 @@
 # Builds the interactive browser demo (shared webview bundle + mock data) and
 # publishes it to GitHub Pages.
 #
-# It runs AFTER the "Build & Publish Extensions" (release) workflow finishes, not
-# directly on push. That release run bumps the EXTENSION_VERSION repo variable,
-# so by the time this starts the version is final — the demo footer shows the
-# real current release (vX.Y.Z), never a stale placeholder, and there is no race
-# with the version bump. Sequencing after the release also keeps the demo build
-# from contending with it: the release runs on the self-hosted *Windows* runner,
-# while this runs on the self-hosted *Linux* runner (a different machine), so
-# they never fight for the same host (the old push-triggered demo build shared
-# the Windows runner and got canceled mid-run).
+# It runs after the "Build & Publish Extensions" workflow finishes, and also on
+# pushes to main that touch the webview/demo pipeline. The push trigger keeps the
+# public browser demo current between extension releases, so newly added UI (for
+# example the local commit dialog) is visible on the demo page as soon as the
+# code lands.
 #
 # Everything here runs on self-hosted runners only (org policy). The demo build
 # is plain Node + esbuild — no Windows/VS SDK — so the self-hosted Linux runner
@@ -21,6 +17,14 @@
 name: Deploy demo to GitHub Pages
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/deploy-demo.yml"
+      - "scripts/build-demo.mjs"
+      - "packages/protocol/**"
+      - "packages/graph-core/**"
+      - "packages/graph-webview/**"
   workflow_run:
     workflows: ["Build & Publish Extensions"]
     types: [completed]
@@ -42,9 +46,10 @@ concurrency:
 jobs:
   build:
     # Deploy only for a successful release (skip when it failed or was
-    # cancelled), or when triggered by hand.
+    # cancelled), or when triggered by push / hand.
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
       github.event.workflow_run.conclusion == 'success'
     # Self-hosted Linux (the org's ARM64 Linux runner) — separate machine from
     # the release build's self-hosted Windows runner, so no contention.
