@@ -555,66 +555,100 @@ export function jargonEnglishSchematic(): string {
 }
 
 // ---------------------------------------------------------------------------
-// Merge style — what the graph looks like AFTER merging "feature" into "main".
-// Both pictures use the same commit-card grid as the display-style schematics,
-// so they read as the real graph:
+// Merge style — merging "feature" INTO "main", and what the graph looks like
+// afterwards. A route header at the top names the direction (which branch is
+// merged into which), and the branch's edge carries an arrowhead into main's
+// new tip, so the picture reads as the merge itself and not as a fork. Both use
+// the same commit-card grid as the display-style schematics:
 //   merge  — the branch's commits join main's history through a merge commit,
-//            which has two incoming edges (trunk above + the branch's elbow).
+//            which has two parents (main's previous tip + the branch's tip).
 //   squash — main gets ONE ordinary commit holding all the branch's changes;
 //            no history link (dashed = the changes were copied, not linked), so
 //            the branch's own commits never appear in main's history.
 // ---------------------------------------------------------------------------
+
+/** Width of the pill {@link branchPill} draws for `label`. */
+function branchPillWidth(label: string): number {
+  return label.length * 4.6 + 14;
+}
+
+/** A branch pill, as used by the merge dialog's source → target route line. */
+function branchPill(x: number, y: number, label: string, accent: boolean): string {
+  const w = branchPillWidth(label);
+  return (
+    rect(x, y, w, 15, { fill: accent ? C.accent : C.muted, stroke: accent ? "none" : C.border, r: 7 }) +
+    text(x + w / 2, y + 10.5, label, { size: 8, weight: 600, anchor: "middle", fill: accent ? "#fff" : C.fg })
+  );
+}
+
 function mergeStyleSchematic(squash: boolean): string {
   const TX = 26;
   const BX = TX + LANE;
-  const y0 = 26;
-  const y1 = y0 + ROW;
-  const y2 = y0 + 2 * ROW;
+  // Newest-first, like the real graph: row 0 is the TOP, so main's new tip sits
+  // above its older commits and the branch's changes travel UPWARDS into it.
+  const y0 = 48; // main's new commit (the merge / squash commit)
+  const y1 = y0 + ROW; // main's previous tip | the branch's tip
+  const y2 = y0 + 2 * ROW; // older commits on both lanes
   const tcx = TX + CW / 2;
   const bcx = BX + CW / 2;
 
   let s = open();
   s += rect(8, 8, W - 16, H - 16, { fill: C.faint, r: 4 });
 
-  // Trunk edges (main's own history) and the branch's internal edge.
+  // Route header: which branch is merged INTO which (feature → main).
+  const srcW = branchPillWidth("feature");
+  const tgtW = branchPillWidth("main");
+  const routeY = 20;
+  let rx = 16;
+  s += branchPill(rx, routeY, "feature", false);
+  rx += srcW + 7;
+  s += text(rx, routeY + 11, "→", { size: 11, opacity: 0.8 });
+  rx += 13;
+  s += branchPill(rx, routeY, "main", true);
+  rx += tgtW + 8;
+  s += text(rx, routeY + 11, squash ? "squash merge" : "merge", { size: 8, opacity: 0.6 });
+
+  // Trunk edges (main's own history) and the branch's internal edge — each drawn
+  // from a commit down to its parent.
   s += vEdge(tcx, y0 + CH, y1);
   s += vEdge(tcx, y1 + CH, y2);
-  s += vEdge(bcx, y0 + CH, y1);
+  s += vEdge(bcx, y1 + CH, y2);
 
   // The branch's route into main: a real history edge for a merge, a faint
-  // dashed "changes copied here" hint for a squash.
-  const g1 = y1 + CH + 6;
-  const g2 = y2 - 6;
-  const xCorr = BX - 11;
+  // dashed "changes copied here" hint for a squash. Both run UP from the branch
+  // tip into main's new commit and end in an arrowhead there, so the direction
+  // of the merge is unmistakable.
+  const gap = y1 - 6; // the corridor between main's new commit and the row below
   const pts: [number, number][] = [
-    [bcx, y1 + CH],
-    [bcx, g1],
-    [xCorr, g1],
-    [xCorr, g2],
-    [tcx, g2],
-    [tcx, y2],
+    [bcx, y1],
+    [bcx, gap],
+    [tcx, gap],
+    [tcx, y0 + CH],
   ];
+  const head = (opacity: number) =>
+    `<polygon points="${tcx},${y0 + CH} ${tcx - 4},${y0 + CH + 7} ${tcx + 4},${y0 + CH + 7}" ` +
+    `fill="${C.edge}" opacity="${opacity}"/>`;
   if (squash) {
     let d = `M ${pts[0]![0]} ${pts[0]![1]}`;
     for (let i = 1; i < pts.length; i++) d += ` L ${pts[i]![0]} ${pts[i]![1]}`;
     s += `<path d="${d}" fill="none" stroke="${C.edge}" stroke-width="1.2" stroke-dasharray="4 3" opacity="0.55"/>`;
-    // Arrowhead on the dashed hint, pointing into the new commit.
-    s += `<polygon points="${tcx},${y2} ${tcx - 3.5},${y2 - 6} ${tcx + 3.5},${y2 - 6}" fill="${C.edge}" opacity="0.55"/>`;
+    s += head(0.55);
   } else {
     s += elbow(pts);
+    s += head(1);
   }
 
-  // Cards: main's trunk (its new tip accented) and the two-commit branch.
-  s += commitCard(TX, y0, "main");
+  // Cards: main's lane with its NEW tip on top (accented), the branch beside it.
+  s += commitCard(TX, y0, "main", true);
   s += commitCard(TX, y1, "main");
-  s += commitCard(TX, y2, "main", true);
-  s += commitCard(BX, y0, "feature");
+  s += commitCard(TX, y2, "main");
   s += commitCard(BX, y1, "feature");
+  s += commitCard(BX, y2, "feature");
 
-  // Badge naming what the new tip is.
+  // Badge naming what the new tip is, beside it.
   const bw = squash ? 54 : 74;
   const bx = W - bw - 14;
-  const by = y2 + 9;
+  const by = y0 + 9;
   s += rect(bx, by, bw, 16, { fill: C.accent, r: 8 });
   s += text(bx + bw / 2, by + 11, squash ? "1 commit" : "merge commit", {
     size: 8,
