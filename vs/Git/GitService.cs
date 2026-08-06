@@ -976,6 +976,7 @@ namespace RevisionGraph.Git
                 Source = source,
                 Target = target,
                 DefaultMessage = "Merge branch '" + source + "'" + (target != "HEAD" ? " into " + target : ""),
+                DefaultSquashMessage = "Squashed changes from '" + source + "'",
             };
 
             var headTip = (await RunSafeAsync(_repoRoot, "rev-parse", "HEAD").ConfigureAwait(false)).Trim();
@@ -1032,14 +1033,58 @@ namespace RevisionGraph.Git
             return preview;
         }
 
+        /// <summary>True when nothing is staged (the index matches HEAD).</summary>
+        private async Task<bool> IsIndexCleanAsync()
+        {
+            var cap = await RunCaptureAsync(_repoRoot, "diff", "--cached", "--quiet").ConfigureAwait(false);
+            return cap.ExitCode == 0;
+        }
+
+        /// <summary>
+        /// Squash-merge <paramref name="source"/> into the current branch: <c>git merge --squash</c>
+        /// stages the merged result without committing (and without recording MERGE_HEAD),
+        /// then one ordinary <c>git commit</c> collapses the whole branch into a SINGLE
+        /// commit. The source branch's own commits therefore never enter the current
+        /// branch's history — they stay on their branch, which is left untouched.
+        ///
+        /// Guards, because the commit step is ours and not git's: a dirty index is refused
+        /// (the commit would sweep in unrelated staged changes), a conflict commits nothing
+        /// (the user resolves it and commits with the normal flow), and a merge that changes
+        /// nothing records nothing. Mirrors squashMergeCli in vscode/src/gitData.ts.
+        /// </summary>
+        private async Task<OpOutcome> SquashMergeAsync(string source, string message)
+        {
+            if (!await IsIndexCleanAsync().ConfigureAwait(false))
+            {
+                throw new InvalidOperationException(
+                    "A squash merge commits everything that is staged. Commit or unstage your staged changes first.");
+            }
+            try
+            {
+                await RunAsync(_repoRoot, "merge", "--squash", source).ConfigureAwait(false);
+            }
+            catch
+            {
+                if (await HasUnmergedPathsAsync().ConfigureAwait(false)) return OpOutcome.Conflict;
+                throw;
+            }
+            if (await IsIndexCleanAsync().ConfigureAwait(false)) return OpOutcome.Ok;
+            var msg = string.IsNullOrWhiteSpace(message) ? "Squashed changes from '" + source + "'" : message.Trim();
+            await RunAsync(_repoRoot, "commit", "-m", msg).ConfigureAwait(false);
+            return OpOutcome.Ok;
+        }
+
         /// <summary>
         /// Merge <paramref name="source"/> into the current branch. <paramref name="noFastForward"/>
         /// forces a merge commit; <paramref name="message"/> is the merge-commit message
-        /// (ignored by git on a fast-forward). On conflict the merge is left in progress
-        /// so the user resolves it with Visual Studio's merge tooling.
+        /// (ignored by git on a fast-forward). With <paramref name="squash"/> the branch
+        /// collapses into one ordinary commit instead (see <see cref="SquashMergeAsync"/>).
+        /// On conflict the merge is left in progress so the user resolves it with Visual
+        /// Studio's merge tooling.
         /// </summary>
-        public async Task<OpOutcome> MergeAsync(string source, string message, bool noFastForward)
+        public async Task<OpOutcome> MergeAsync(string source, string message, bool noFastForward, bool squash)
         {
+            if (squash) return await SquashMergeAsync(source, message).ConfigureAwait(false);
             var args = new List<string> { "merge" };
             if (noFastForward) args.Add("--no-ff");
             if (!string.IsNullOrWhiteSpace(message)) { args.Add("-m"); args.Add(message.Trim()); }

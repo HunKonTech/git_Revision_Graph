@@ -372,7 +372,8 @@ public final class WebViewHost {
                     handleMergeFileDiff(msg.source, msg.path, msg.status);
                     break;
                 case "merge":
-                    mergeBranch(msg.source, msg.message, msg.noFastForward != null && msg.noFastForward);
+                    mergeBranch(msg.source, msg.message, msg.noFastForward != null && msg.noFastForward,
+                            msg.squash != null && msg.squash);
                     break;
                 case "fetch":
                     runRemoteOp("Fetch", GitService::fetch);
@@ -675,13 +676,13 @@ public final class WebViewHost {
         }
     }
 
-    private void mergeBranch(String source, String message, boolean noFastForward) {
+    private void mergeBranch(String source, String message, boolean noFastForward, boolean squash) {
         GitService g = git;
         if (g == null || source == null || source.isEmpty()) {
             return;
         }
         try {
-            OpOutcome outcome = g.merge(source, message, noFastForward);
+            OpOutcome outcome = g.merge(source, message, noFastForward, squash);
             postToWebview(opResult("merge", outcome == OpOutcome.CONFLICT ? "conflict" : "ok", null));
         } catch (Exception e) {
             postToWebview(opResult("merge", "error", e.getMessage()));

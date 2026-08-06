@@ -554,6 +554,84 @@ export function jargonEnglishSchematic(): string {
   return jargonSchematic(true);
 }
 
+// ---------------------------------------------------------------------------
+// Merge style — what the graph looks like AFTER merging "feature" into "main".
+// Both pictures use the same commit-card grid as the display-style schematics,
+// so they read as the real graph:
+//   merge  — the branch's commits join main's history through a merge commit,
+//            which has two incoming edges (trunk above + the branch's elbow).
+//   squash — main gets ONE ordinary commit holding all the branch's changes;
+//            no history link (dashed = the changes were copied, not linked), so
+//            the branch's own commits never appear in main's history.
+// ---------------------------------------------------------------------------
+function mergeStyleSchematic(squash: boolean): string {
+  const TX = 26;
+  const BX = TX + LANE;
+  const y0 = 26;
+  const y1 = y0 + ROW;
+  const y2 = y0 + 2 * ROW;
+  const tcx = TX + CW / 2;
+  const bcx = BX + CW / 2;
+
+  let s = open();
+  s += rect(8, 8, W - 16, H - 16, { fill: C.faint, r: 4 });
+
+  // Trunk edges (main's own history) and the branch's internal edge.
+  s += vEdge(tcx, y0 + CH, y1);
+  s += vEdge(tcx, y1 + CH, y2);
+  s += vEdge(bcx, y0 + CH, y1);
+
+  // The branch's route into main: a real history edge for a merge, a faint
+  // dashed "changes copied here" hint for a squash.
+  const g1 = y1 + CH + 6;
+  const g2 = y2 - 6;
+  const xCorr = BX - 11;
+  const pts: [number, number][] = [
+    [bcx, y1 + CH],
+    [bcx, g1],
+    [xCorr, g1],
+    [xCorr, g2],
+    [tcx, g2],
+    [tcx, y2],
+  ];
+  if (squash) {
+    let d = `M ${pts[0]![0]} ${pts[0]![1]}`;
+    for (let i = 1; i < pts.length; i++) d += ` L ${pts[i]![0]} ${pts[i]![1]}`;
+    s += `<path d="${d}" fill="none" stroke="${C.edge}" stroke-width="1.2" stroke-dasharray="4 3" opacity="0.55"/>`;
+    // Arrowhead on the dashed hint, pointing into the new commit.
+    s += `<polygon points="${tcx},${y2} ${tcx - 3.5},${y2 - 6} ${tcx + 3.5},${y2 - 6}" fill="${C.edge}" opacity="0.55"/>`;
+  } else {
+    s += elbow(pts);
+  }
+
+  // Cards: main's trunk (its new tip accented) and the two-commit branch.
+  s += commitCard(TX, y0, "main");
+  s += commitCard(TX, y1, "main");
+  s += commitCard(TX, y2, "main", true);
+  s += commitCard(BX, y0, "feature");
+  s += commitCard(BX, y1, "feature");
+
+  // Badge naming what the new tip is.
+  const bw = squash ? 54 : 74;
+  const bx = W - bw - 14;
+  const by = y2 + 9;
+  s += rect(bx, by, bw, 16, { fill: C.accent, r: 8 });
+  s += text(bx + bw / 2, by + 11, squash ? "1 commit" : "merge commit", {
+    size: 8,
+    weight: 600,
+    anchor: "middle",
+    fill: "#fff",
+  });
+  return s + close();
+}
+
+export function mergeCommitSchematic(): string {
+  return mergeStyleSchematic(false);
+}
+export function squashMergeSchematic(): string {
+  return mergeStyleSchematic(true);
+}
+
 /**
  * Every schematic by id, for the build-time `.svg` emitter. The native dialog is
  * emitted in both IDE flavours so each host can ship its own file if needed.
@@ -570,4 +648,6 @@ export const ALL_SCHEMATICS: { id: string; svg: () => string }[] = [
   { id: "diff-minimap-off", svg: diffMinimapOffSchematic },
   { id: "jargon-translate", svg: jargonTranslateSchematic },
   { id: "jargon-english", svg: jargonEnglishSchematic },
+  { id: "merge-commit", svg: mergeCommitSchematic },
+  { id: "merge-squash", svg: squashMergeSchematic },
 ];

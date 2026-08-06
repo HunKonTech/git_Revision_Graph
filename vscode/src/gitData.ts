@@ -602,6 +602,7 @@ export async function computeMergePreview(repoRoot: string, source: string): Pro
     files: [],
     conflicts: [],
     defaultMessage: `Merge branch '${source}'` + (target !== "HEAD" ? ` into ${target}` : ""),
+    defaultSquashMessage: `Squashed changes from '${source}'`,
   };
 
   const headTip = (await git(repoRoot, ["rev-parse", "HEAD"]).catch(() => "")).trim();
@@ -668,18 +669,65 @@ export async function computeMergePreview(repoRoot: string, source: string): Pro
   return { ...base, canFastForward, files, conflicts: [] };
 }
 
+/** True when nothing is staged (the index matches HEAD). */
+async function isIndexClean(repoRoot: string): Promise<boolean> {
+  const { code } = await gitCapture(repoRoot, ["diff", "--cached", "--quiet"]);
+  return code === 0;
+}
+
+/**
+ * Squash-merge `source` into the current branch: `git merge --squash` stages the
+ * merged result without committing (and without recording MERGE_HEAD), then one
+ * ordinary `git commit` collapses the whole branch into a SINGLE commit. The
+ * source branch's own commits therefore never enter the current branch's history
+ * — they stay on their branch, which is left untouched.
+ *
+ * Guards, because the commit step is ours and not git's:
+ *  - a dirty index is refused — `git commit` would sweep the user's unrelated
+ *    staged changes into the squash commit,
+ *  - on conflict nothing is committed: the outcome is "conflict" and the user
+ *    resolves it in the IDE, then commits with the normal commit flow,
+ *  - a merge that changes nothing commits nothing (an empty commit would fail).
+ */
+async function squashMergeCli(
+  repoRoot: string,
+  source: string,
+  message: string | undefined,
+): Promise<OpOutcome> {
+  if (!(await isIndexClean(repoRoot))) {
+    throw new Error(
+      "A squash merge commits everything that is staged. Commit or unstage your staged changes first.",
+    );
+  }
+  try {
+    await git(repoRoot, ["merge", "--squash", source]);
+  } catch (err) {
+    // Conflicts are staged as unmerged paths; leave them for the merge editor.
+    if (await hasUnmergedPaths(repoRoot)) return "conflict";
+    throw err;
+  }
+  // Merged into an unchanged tree — nothing to record.
+  if (await isIndexClean(repoRoot)) return "ok";
+  const msg = message && message.trim() ? message.trim() : `Squashed changes from '${source}'`;
+  await git(repoRoot, ["commit", "-m", msg]);
+  return "ok";
+}
+
 /**
  * Merge `source` into the current branch. `noFastForward` forces a merge commit
  * even when a fast-forward is possible; `message` (when given) is the merge-commit
- * message (ignored by git on a fast-forward). On conflict the merge is left in
- * progress so the user resolves it with the IDE's merge editor.
+ * message (ignored by git on a fast-forward). With `squash`, the branch collapses
+ * into one ordinary commit instead (see {@link squashMergeCli}). On conflict the
+ * merge is left in progress so the user resolves it with the IDE's merge editor.
  */
 export async function mergeCli(
   repoRoot: string,
   source: string,
   message: string | undefined,
   noFastForward: boolean,
+  squash = false,
 ): Promise<OpOutcome> {
+  if (squash) return squashMergeCli(repoRoot, source, message);
   const args = ["merge"];
   if (noFastForward) args.push("--no-ff");
   if (message && message.trim()) args.push("-m", message.trim());

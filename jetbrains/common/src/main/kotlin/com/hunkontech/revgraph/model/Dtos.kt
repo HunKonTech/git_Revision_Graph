@@ -104,6 +104,8 @@ class MergePreview(
     var files: List<MergePreviewFile> = emptyList()
     var conflicts: List<String> = emptyList()
     var defaultMessage: String? = null
+    /** Default message for a squash merge (one collapsed commit). */
+    var defaultSquashMessage: String? = null
     /** Set when the preview couldn't be computed. */
     var error: String? = null
 }
@@ -119,6 +121,8 @@ class WebviewMessage {
     var message: String? = null
     /** Force a merge commit even when a fast-forward is possible. */
     var noFastForward: Boolean? = null
+    /** Collapse the merged branch into a single commit (git merge --squash). */
+    var squash: Boolean? = null
     /**
      * Branch name for createBranch (when the SVN-style dialog supplied it)
      * and for deleteBranch/renameBranch/pushBranch.

@@ -164,6 +164,8 @@ public final class Dtos {
         public List<MergePreviewFile> files = Collections.emptyList();
         public List<String> conflicts = Collections.emptyList();
         public String defaultMessage;
+        /** Default message for a squash merge (one collapsed commit). */
+        public String defaultSquashMessage;
         /** Set when the preview couldn't be computed. */
         public String error;
 
@@ -184,6 +186,8 @@ public final class Dtos {
         public String message;
         /** Force a merge commit even when a fast-forward is possible. */
         public Boolean noFastForward;
+        /** Collapse the merged branch into a single commit (git merge --squash). */
+        public Boolean squash;
         /** Branch name for createBranch / deleteBranch / renameBranch / pushBranch. */
         public String name;
         /** Checkout-after-create choice from the SVN-style dialog. */
@@ -223,6 +227,7 @@ public final class Dtos {
             msg.source = str(m, "source");
             msg.message = str(m, "message");
             msg.noFastForward = bool(m, "noFastForward");
+            msg.squash = bool(m, "squash");
             msg.name = str(m, "name");
             msg.checkout = bool(m, "checkout");
             msg.index = intVal(m, "index");

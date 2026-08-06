@@ -395,9 +395,9 @@ function boot(): void {
       target,
       onRequestFileDiff: (file) =>
         bridge.post({ type: "requestMergeFileDiff", source, path: file.path, status: file.status }),
-      onMerge: (message, noFastForward) => {
+      onMerge: (message, noFastForward, squash) => {
         renderStatus(() => t("status.merging"));
-        bridge.post({ type: "merge", source, message: message || undefined, noFastForward });
+        bridge.post({ type: "merge", source, message: message || undefined, noFastForward, squash });
       },
     });
     bridge.post({ type: "requestMergePreview", source });

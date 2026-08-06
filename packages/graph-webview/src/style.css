@@ -956,6 +956,27 @@ body,
   line-height: 1.4;
 }
 
+/* Single-preview picker: segmented choice + the selected option's picture below */
+.settings-choice {
+  display: flex;
+  flex-direction: column;
+}
+.settings-choice-pic {
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(128, 128, 128, 0.06);
+}
+.settings-choice-pic svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.settings-choice-cap {
+  margin-top: 6px;
+}
+
 /* SVN-style new-branch dialog */
 .newbranch-modal {
   width: 440px;
@@ -1733,6 +1754,22 @@ body,
   font-size: 11px;
   opacity: 0.6;
   margin-top: 3px;
+}
+/* "Squash" chip beside the dialog title, when the squash merge style is on */
+.merge-mode-badge {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.merge-squash-note {
+  opacity: 0.75;
+  line-height: 1.45;
 }
 .merge-checkbox {
   display: flex;

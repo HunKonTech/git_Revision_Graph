@@ -208,7 +208,7 @@ namespace RevisionGraph
                     await HandleMergeFileDiffAsync(msg.Source, msg.Path, msg.Status).ConfigureAwait(true);
                     break;
                 case "merge":
-                    await MergeAsync(msg.Source, msg.Message, msg.NoFastForward ?? false).ConfigureAwait(true);
+                    await MergeAsync(msg.Source, msg.Message, msg.NoFastForward ?? false, msg.Squash ?? false).ConfigureAwait(true);
                     break;
                 case "fetch":
                     await RunRemoteOpAsync("Fetch", g => g.FetchAsync()).ConfigureAwait(true);
@@ -725,12 +725,12 @@ namespace RevisionGraph
         /// status line; conflicts are reported so the webview tells the user to resolve
         /// them with Visual Studio's merge tooling (the merge is left in progress).
         /// </summary>
-        private async Task MergeAsync(string source, string message, bool noFastForward)
+        private async Task MergeAsync(string source, string message, bool noFastForward, bool squash)
         {
             if (_git == null || string.IsNullOrEmpty(source)) return;
             try
             {
-                var outcome = await _git.MergeAsync(source, message, noFastForward).ConfigureAwait(true);
+                var outcome = await _git.MergeAsync(source, message, noFastForward, squash).ConfigureAwait(true);
                 PostToWebview(new
                 {
                     type = "opResult",

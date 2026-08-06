@@ -209,7 +209,7 @@ class WebViewHostPanel(private val project: Project) : Disposable {
                 "commitWorkingTreeChanges" -> commitWorkingTreeChanges(msg.message, msg.files)
                 "requestMergePreview" -> handleMergePreview(msg.source)
                 "requestMergeFileDiff" -> handleMergeFileDiff(msg.source, msg.path, msg.status)
-                "merge" -> mergeBranch(msg.source, msg.message, msg.noFastForward ?: false)
+                "merge" -> mergeBranch(msg.source, msg.message, msg.noFastForward ?: false, msg.squash ?: false)
                 "fetch" -> runRemoteOp("Fetch") { it.fetch() }
                 "pull" -> runRemoteOp("Pull") { it.pull() }
                 "push" -> runRemoteOp("Push") { it.push() }
@@ -477,11 +477,11 @@ class WebViewHostPanel(private val project: Project) : Disposable {
         }
     }
 
-    private fun mergeBranch(source: String?, message: String?, noFastForward: Boolean) {
+    private fun mergeBranch(source: String?, message: String?, noFastForward: Boolean, squash: Boolean) {
         val g = git ?: return
         if (source.isNullOrEmpty()) return
         try {
-            val outcome = g.merge(source, message, noFastForward)
+            val outcome = g.merge(source, message, noFastForward, squash)
             postToWebview(mapOf("type" to "opResult", "op" to "merge", "result" to if (outcome == GitService.OpOutcome.CONFLICT) "conflict" else "ok"))
         } catch (e: Exception) {
             postToWebview(mapOf("type" to "opResult", "op" to "merge", "result" to "error", "detail" to e.message))

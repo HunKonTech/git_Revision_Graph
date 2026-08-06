@@ -13,6 +13,7 @@ import { getBranchDialogMode, setBranchDialogMode } from "./branchDialogMode.js"
 import { getThemeChoice, setThemeChoice, type ThemeChoice } from "./theme.js";
 import { getDiffMinimap, setDiffMinimap } from "./diffMinimap.js";
 import { getCommitReviewBeforeCommit, setCommitReviewBeforeCommit } from "./commitReviewSetting.js";
+import { getMergeMode, setMergeMode, type MergeMode } from "./mergeMode.js";
 import { detectHost } from "./host.js";
 import { getGitMode, getCustomGitPath, setGitSource, onGitSourceChange, type GitMode } from "./gitPathSetting.js";
 import {
@@ -26,6 +27,8 @@ import {
   diffMinimapOffSchematic,
   jargonTranslateSchematic,
   jargonEnglishSchematic,
+  mergeCommitSchematic,
+  squashMergeSchematic,
 } from "./schematics.js";
 
 /** Context the settings dialog needs from the app. */
@@ -126,6 +129,11 @@ export function toggleSettings(ctx: SettingsContext): void {
     changes.appendChild(diffMinimapRow());
     changes.appendChild(commitReviewRow());
     body.appendChild(changes);
+
+    // Merge section: how the Merge Branch dialog merges (normal vs squash).
+    const merge = section(t("settings.sectionMerge"));
+    merge.appendChild(mergeModeRow());
+    body.appendChild(merge);
 
     // Advanced section: git executable source — collapsed by default.
     body.appendChild(advancedSection(() => advancedOpen, (v) => { advancedOpen = v; }, ctx));
@@ -462,6 +470,96 @@ function commitReviewRow(): HTMLElement {
   row.append(seg, hint);
   paint();
   return row;
+}
+
+/**
+ * Merge-style picker: how the Merge Branch dialog brings a branch in.
+ *
+ *  - normal — the branch's commits join the current branch's history (merge commit).
+ *  - squash — the whole branch collapses into ONE commit on the current branch.
+ *
+ * Unlike the two-column card pickers above, this one shows a single preview: the
+ * schematic + explanation of the *selected* style only, right under the choice.
+ */
+function mergeModeRow(): HTMLElement {
+  const row = stackedRow(t("settings.mergeMode"));
+  const choices: PreviewChoice[] = [
+    {
+      key: "merge",
+      label: t("settings.mergeModeMerge"),
+      caption: t("settings.mergeModeMergeHint"),
+      svg: mergeCommitSchematic(),
+    },
+    {
+      key: "squash",
+      label: t("settings.mergeModeSquash"),
+      caption: t("settings.mergeModeSquashHint"),
+      svg: squashMergeSchematic(),
+    },
+  ];
+  row.appendChild(
+    choiceWithPreview(choices, getMergeMode(), (key) => setMergeMode(key as MergeMode)),
+  );
+  return row;
+}
+
+/** One option of a {@link choiceWithPreview}: a button label + its picture/explanation. */
+interface PreviewChoice {
+  key: string;
+  /** Text on the segmented button. */
+  label: string;
+  /** Explanation shown under the picture while this option is selected. */
+  caption: string;
+  /** Inline SVG markup for the preview. */
+  svg: string;
+}
+
+/**
+ * A picker that previews ONE option at a time: a segmented control on top and,
+ * directly beneath it, the schematic + explanation of whichever option is
+ * selected — as opposed to {@link cardGroup}, which lines every option up in its
+ * own column. Use it when the explanations are long enough that showing them all
+ * at once would bury the choice.
+ */
+function choiceWithPreview(
+  choices: PreviewChoice[],
+  selectedKey: string,
+  onSelect: (key: string) => void,
+): HTMLElement {
+  const wrap = document.createElement("div");
+  wrap.className = "settings-choice";
+
+  const seg = document.createElement("div");
+  seg.className = "settings-segmented";
+  const buttons = new Map<string, HTMLButtonElement>();
+  for (const c of choices) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = c.label;
+    btn.addEventListener("click", () => {
+      paint(c.key);
+      onSelect(c.key);
+    });
+    buttons.set(c.key, btn);
+    seg.appendChild(btn);
+  }
+
+  const pic = document.createElement("div");
+  pic.className = "settings-choice-pic";
+  const cap = document.createElement("div");
+  cap.className = "settings-hint settings-choice-cap";
+
+  /** Highlight `key` and swap the preview to that option's picture + caption. */
+  function paint(key: string): void {
+    const chosen = choices.find((c) => c.key === key) ?? choices[0]!;
+    buttons.forEach((btn, k) => btn.classList.toggle("selected", k === chosen.key));
+    pic.innerHTML = chosen.svg;
+    cap.textContent = chosen.caption;
+  }
+  paint(selectedKey);
+
+  wrap.append(seg, pic, cap);
+  return wrap;
 }
 
 /** A stacked settings row with a heading label, ready for full-width content. */

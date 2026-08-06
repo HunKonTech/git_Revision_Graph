@@ -96,6 +96,7 @@
         conflicts: [],
         defaultMessage:
           "Merge branch '" + msg.source + "'" + (target !== "HEAD" ? " into " + target : ""),
+        defaultSquashMessage: "Squashed changes from '" + msg.source + "'",
       };
       const tgt = state.refs.find((r) => r.type === "localBranch" && r.isCurrent);
       if (!src || !tgt) {
@@ -170,7 +171,9 @@
     },
 
     // Simulate the merge: fast-forward the current branch, or synthesize a merge
-    // commit, then refresh and report success.
+    // commit, then refresh and report success. A squash merge instead appends ONE
+    // ordinary commit (single parent: the current tip) and leaves the source branch
+    // exactly where it was — so its commits never join the current branch's history.
     merge(msg) {
       const tgt = state.refs.find((r) => r.type === "localBranch" && r.isCurrent);
       const src = findLocal(msg.source) || findRemote(msg.source);
@@ -185,7 +188,18 @@
         return;
       }
       const canFF = srcReach.has(tgt.targetSha);
-      if (canFF && !msg.noFastForward) {
+      if (msg.squash) {
+        const sha = "s" + Math.floor(performance.now()).toString(16).padStart(6, "0").slice(-7);
+        state.commits.unshift({
+          sha,
+          parents: [tgt.targetSha], // one parent → the branch stays out of this history
+          summary: (msg.message || "Squashed changes from '" + msg.source + "'").split("\n")[0],
+          author: "You",
+          authorEmail: "you@example.com",
+          date: new Date().toISOString(),
+        });
+        tgt.targetSha = sha;
+      } else if (canFF && !msg.noFastForward) {
         tgt.targetSha = src.targetSha; // fast-forward
       } else {
         const sha = "m" + Math.floor(performance.now()).toString(16).padStart(6, "0").slice(-7);

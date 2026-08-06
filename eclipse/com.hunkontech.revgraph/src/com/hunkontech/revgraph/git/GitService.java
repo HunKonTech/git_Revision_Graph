@@ -911,6 +911,7 @@ public final class GitService {
         }
         MergePreview preview = new MergePreview(source, target);
         preview.defaultMessage = "Merge branch '" + source + "'" + (!"HEAD".equals(target) ? " into " + target : "");
+        preview.defaultSquashMessage = "Squashed changes from '" + source + "'";
 
         String headTip = runSafe(repoRoot, Arrays.asList("rev-parse", "HEAD")).trim();
         String sourceTip = runSafe(repoRoot, Arrays.asList("rev-parse", source)).trim();
@@ -975,8 +976,55 @@ public final class GitService {
         return preview;
     }
 
-    /** Merge [source] into the current branch. Mirrors MergeAsync in vs/Git/GitService.cs. */
-    public OpOutcome merge(String source, String message, boolean noFastForward) {
+    /** True when nothing is staged (the index matches HEAD). */
+    private boolean isIndexClean() {
+        return capture("diff", "--cached", "--quiet").exitCode == 0;
+    }
+
+    /**
+     * Squash-merge {@code source} into the current branch: {@code git merge --squash}
+     * stages the merged result without committing (and without recording MERGE_HEAD),
+     * then one ordinary {@code git commit} collapses the whole branch into a SINGLE
+     * commit. The source branch's own commits therefore never enter the current
+     * branch's history — they stay on their branch, which is left untouched.
+     *
+     * <p>Guards, because the commit step is ours and not git's: a dirty index is
+     * refused (the commit would sweep in unrelated staged changes), a conflict commits
+     * nothing (the user resolves it and commits with the normal flow), and a merge that
+     * changes nothing records nothing. Mirrors squashMergeCli in vscode/src/gitData.ts.
+     */
+    private OpOutcome squashMerge(String source, String message) {
+        if (!isIndexClean()) {
+            throw new RuntimeException(
+                    "A squash merge commits everything that is staged. Commit or unstage your staged changes first.");
+        }
+        try {
+            run(Arrays.asList("merge", "--squash", source));
+        } catch (RuntimeException e) {
+            if (hasUnmergedPaths()) {
+                return OpOutcome.CONFLICT;
+            }
+            throw e;
+        }
+        if (isIndexClean()) {
+            return OpOutcome.OK;
+        }
+        String msg = (message != null && !message.trim().isEmpty())
+                ? message.trim()
+                : "Squashed changes from '" + source + "'";
+        run(Arrays.asList("commit", "-m", msg));
+        return OpOutcome.OK;
+    }
+
+    /**
+     * Merge [source] into the current branch. Mirrors MergeAsync in vs/Git/GitService.cs.
+     * With {@code squash} the branch collapses into one ordinary commit instead
+     * (see {@link #squashMerge}).
+     */
+    public OpOutcome merge(String source, String message, boolean noFastForward, boolean squash) {
+        if (squash) {
+            return squashMerge(source, message);
+        }
         List<String> args = new ArrayList<>();
         args.add("merge");
         if (noFastForward) {

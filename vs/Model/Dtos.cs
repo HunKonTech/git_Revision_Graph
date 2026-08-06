@@ -110,6 +110,8 @@ namespace RevisionGraph.Model
         public List<MergePreviewFile> Files { get; set; } = new List<MergePreviewFile>();
         public List<string> Conflicts { get; set; } = new List<string>();
         public string DefaultMessage { get; set; }
+        /// <summary>Default message for a squash merge (one collapsed commit).</summary>
+        public string DefaultSquashMessage { get; set; }
         /// <summary>Set when the preview couldn't be computed.</summary>
         public string Error { get; set; }
     }
@@ -126,6 +128,8 @@ namespace RevisionGraph.Model
         public string Message { get; set; }
         /// <summary>Force a merge commit even when a fast-forward is possible.</summary>
         public bool? NoFastForward { get; set; }
+        /// <summary>Collapse the merged branch into a single commit (git merge --squash).</summary>
+        public bool? Squash { get; set; }
         /// <summary>Branch name for createBranch (when the SVN-style dialog
         /// supplied it) and for deleteBranch.</summary>
         public string Name { get; set; }

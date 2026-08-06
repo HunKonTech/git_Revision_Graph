@@ -1,6 +1,7 @@
 import { t, onLangChange, type MsgKey } from "./i18n.js";
 import { getDiffMinimap, onDiffMinimapChange } from "./diffMinimap.js";
 import { buildDiffView, attachMinimaps, buildChangeNav, MM_W } from "./diffView.js";
+import { getMergeMode } from "./mergeMode.js";
 import type { MergePreview, MergePreviewFile, MergeFileStatus, FileDiff } from "@rev-graph/protocol";
 
 /**
@@ -26,8 +27,11 @@ export interface MergeDialogContext {
   target: string;
   /** Asked to fetch the merge diff of a file the user selected. */
   onRequestFileDiff: (file: MergePreviewFile) => void;
-  /** Confirm: run the merge with this message and fast-forward choice. */
-  onMerge: (message: string, noFastForward: boolean) => void;
+  /**
+   * Confirm: run the merge with this message, fast-forward choice and merge
+   * style. `squash` collapses the branch into one commit (Settings › Merge).
+   */
+  onMerge: (message: string, noFastForward: boolean, squash: boolean) => void;
 }
 
 /** Single-letter badge per merge file status (mirrors the changes dialog). */
@@ -61,6 +65,9 @@ let diff: FileDiff | null = null; // diff for `selected`, null while loading
 // The user's edited message, retained across re-renders (language switch).
 let messageValue: string | null = null;
 let noFastForward = false;
+// Squash merge (Settings › Merge): collapse the branch into one commit. Read from
+// the setting when the dialog opens, so it can't change mid-dialog.
+let squash = false;
 let diffPaneEl: HTMLElement | null = null;
 
 /** Close the merge dialog if open. */
@@ -85,6 +92,7 @@ export function closeMergeDialog(): void {
   diff = null;
   messageValue = null;
   noFastForward = false;
+  squash = false;
   diffPaneEl = null;
 }
 
@@ -97,6 +105,7 @@ export function openMergeDialog(context: MergeDialogContext): void {
   diff = null;
   messageValue = null;
   noFastForward = false;
+  squash = getMergeMode() === "squash";
 
   const overlay = document.createElement("div");
   overlay.className = "settings-overlay";
@@ -113,6 +122,9 @@ export function openMergeDialog(context: MergeDialogContext): void {
     // ---- Header ----
     const header = el("div", "settings-modal-header");
     header.appendChild(el("span", "settings-modal-title", t("merge.title")));
+    // Squash is a setting, not a per-merge checkbox — badge the title so it is
+    // obvious which style this dialog is about to run.
+    if (squash) header.appendChild(el("span", "merge-mode-badge", t("merge.squashBadge")));
     const closeBtn = button("settings-close-x", "×", closeMergeDialog);
     closeBtn.setAttribute("aria-label", t("merge.cancel"));
     header.appendChild(closeBtn);
@@ -143,12 +155,16 @@ export function openMergeDialog(context: MergeDialogContext): void {
 
     // ---- Merge-commit message ----
     const footerArea = el("div", "merge-footer-area");
-    footerArea.appendChild(el("div", "settings-section-title", t("merge.message")));
+    footerArea.appendChild(
+      el("div", "settings-section-title", squash ? t("merge.messageSquash") : t("merge.message")),
+    );
     const msgInput = document.createElement("input");
     msgInput.type = "text";
     msgInput.className = "settings-input merge-message";
-    msgInput.placeholder = t("merge.messagePlaceholder");
-    msgInput.value = messageValue ?? preview?.defaultMessage ?? "";
+    msgInput.placeholder = squash
+      ? t("merge.squashMessagePlaceholder")
+      : t("merge.messagePlaceholder");
+    msgInput.value = messageValue ?? (squash ? preview?.defaultSquashMessage : preview?.defaultMessage) ?? "";
     msgInput.addEventListener("input", () => {
       messageValue = msgInput.value;
     });
@@ -156,13 +172,23 @@ export function openMergeDialog(context: MergeDialogContext): void {
       if (e.key === "Enter") submit();
     });
     footerArea.appendChild(msgInput);
-    // When the merge can fast-forward, the message is unused unless --no-ff.
-    if (preview?.canFastForward && !noFastForward) {
+    // A squash always writes exactly one commit with this message — no fast-forward
+    // and no merge commit — so the fast-forward hint and toggle don't apply.
+    if (squash) {
+      footerArea.appendChild(
+        el(
+          "div",
+          "merge-hint merge-squash-note",
+          t("merge.squashNote", { source: ctx.source, target: ctx.target }),
+        ),
+      );
+    } else if (preview?.canFastForward && !noFastForward) {
+      // When the merge can fast-forward, the message is unused unless --no-ff.
       footerArea.appendChild(el("div", "merge-hint", t("merge.messageFfHint")));
     }
 
     // No-fast-forward toggle (only meaningful when a fast-forward is possible).
-    if (preview?.canFastForward) {
+    if (preview?.canFastForward && !squash) {
       const ffRow = document.createElement("label");
       ffRow.className = "merge-checkbox";
       const cb = document.createElement("input");
@@ -193,11 +219,13 @@ export function openMergeDialog(context: MergeDialogContext): void {
 
     function submit(): void {
       if (!ctx || preview === null || preview.upToDate || preview.error) return;
-      const message = (messageValue ?? preview.defaultMessage ?? "").trim();
+      const fallback = squash ? preview.defaultSquashMessage : preview.defaultMessage;
+      const message = (messageValue ?? fallback ?? "").trim();
       const noFf = noFastForward;
+      const sq = squash;
       const c = ctx;
       closeMergeDialog();
-      c.onMerge(message, noFf);
+      c.onMerge(message, noFf, sq);
     }
   }
 
@@ -227,7 +255,9 @@ export function openMergeDialog(context: MergeDialogContext): void {
         t("merge.summary", { files: preview.files.length, conflicts: preview.conflicts.length }),
       ),
     );
-    if (preview.canFastForward) {
+    // A squash never fast-forwards (it always writes its own commit), so the
+    // fast-forward note only applies to an ordinary merge.
+    if (preview.canFastForward && !squash) {
       wrap.appendChild(el("div", "merge-note", t("merge.fastForward")));
     }
     if (preview.conflicts.length > 0) {

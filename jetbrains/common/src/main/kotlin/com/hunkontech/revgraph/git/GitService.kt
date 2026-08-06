@@ -649,6 +649,7 @@ class GitService(private val repoRoot: String) {
         if (target.isEmpty()) target = "HEAD"
         val preview = MergePreview(source, target)
         preview.defaultMessage = "Merge branch '$source'" + if (target != "HEAD") " into $target" else ""
+        preview.defaultSquashMessage = "Squashed changes from '$source'"
 
         val headTip = runSafe(repoRoot, listOf("rev-parse", "HEAD")).trim()
         val sourceTip = runSafe(repoRoot, listOf("rev-parse", source)).trim()
@@ -694,8 +695,44 @@ class GitService(private val repoRoot: String) {
         return preview
     }
 
-    /** Merge [source] into the current branch. Mirrors MergeAsync in vs/Git/GitService.cs. */
-    fun merge(source: String, message: String?, noFastForward: Boolean): OpOutcome {
+    /** True when nothing is staged (the index matches HEAD). */
+    private fun isIndexClean(): Boolean = capture("diff", "--cached", "--quiet").exitCode == 0
+
+    /**
+     * Squash-merge [source] into the current branch: `git merge --squash` stages the
+     * merged result without committing (and without recording MERGE_HEAD), then one
+     * ordinary `git commit` collapses the whole branch into a SINGLE commit. The source
+     * branch's own commits therefore never enter the current branch's history — they
+     * stay on their branch, which is left untouched.
+     *
+     * Guards, because the commit step is ours and not git's: a dirty index is refused
+     * (the commit would sweep in unrelated staged changes), a conflict commits nothing
+     * (the user resolves it and commits with the normal flow), and a merge that changes
+     * nothing records nothing. Mirrors squashMergeCli in vscode/src/gitData.ts.
+     */
+    private fun squashMerge(source: String, message: String?): OpOutcome {
+        if (!isIndexClean()) {
+            throw RuntimeException(
+                "A squash merge commits everything that is staged. Commit or unstage your staged changes first.",
+            )
+        }
+        try {
+            run(listOf("merge", "--squash", source))
+        } catch (e: Exception) {
+            if (hasUnmergedPaths()) return OpOutcome.CONFLICT else throw e
+        }
+        if (isIndexClean()) return OpOutcome.OK
+        val msg = if (message.isNullOrBlank()) "Squashed changes from '$source'" else message.trim()
+        run(listOf("commit", "-m", msg))
+        return OpOutcome.OK
+    }
+
+    /**
+     * Merge [source] into the current branch. Mirrors MergeAsync in vs/Git/GitService.cs.
+     * With [squash] the branch collapses into one ordinary commit instead (see [squashMerge]).
+     */
+    fun merge(source: String, message: String?, noFastForward: Boolean, squash: Boolean = false): OpOutcome {
+        if (squash) return squashMerge(source, message)
         val args = mutableListOf("merge")
         if (noFastForward) args.add("--no-ff")
         if (!message.isNullOrBlank()) { args.add("-m"); args.add(message.trim()) }

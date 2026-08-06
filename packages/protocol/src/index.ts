@@ -118,6 +118,8 @@ export interface MergePreview {
   conflicts: string[];
   /** Auto-generated default merge-commit message (the user may edit it). */
   defaultMessage: string;
+  /** Auto-generated default message for a *squash* merge (one collapsed commit). */
+  defaultSquashMessage: string;
   /** Set when the preview couldn't be computed (detached HEAD, old git, …). */
   error?: string;
 }
@@ -227,7 +229,10 @@ export type WebviewToHost =
   | { type: "requestMergeFileDiff"; source: string; path: string; status: MergeFileStatus }
   // Merge `source` into the current branch. `message` is the (editable) merge-commit
   // message; `noFastForward` forces a merge commit even when a fast-forward is possible.
-  | { type: "merge"; source: string; message?: string; noFastForward?: boolean }
+  // `squash` collapses the whole branch into ONE ordinary commit on the current
+  // branch (`git merge --squash` + `git commit`) — no merge commit, no second
+  // parent, so `source`'s own commits never enter the current branch's history.
+  | { type: "merge"; source: string; message?: string; noFastForward?: boolean; squash?: boolean }
   // Undo a *local* (unpushed) commit, returning its changes to the working tree
   // as unstaged edits. Leaves no trace in history (reset / rebase-drop, not a
   // revert commit). Deeper commits may conflict → resolved in the IDE.

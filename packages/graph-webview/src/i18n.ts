@@ -92,6 +92,12 @@ type Dict = {
   "settings.jargonEnglish": string;
   "settings.jargonTranslateHint": string;
   "settings.jargonEnglishHint": string;
+  "settings.sectionMerge": string;
+  "settings.mergeMode": string;
+  "settings.mergeModeMerge": string;
+  "settings.mergeModeSquash": string;
+  "settings.mergeModeMergeHint": string;
+  "settings.mergeModeSquashHint": string;
   "legend.title": string;
   "legend.head": string;
   "legend.local": string;
@@ -177,6 +183,10 @@ type Dict = {
   "merge.merge": string;
   "merge.cancel": string;
   "merge.previewError": string;
+  "merge.squashBadge": string;
+  "merge.squashNote": string;
+  "merge.messageSquash": string;
+  "merge.squashMessagePlaceholder": string;
   "newBranch.title": string;
   "newBranch.startPoint": string;
   "newBranch.startPointOn": string;
@@ -309,6 +319,14 @@ const DICTS: Record<Lang, Dict> = {
     "settings.jargonEnglish": "Keep in English",
     "settings.jargonTranslateHint": "Translate Git terms (pull, push, commit, branch…) into the interface language.",
     "settings.jargonEnglishHint": "Keep Git terms (pull, push, commit, branch…) in English; translate everything else.",
+    "settings.sectionMerge": "Merge",
+    "settings.mergeMode": "Merge style",
+    "settings.mergeModeMerge": "Normal merge",
+    "settings.mergeModeSquash": "Squash merge",
+    "settings.mergeModeMergeHint":
+      "Merges the branch as it is: its commits become part of the current branch's history, joined by a merge commit (or fast-forwarded when possible).",
+    "settings.mergeModeSquashHint":
+      "Collapses the whole branch into a single commit on the current branch (git merge --squash). The branch's own commits never enter the current branch's history — you only see one commit there. The branch itself is left untouched, so its commits stay visible in its own lane.",
     "legend.title": "Legend",
     "legend.head": "HEAD / current branch",
     "legend.local": "Local branch",
@@ -394,6 +412,11 @@ const DICTS: Record<Lang, Dict> = {
     "merge.merge": "Merge",
     "merge.cancel": "Cancel",
     "merge.previewError": "Couldn't compute a preview: {message}",
+    "merge.squashBadge": "Squash",
+    "merge.squashNote":
+      "Squash merge — every change lands as ONE commit on “{target}”; “{source}”'s own commits stay out of its history. Switch back in Settings › Merge.",
+    "merge.messageSquash": "Commit message",
+    "merge.squashMessagePlaceholder": "Squashed changes from 'source'",
     "newBranch.title": "Create Branch",
     "newBranch.startPoint": "New branch starting from {sha}",
     "newBranch.startPointOn": "on {refs}",
@@ -524,6 +547,14 @@ const DICTS: Record<Lang, Dict> = {
     "settings.jargonEnglish": "Angolul hagyás",
     "settings.jargonTranslateHint": "A git szakszavak (pull, push, commit, branch…) lefordítása a felület nyelvére.",
     "settings.jargonEnglishHint": "A git szakszavak (pull, push, commit, branch…) angolul maradnak; minden más lefordítva.",
+    "settings.sectionMerge": "Beolvasztás (merge)",
+    "settings.mergeMode": "Merge módja",
+    "settings.mergeModeMerge": "Normál merge",
+    "settings.mergeModeSquash": "Squash merge",
+    "settings.mergeModeMergeHint":
+      "Az ágat úgy olvasztja be, ahogy van: a commitjai bekerülnek az aktuális ág történetébe, egy merge commit köti őket össze (vagy fast-forward, ha lehet).",
+    "settings.mergeModeSquashHint":
+      "Az egész ágat egyetlen commitba vonja össze az aktuális ágon (git merge --squash). Az ág saját commitjai nem kerülnek be az aktuális ág történetébe — ott csak egy commit látszik. Magát az ágat nem bántja, így annak commitjai a saját oszlopukban továbbra is látszanak.",
     "legend.title": "Jelmagyarázat",
     "legend.head": "HEAD / aktuális branch",
     "legend.local": "Lokális branch",
@@ -609,6 +640,11 @@ const DICTS: Record<Lang, Dict> = {
     "merge.merge": "Beolvasztás",
     "merge.cancel": "Mégse",
     "merge.previewError": "Az előnézet nem számítható ki: {message}",
+    "merge.squashBadge": "Squash",
+    "merge.squashNote":
+      "Squash merge — minden változás EGYETLEN commitként kerül a(z) „{target}” ágra; a(z) „{source}” saját commitjai nem kerülnek be annak történetébe. A Beállítások › Beolvasztás (merge) alatt állítható vissza.",
+    "merge.messageSquash": "Commit üzenet",
+    "merge.squashMessagePlaceholder": "A 'source' ág változásai egy commitban",
     "newBranch.title": "Branch létrehozása",
     "newBranch.startPoint": "Új branch innen indul: {sha}",
     "newBranch.startPointOn": "({refs})",
@@ -739,6 +775,14 @@ const DICTS: Record<Lang, Dict> = {
     "settings.jargonEnglish": "保留英文",
     "settings.jargonTranslateHint": "将 Git 术语（pull、push、commit、branch…）翻译成界面语言。",
     "settings.jargonEnglishHint": "Git 术语（pull、push、commit、branch…）保留英文；其余全部翻译。",
+    "settings.sectionMerge": "合并",
+    "settings.mergeMode": "合并方式",
+    "settings.mergeModeMerge": "普通合并",
+    "settings.mergeModeSquash": "压缩合并（squash）",
+    "settings.mergeModeMergeHint":
+      "按原样合并分支：它的提交会成为当前分支历史的一部分，由一个合并提交连接（可以快进时则快进）。",
+    "settings.mergeModeSquashHint":
+      "把整个分支压缩成当前分支上的一个提交（git merge --squash）。分支自己的提交不会进入当前分支的历史——那里只看到一个提交。分支本身保持不变，它的提交仍显示在自己的列中。",
     "legend.title": "图例",
     "legend.head": "HEAD / 当前分支",
     "legend.local": "本地分支",
@@ -824,6 +868,11 @@ const DICTS: Record<Lang, Dict> = {
     "merge.merge": "合并",
     "merge.cancel": "取消",
     "merge.previewError": "无法计算预览：{message}",
+    "merge.squashBadge": "压缩",
+    "merge.squashNote":
+      "压缩合并 —— 所有改动作为“一个”提交落在“{target}”上；“{source}”自己的提交不会进入它的历史。可在“设置 › 合并”中改回。",
+    "merge.messageSquash": "提交信息",
+    "merge.squashMessagePlaceholder": "来自 'source' 的压缩改动",
     "newBranch.title": "创建分支",
     "newBranch.startPoint": "从 {sha} 开始的新分支",
     "newBranch.startPointOn": "位于 {refs}",
@@ -954,6 +1003,14 @@ const DICTS: Record<Lang, Dict> = {
     "settings.jargonEnglish": "Оставить на английском",
     "settings.jargonTranslateHint": "Переводить термины Git (pull, push, commit, branch…) на язык интерфейса.",
     "settings.jargonEnglishHint": "Оставить термины Git (pull, push, commit, branch…) на английском; всё остальное переводить.",
+    "settings.sectionMerge": "Слияние",
+    "settings.mergeMode": "Способ слияния",
+    "settings.mergeModeMerge": "Обычное слияние",
+    "settings.mergeModeSquash": "Squash-слияние",
+    "settings.mergeModeMergeHint":
+      "Сливает ветку как есть: её коммиты входят в историю текущей ветки и связываются коммитом слияния (или выполняется fast-forward, если возможно).",
+    "settings.mergeModeSquashHint":
+      "Схлопывает всю ветку в один коммит в текущей ветке (git merge --squash). Собственные коммиты ветки не попадают в историю текущей ветки — там виден только один коммит. Сама ветка не изменяется, поэтому её коммиты остаются видны в своей колонке.",
     "legend.title": "Легенда",
     "legend.head": "HEAD / текущая ветка",
     "legend.local": "Локальная ветка",
@@ -1039,6 +1096,11 @@ const DICTS: Record<Lang, Dict> = {
     "merge.merge": "Слить",
     "merge.cancel": "Отмена",
     "merge.previewError": "Не удалось вычислить предпросмотр: {message}",
+    "merge.squashBadge": "Squash",
+    "merge.squashNote":
+      "Squash-слияние — все изменения попадут в ветку «{target}» ОДНИМ коммитом; собственные коммиты «{source}» не войдут в её историю. Вернуть обычное слияние можно в «Настройки › Слияние».",
+    "merge.messageSquash": "Сообщение коммита",
+    "merge.squashMessagePlaceholder": "Изменения ветки 'source' одним коммитом",
     "newBranch.title": "Создать ветку",
     "newBranch.startPoint": "Новая ветка, начиная с {sha}",
     "newBranch.startPointOn": "на {refs}",

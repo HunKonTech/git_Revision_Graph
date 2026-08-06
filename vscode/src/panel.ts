@@ -184,7 +184,7 @@ export class GraphPanel {
         await this.handleMergeFileDiff(msg.source, msg.path, msg.status);
         break;
       case "merge":
-        await this.handleMerge(msg.source, msg.message, msg.noFastForward ?? false);
+        await this.handleMerge(msg.source, msg.message, msg.noFastForward ?? false, msg.squash ?? false);
         break;
       case "fetch":
         await this.runRemoteOp("Fetch", fetchCli);
@@ -622,6 +622,7 @@ export class GraphPanel {
     source: string,
     message: string | undefined,
     noFastForward: boolean,
+    squash: boolean,
   ): Promise<void> {
     if (!source) return;
     const repo = await resolveRepository();
@@ -629,7 +630,7 @@ export class GraphPanel {
     try {
       const result = await vscode.window.withProgress(
         { location: vscode.ProgressLocation.Notification, title: `Merging "${source}"…`, cancellable: false },
-        () => mergeCli(repo.rootUri.fsPath, source, message, noFastForward),
+        () => mergeCli(repo.rootUri.fsPath, source, message, noFastForward, squash),
       );
       this.post({ type: "opResult", op: "merge", result });
       if (result === "conflict") await revealConflicts();
