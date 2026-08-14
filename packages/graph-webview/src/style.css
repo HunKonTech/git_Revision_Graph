@@ -986,6 +986,48 @@ body,
   opacity: 0.8;
   margin: 4px 0 10px;
 }
+.newbranch-tree-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.newbranch-tree-header .settings-section-title {
+  margin-bottom: 0;
+}
+.newbranch-tree-actions {
+  display: flex;
+  gap: 10px;
+}
+.newbranch-tree-action {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  cursor: pointer;
+}
+.newbranch-tree-action:hover {
+  text-decoration: underline;
+}
+.newbranch-twisty {
+  flex: 0 0 12px;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1;
+  opacity: 0.75;
+  user-select: none;
+}
+.newbranch-twisty:hover {
+  opacity: 1;
+}
+.newbranch-twisty-empty {
+  visibility: hidden;
+}
 .newbranch-tree {
   border: 1px solid var(--border);
   border-radius: 4px;

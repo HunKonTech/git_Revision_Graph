@@ -30,6 +30,14 @@ function isValidBranchName(name: string): boolean {
 let openOverlay: HTMLElement | null = null;
 let langUnsub: (() => void) | null = null;
 
+/**
+ * Folder paths whose children are hidden in the location tree. Module-level so
+ * the collapse state survives closing and reopening the dialog within a session
+ * (the same way a file tree keeps its shape), and a mid-dialog language switch
+ * — which rebuilds the whole modal — doesn't spring everything back open.
+ */
+const collapsedFolders = new Set<string>();
+
 /** Close the new-branch dialog if open. */
 export function closeNewBranchDialog(): void {
   if (openOverlay) {
@@ -89,11 +97,28 @@ export function openNewBranchDialog(ctx: NewBranchContext): void {
       (ctx.startRefs.length ? "  " + t("newBranch.startPointOn", { refs: ctx.startRefs.join(", ") }) : "");
     body.appendChild(el("div", "newbranch-startpoint", startText));
 
-    // Location (folder tree).
-    body.appendChild(el("div", "settings-section-title", t("newBranch.location")));
+    // Location (folder tree). Folders collapse one by one via their twisty, or
+    // all at once via the two links next to the section title.
+    const tree = buildBranchTree(ctx.branchNames);
+    const treeHeader = el("div", "newbranch-tree-header");
+    treeHeader.appendChild(el("span", "settings-section-title", t("newBranch.location")));
+    // Nothing to fold when every branch sits at the repository root.
+    if (tree.some((n) => n.isFolder)) {
+      const actions = el("div", "newbranch-tree-actions");
+      actions.append(
+        button("newbranch-tree-action", t("newBranch.expandAll"), () => {
+          collapsedFolders.clear();
+          renderTree();
+        }),
+        button("newbranch-tree-action", t("newBranch.collapseAll"), () => {
+          collectFolderPaths(tree, collapsedFolders);
+          renderTree();
+        }),
+      );
+      treeHeader.appendChild(actions);
+    }
+    body.appendChild(treeHeader);
     const treeBox = el("div", "newbranch-tree");
-    treeBox.appendChild(folderRow(t("newBranch.locationRoot"), "", 0));
-    for (const node of buildBranchTree(ctx.branchNames)) renderNode(node, treeBox, 1);
     body.appendChild(treeBox);
 
     // Branch name.
@@ -163,6 +188,29 @@ export function openNewBranchDialog(ctx: NewBranchContext): void {
       }
       createBtn.toggleAttribute("disabled", !valid);
     }
+    /** (Re)draw the tree rows, honouring the current collapse state. */
+    function renderTree(): void {
+      treeBox.innerHTML = "";
+      // The root row is the tree's container, not a foldable node — "collapse
+      // all" would otherwise hide every location there is to pick from.
+      treeBox.appendChild(folderRow(t("newBranch.locationRoot"), "", 0, null));
+      for (const node of tree) renderNode(node, treeBox, 1);
+      markSelection();
+    }
+    /** Re-apply the selection highlight (folder, or the leaf the name matches). */
+    function markSelection(): void {
+      treeBox.querySelectorAll(".selected").forEach((r) => r.classList.remove("selected"));
+      treeBox
+        .querySelector(`.newbranch-folder[data-path="${cssEscape(selectedFolder)}"]`)
+        ?.classList.add("selected");
+      treeBox.querySelector(`.newbranch-leaf[data-path="${cssEscape(fullName())}"]`)?.classList.add("selected");
+    }
+    function toggleFolder(path: string): void {
+      if (!path) return; // the root row has no twisty
+      if (!collapsedFolders.delete(path)) collapsedFolders.add(path);
+      renderTree();
+      refreshValidity();
+    }
     function submit(): void {
       const full = fullName();
       if (!isValidBranchName(full) || existing.has(full)) return;
@@ -187,6 +235,13 @@ export function openNewBranchDialog(ctx: NewBranchContext): void {
     // "already exists" check.
     treeBox.addEventListener("click", (e) => {
       const target = e.target as HTMLElement;
+      // The twisty only folds — it never moves the selection.
+      const twisty = target.closest(".newbranch-twisty") as HTMLElement | null;
+      if (twisty) {
+        const row = twisty.closest(".newbranch-folder") as HTMLElement | null;
+        toggleFolder(row?.dataset.path ?? "");
+        return;
+      }
       const folder = target.closest(".newbranch-folder") as HTMLElement | null;
       const leaf = target.closest(".newbranch-leaf") as HTMLElement | null;
       if (folder) {
@@ -214,13 +269,13 @@ export function openNewBranchDialog(ctx: NewBranchContext): void {
       refreshValidity();
     });
 
-    // Restore the selection highlight after a re-render (folder, or a leaf whose
-    // path equals the current full name).
-    const selFolder = treeBox.querySelector(`.newbranch-folder[data-path="${cssEscape(selectedFolder)}"]`);
-    selFolder?.classList.add("selected");
-    const selLeaf = treeBox.querySelector(`.newbranch-leaf[data-path="${cssEscape(fullName())}"]`);
-    selLeaf?.classList.add("selected");
+    // Double-clicking a folder row folds it too, the way file trees behave.
+    treeBox.addEventListener("dblclick", (e) => {
+      const row = (e.target as HTMLElement).closest(".newbranch-folder") as HTMLElement | null;
+      if (row) toggleFolder(row.dataset.path ?? "");
+    });
 
+    renderTree();
     refreshValidity();
     setTimeout(() => nameInput.focus(), 0);
   }
@@ -235,21 +290,45 @@ export function openNewBranchDialog(ctx: NewBranchContext): void {
   openOverlay = overlay;
 }
 
-/** Render a tree node (and its children) into a container at the given depth. */
+/**
+ * Render a tree node (and its children) into a container at the given depth.
+ * A collapsed folder still draws its own row — only its subtree is skipped.
+ */
 function renderNode(node: BranchTreeNode, container: HTMLElement, depth: number): void {
   if (node.isFolder) {
-    container.appendChild(folderRow(node.name, node.path, depth));
+    const expanded = !collapsedFolders.has(node.path);
+    container.appendChild(folderRow(node.name, node.path, depth, expanded));
+    if (!expanded) return;
     for (const child of node.children) renderNode(child, container, depth + 1);
   } else {
     container.appendChild(leafRow(node.name, node.path, depth));
   }
 }
 
-function folderRow(label: string, path: string, depth: number): HTMLElement {
+/** Collect every folder path in the tree (used by "collapse all"). */
+function collectFolderPaths(nodes: BranchTreeNode[], out: Set<string>): void {
+  for (const node of nodes) {
+    if (!node.isFolder) continue;
+    out.add(node.path);
+    collectFolderPaths(node.children, out);
+  }
+}
+
+/** `expanded: null` renders a fold-less row (the root), keeping labels aligned. */
+function folderRow(label: string, path: string, depth: number, expanded: boolean | null): HTMLElement {
   const row = el("div", "newbranch-folder", "");
   row.dataset.path = path;
   row.style.paddingLeft = `${6 + depth * 16}px`;
-  row.appendChild(el("span", "newbranch-folder-icon", "📁"));
+  if (expanded == null) {
+    row.appendChild(twistySpacer());
+  } else {
+    const twisty = el("span", "newbranch-twisty", expanded ? "▾" : "▸");
+    twisty.setAttribute("role", "button");
+    twisty.setAttribute("aria-label", t(expanded ? "newBranch.collapseFolder" : "newBranch.expandFolder"));
+    row.setAttribute("aria-expanded", expanded ? "true" : "false");
+    row.appendChild(twisty);
+  }
+  row.appendChild(el("span", "newbranch-folder-icon", expanded === false ? "📁" : "📂"));
   row.appendChild(el("span", "newbranch-folder-label", label));
   return row;
 }
@@ -258,9 +337,15 @@ function leafRow(label: string, path: string, depth: number): HTMLElement {
   const row = el("div", "newbranch-leaf", "");
   row.dataset.path = path;
   row.style.paddingLeft = `${6 + depth * 16}px`;
+  row.appendChild(twistySpacer());
   row.appendChild(el("span", "newbranch-leaf-icon", "⎇"));
   row.appendChild(el("span", "newbranch-leaf-label", label));
   return row;
+}
+
+/** Invisible stand-in for the twisty so foldless rows line up with foldable ones. */
+function twistySpacer(): HTMLElement {
+  return el("span", "newbranch-twisty newbranch-twisty-empty", "");
 }
 
 /* small DOM helpers */

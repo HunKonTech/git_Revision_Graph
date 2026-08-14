@@ -192,6 +192,10 @@ type Dict = {
   "newBranch.startPointOn": string;
   "newBranch.location": string;
   "newBranch.locationRoot": string;
+  "newBranch.expandAll": string;
+  "newBranch.collapseAll": string;
+  "newBranch.expandFolder": string;
+  "newBranch.collapseFolder": string;
   "newBranch.name": string;
   "newBranch.namePlaceholder": string;
   "newBranch.fullName": string;
@@ -422,6 +426,10 @@ const DICTS: Record<Lang, Dict> = {
     "newBranch.startPointOn": "on {refs}",
     "newBranch.location": "Location",
     "newBranch.locationRoot": "(root)",
+    "newBranch.expandAll": "Expand all",
+    "newBranch.collapseAll": "Collapse all",
+    "newBranch.expandFolder": "Expand folder",
+    "newBranch.collapseFolder": "Collapse folder",
     "newBranch.name": "Branch name",
     "newBranch.namePlaceholder": "my-branch",
     "newBranch.fullName": "Full name: {name}",
@@ -650,6 +658,10 @@ const DICTS: Record<Lang, Dict> = {
     "newBranch.startPointOn": "({refs})",
     "newBranch.location": "Hely",
     "newBranch.locationRoot": "(gyökér)",
+    "newBranch.expandAll": "Mind kinyit",
+    "newBranch.collapseAll": "Mind becsuk",
+    "newBranch.expandFolder": "Mappa kinyitása",
+    "newBranch.collapseFolder": "Mappa becsukása",
     "newBranch.name": "Branch neve",
     "newBranch.namePlaceholder": "uj-branch",
     "newBranch.fullName": "Teljes név: {name}",
@@ -878,6 +890,10 @@ const DICTS: Record<Lang, Dict> = {
     "newBranch.startPointOn": "位于 {refs}",
     "newBranch.location": "位置",
     "newBranch.locationRoot": "（根）",
+    "newBranch.expandAll": "全部展开",
+    "newBranch.collapseAll": "全部折叠",
+    "newBranch.expandFolder": "展开文件夹",
+    "newBranch.collapseFolder": "折叠文件夹",
     "newBranch.name": "分支名称",
     "newBranch.namePlaceholder": "my-branch",
     "newBranch.fullName": "完整名称：{name}",
@@ -1106,6 +1122,10 @@ const DICTS: Record<Lang, Dict> = {
     "newBranch.startPointOn": "на {refs}",
     "newBranch.location": "Расположение",
     "newBranch.locationRoot": "(корень)",
+    "newBranch.expandAll": "Развернуть все",
+    "newBranch.collapseAll": "Свернуть все",
+    "newBranch.expandFolder": "Развернуть папку",
+    "newBranch.collapseFolder": "Свернуть папку",
     "newBranch.name": "Имя ветки",
     "newBranch.namePlaceholder": "my-branch",
     "newBranch.fullName": "Полное имя: {name}",
