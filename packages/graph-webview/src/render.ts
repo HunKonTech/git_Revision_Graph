@@ -41,6 +41,8 @@ export interface RenderCallbacks {
   onNodeClick(commit: PositionedCommit): void;
   /** Right-click on empty canvas (not on a node) → background context menu. */
   onCanvasContextMenu(clientX: number, clientY: number): void;
+  /** Left-click on empty canvas (not on a node) → the selection is dropped. */
+  onCanvasClick(): void;
 }
 
 /** Renders a git DAG as connected boxes inside an SVG, with zoom & pan. */
@@ -138,9 +140,12 @@ export class GraphView {
     this.container.appendChild(this.scrollEl);
     this.installPanZoom();
 
-    // Clicking empty canvas clears any highlighted ancestry path.
+    // Clicking empty canvas clears any highlighted ancestry path — and with it
+    // the selection the details panel shows.
     this.scrollEl.addEventListener("mousedown", (e) => {
-      if (!(e.target as Element).closest(".node")) this.selectPath(null);
+      if ((e.target as Element).closest(".node")) return;
+      this.selectPath(null);
+      this.cb.onCanvasClick();
     });
 
     // Right-clicking empty canvas opens the background context menu. Nodes carry

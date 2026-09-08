@@ -82,6 +82,17 @@ function boot(): void {
   canvas.appendChild(legend);
 
   const detailsPanel = buildDetailsPanel();
+  // Node whose details the panel currently shows, or null when nothing is
+  // selected — the panel is hidden exactly then.
+  let detailsNodeId: string | null = null;
+  const hideDetails = (): void => {
+    detailsNodeId = null;
+    detailsPanel.dataset.hidden = "";
+  };
+  const openDetails = (commit: PositionedCommit): void => {
+    detailsNodeId = commit.nodeId;
+    showCommitDetails(detailsPanel, commit, currentHead, hideDetails);
+  };
   // Sha of the currently checked-out commit, kept so the details panel can flag
   // the commit the working tree is on.
   let currentHead: string | null = null;
@@ -244,10 +255,19 @@ function boot(): void {
       bridge.post({ type: "checkout", sha: commit.sha, ref: boxBranchRef(commit) });
     },
     onNodeClick(commit) {
-      showCommitDetails(detailsPanel, commit, currentHead);
+      // Clicking the selected node again deselects it — the panel goes away too.
+      if (detailsNodeId === commit.nodeId) {
+        hideDetails();
+        view.selectPath(null);
+        return;
+      }
+      openDetails(commit);
       // Highlight the path from the root to the selected commit/branch. Stash
       // nodes aren't part of the commit ancestry, so they just clear it.
       view.selectPath(commit.stash ? null : commit.nodeId);
+    },
+    onCanvasClick() {
+      hideDetails();
     },
     onCanvasContextMenu(x, y) {
       // Background menu (right-click off any box): jump to the checkout, reset
@@ -424,7 +444,7 @@ function boot(): void {
     closeChangesDialog();
     closeCommitDialog();
     closeMergeDialog();
-    detailsPanel.dataset.hidden = "";
+    hideDetails();
     currentHead = data.head ?? null;
     lastData = data;
     view.setData(data, getMainBranch(), showsMergedInTarget());
@@ -596,12 +616,12 @@ function boot(): void {
     const activeNodeId = active?.nodeId ?? null;
     view.setSearchMatches(searchMatches.map((c) => c.nodeId), activeNodeId);
     if (!active) {
-      detailsPanel.dataset.hidden = "";
+      hideDetails();
       updateSearchCount();
       return;
     }
     view.jumpToNode(active.nodeId);
-    showCommitDetails(detailsPanel, active, currentHead);
+    openDetails(active);
     updateSearchCount();
   }
 
@@ -809,6 +829,7 @@ function showCommitDetails(
   panel: HTMLElement,
   commit: PositionedCommit,
   currentHead: string | null,
+  onClose: () => void,
 ): void {
   delete panel.dataset.hidden;
   panel.innerHTML = "";
@@ -824,9 +845,7 @@ function showCommitDetails(
   closeBtn.type = "button";
   closeBtn.textContent = "×";
   closeBtn.setAttribute("aria-label", t("details.close"));
-  closeBtn.addEventListener("click", () => {
-    panel.dataset.hidden = "";
-  });
+  closeBtn.addEventListener("click", onClose);
   header.appendChild(closeBtn);
   panel.appendChild(header);
 
