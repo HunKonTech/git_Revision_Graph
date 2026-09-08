@@ -19,6 +19,7 @@ Open a folder or workspace that contains a Git repository, then either:
 
 - **DAG layout** — commits in columns per branch with connecting lines; modern (free canvas) or classic (trunk-pinned) display modes.
 - **Color-coded nodes** — HEAD/current branch (red), local branches (green), remote branches (blue), remote-only commits, tags (yellow), stashes, plain commits (grey), and commits merged into the branch that received them.
+- **Built-in legend** — a panel spells out every color and every line: parent link, merge (arrow at the merge commit), fork-off point, stash tie, and the line threading merged-in commits back to the branch they were written on.
 - **Branch** — create a branch from any commit via an SVN-style folder-tree dialog or VS Code's native branch UI; rename, delete or push a branch.
 - **Merge** — merge or squash-merge one branch into another, with a schematic preview that shows the merge direction.
 - **Rewrite history** — reword a commit message; undo a commit while keeping its changes.
@@ -66,6 +67,7 @@ Nyiss meg egy mappát vagy munkaterületet, amely egy Git repozitóriumot tartal
 
 - **DAG elrendezés** — commitok áganként oszlopokban, összekötő vonalakkal; modern (szabad vászon) vagy klasszikus (balra rögzített törzs) nézet.
 - **Színkódolt csomópontok** — HEAD/aktuális ág (piros), helyi ágak (zöld), távoli ágak (kék), csak-távoli commitok, tagek (sárga), stash-ek, sima commitok (szürke), és a fogadó ágba merge-ölt commitok.
+- **Beépített jelmagyarázat** — egy panel elmagyaráz minden színt és minden vonalat: szülő-kapcsolat, merge (nyíl a merge-commitnál), leágazási pont, stash-kötés, és a beolvasztott commitokon átfutó vonal vissza az ágra, ahol készültek.
 - **Ág** — új ág bármely committól SVN-stílusú mappafa-párbeszéddel vagy a VS Code natív ág-ablakával; ág átnevezése, törlése, push-olása.
 - **Merge** — egy ág merge-ölése vagy squash-merge-ölése egy másikba, a merge irányát mutató sematikus előnézettel.
 - **Történet átírása** — commit üzenet átírása; commit visszavonása a változtatások megtartásával.

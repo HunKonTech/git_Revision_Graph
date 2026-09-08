@@ -27,6 +27,10 @@ merge, reword, checkout, diff, commit, stash, zoom & pan) works against mock dat
 - Colors nodes by ref type: current/HEAD, local branch, remote branch,
   remote-only, tag, stash, plain commit, and commits merged into the branch that
   received them — echoing the SVN graph's grey/green/yellow scheme.
+- **Built-in legend** — a panel spells out every color and every line: parent
+  link, merge (the arrow points at the merge commit), fork-off point, stash tie,
+  and the line threading merged-in commits back to the branch they were written
+  on.
 - **Branch** — create a branch from any commit via an SVN-style folder-tree
   dialog or the host's native branch UI; rename, delete or push a branch.
 - **Merge** — merge or squash-merge one branch into another, with a schematic
@@ -184,6 +188,7 @@ mock adatokon.
 ## Mit csinál
 - A git DAG-ot dobozok és élek formájában rajzolja ki, áganként egy oszloppal, modern (szabad vászon) vagy klasszikus (balra rögzített törzs) nézetben.
 - A csomópontokat ref-típus szerint színezi: aktuális/HEAD, helyi ág, távoli ág, csak-távoli, tag, stash, sima commit, és a fogadó ágba merge-ölt commitok — az SVN-gráf szürke/zöld/sárga sémájára emlékeztetve.
+- **Beépített jelmagyarázat** — egy panel elmagyaráz minden színt és minden vonalat: szülő-kapcsolat, merge (a nyíl a merge-commitra mutat), leágazási pont, stash-kötés, és a beolvasztott commitokon átfutó vonal vissza az ágra, ahol készültek.
 - **Ág** — új ág bármely committól SVN-stílusú mappafa-párbeszéddel vagy a fogadó alkalmazás natív ág-ablakával; ág átnevezése, törlése, push-olása.
 - **Merge** — egy ág merge-ölése vagy squash-merge-ölése egy másikba, a merge irányát mutató sematikus előnézettel.
 - **Történet átírása** — commit üzenet átírása; commit visszavonása a változtatások megtartásával.

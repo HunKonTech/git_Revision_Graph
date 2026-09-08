@@ -13,7 +13,9 @@
       any commit, merge or squash-merge branches, reword a message, undo a
       commit, check out, inspect changed files and diffs, stage and commit
       working-tree changes, apply stashes, and fetch/pull/push/sync from the
-      toolbar.
+      toolbar. A built-in legend explains every node color (HEAD, local, remote,
+      remote-only, tag, stash, merged-in commit) and every connecting line
+      (parent, merge, fork-off, stash, merged-in chain and tie).
    </description>
 
    <copyright>
