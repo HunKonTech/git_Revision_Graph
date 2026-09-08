@@ -150,6 +150,7 @@ type Dict = {
   "changes.noSearchResults": string;
   "changes.maximize": string;
   "changes.restore": string;
+  "find.open": string;
   "find.placeholder": string;
   "find.prev": string;
   "find.next": string;
@@ -399,6 +400,7 @@ const DICTS: Record<Lang, Dict> = {
     "changes.noSearchResults": "No files match your search.",
     "changes.maximize": "Maximize",
     "changes.restore": "Restore size",
+    "find.open": "Search in this diff (Ctrl+F)",
     "find.placeholder": "Find in diff…",
     "find.prev": "Previous match",
     "find.next": "Next match",
@@ -647,6 +649,7 @@ const DICTS: Record<Lang, Dict> = {
     "changes.noSearchResults": "Nincs a keresésnek megfelelő fájl.",
     "changes.maximize": "Nagyítás",
     "changes.restore": "Eredeti méret",
+    "find.open": "Keresés ebben a diffben (Ctrl+F)",
     "find.placeholder": "Keresés a diffben…",
     "find.prev": "Előző találat",
     "find.next": "Következő találat",
@@ -895,6 +898,7 @@ const DICTS: Record<Lang, Dict> = {
     "changes.noSearchResults": "没有匹配的文件。",
     "changes.maximize": "最大化",
     "changes.restore": "还原大小",
+    "find.open": "在此差异中搜索 (Ctrl+F)",
     "find.placeholder": "在差异中查找…",
     "find.prev": "上一个匹配",
     "find.next": "下一个匹配",
@@ -1143,6 +1147,7 @@ const DICTS: Record<Lang, Dict> = {
     "changes.noSearchResults": "Нет файлов, соответствующих поиску.",
     "changes.maximize": "Развернуть",
     "changes.restore": "Восстановить размер",
+    "find.open": "Поиск в этом diff (Ctrl+F)",
     "find.placeholder": "Поиск в diff…",
     "find.prev": "Предыдущее совпадение",
     "find.next": "Следующее совпадение",

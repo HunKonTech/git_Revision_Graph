@@ -1471,8 +1471,34 @@ body,
 .diff-find[hidden] {
   display: none;
 }
-.changes-diff.diff-find-open .changes-nav {
+.changes-diff.has-diff-find .changes-nav {
   top: 44px;
+}
+/* Mouse entry point for the search, in the same corner as the box it opens —
+   some IDE hosts never deliver Ctrl+F to the embedded browser. */
+.diff-find-toggle {
+  position: absolute;
+  top: 8px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  color: var(--fg);
+  cursor: pointer;
+  opacity: 0.75;
+}
+.diff-find-toggle:hover {
+  opacity: 1;
+}
+.diff-find-toggle[hidden] {
+  display: none;
 }
 .diff-find-input {
   width: 160px;

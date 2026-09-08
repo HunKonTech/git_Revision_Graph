@@ -10,6 +10,13 @@ import { t } from "./i18n.js";
  * highlighted and scrolled into view. Enter / Shift+Enter (or the ▲/▼ buttons)
  * step through the hits, Escape closes the box without closing the dialog.
  *
+ * A magnifier button sits in that same corner whenever a diff is shown, so the
+ * search is always reachable with the mouse: some IDEs (notably Visual Studio,
+ * whose tool windows pre-translate key chords into IDE commands) swallow Ctrl+F
+ * before the embedded browser control ever sees it. For the same reason the
+ * shortcut also matches on the physical key (`code === "KeyF"`), so it still
+ * fires under keyboard layouts where Ctrl+F produces a non-Latin `key`.
+ *
  * The search runs over the already-rendered DOM (text nodes only, so
  * highlight.js's syntax spans stay intact) — the same technique changesDialog
  * uses for its file-list search highlight.
@@ -18,10 +25,18 @@ import { t } from "./i18n.js";
 /** Stop marking after this many hits so a huge file can't freeze the webview. */
 const MAX_HITS = 5000;
 
+/** Magnifier icon of the "open search" button. */
+const SEARCH_SVG =
+  '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">' +
+  '<circle cx="7" cy="7" r="4.2" fill="none" stroke="currentColor" stroke-width="1.6"/>' +
+  '<path stroke="currentColor" stroke-width="1.6" stroke-linecap="round" d="M10.2 10.2 14 14"/></svg>';
+
 interface Finder {
   pane: HTMLElement;
   scroll: HTMLElement;
   bar: HTMLElement;
+  /** The magnifier button shown in place of the box while it is closed. */
+  toggle: HTMLElement;
   input: HTMLInputElement;
   counter: HTMLElement;
   /** The <mark> elements of the current query, in document order. */
@@ -78,7 +93,17 @@ export function attachDiffFind(pane: HTMLElement, scroll: HTMLElement, rightPx: 
   bar.append(input, counter, prev, next, close);
   pane.appendChild(bar);
 
-  const finder: Finder = { pane, scroll, bar, input, counter, hits: [], index: -1 };
+  // Mouse entry point, for hosts that never deliver Ctrl+F to the webview.
+  const toggle = button("diff-find-toggle", "", () => openFind());
+  toggle.innerHTML = SEARCH_SVG;
+  toggle.style.right = `${rightPx}px`;
+  toggle.title = t("find.open");
+  toggle.setAttribute("aria-label", t("find.open"));
+  pane.appendChild(toggle);
+  // The change navigator drops below this row so both stay visible.
+  pane.classList.add("has-diff-find");
+
+  const finder: Finder = { pane, scroll, bar, toggle, input, counter, hits: [], index: -1 };
   active = finder;
 
   input.addEventListener("input", () => {
@@ -107,7 +132,8 @@ export function attachDiffFind(pane: HTMLElement, scroll: HTMLElement, rightPx: 
     clearTimeout(finder.debounce);
     clearHits(finder);
     bar.remove();
-    pane.classList.remove("diff-find-open");
+    toggle.remove();
+    pane.classList.remove("has-diff-find");
     if (active === finder) active = null;
   };
 }
@@ -121,7 +147,7 @@ function openFind(): void {
 
 function showBar(f: Finder, focus: boolean): void {
   f.bar.hidden = false;
-  f.pane.classList.add("diff-find-open");
+  f.toggle.hidden = true;
   lastOpen = true;
   if (focus) {
     f.input.focus();
@@ -133,7 +159,7 @@ function closeBar(): void {
   if (!active) return;
   clearHits(active);
   active.bar.hidden = true;
-  active.pane.classList.remove("diff-find-open");
+  active.toggle.hidden = false;
   active.counter.textContent = "";
   lastOpen = false;
 }
@@ -229,38 +255,42 @@ function markHits(root: HTMLElement, query: string): HTMLElement[] {
 /**
  * Global shortcuts, bound once in the capture phase so Escape closes the find
  * box instead of the dialog underneath it (each dialog listens for Escape on
- * document too).
+ * document too). Bound on both `window` and `document` because embedded browser
+ * controls differ in which of the two a host's synthesized key events reach; the
+ * first one to see the event consumes it, so it is never handled twice.
  */
 function bindKeys(): void {
   if (keysBound) return;
   keysBound = true;
-  document.addEventListener(
-    "keydown",
-    (e) => {
-      if (!active || !active.pane.isConnected) return;
-      const findKey = (e.ctrlKey || e.metaKey) && !e.altKey && (e.key === "f" || e.key === "F");
-      if (findKey) {
-        e.preventDefault();
-        e.stopPropagation();
-        openFind();
-        return;
-      }
-      if (active.bar.hidden) return;
-      if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
-        closeBar();
-        return;
-      }
-      // F3 / Cmd+G repeat the search from anywhere in the dialog.
-      if (e.key === "F3" || ((e.ctrlKey || e.metaKey) && (e.key === "g" || e.key === "G"))) {
-        e.preventDefault();
-        e.stopPropagation();
-        step(e.shiftKey ? -1 : 1);
-      }
-    },
-    true,
-  );
+  window.addEventListener("keydown", onKeyDown, true);
+  document.addEventListener("keydown", onKeyDown, true);
+}
+
+function onKeyDown(e: KeyboardEvent): void {
+  if (e.defaultPrevented) return;
+  if (!active || !active.pane.isConnected) return;
+  // `code` is the physical key, so the shortcut survives layouts (Cyrillic,
+  // Greek, …) where Ctrl+F reports a non-Latin `key`.
+  const isF = e.key === "f" || e.key === "F" || e.code === "KeyF";
+  if ((e.ctrlKey || e.metaKey) && !e.altKey && isF) {
+    e.preventDefault();
+    e.stopPropagation();
+    openFind();
+    return;
+  }
+  if (active.bar.hidden) return;
+  if (e.key === "Escape") {
+    e.preventDefault();
+    e.stopPropagation();
+    closeBar();
+    return;
+  }
+  // F3 / Cmd+G repeat the search from anywhere in the dialog.
+  if (e.key === "F3" || ((e.ctrlKey || e.metaKey) && (e.key === "g" || e.key === "G" || e.code === "KeyG"))) {
+    e.preventDefault();
+    e.stopPropagation();
+    step(e.shiftKey ? -1 : 1);
+  }
 }
 
 /* small DOM helpers (mirroring diffView.ts) */
