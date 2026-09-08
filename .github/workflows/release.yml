@@ -16,8 +16,49 @@ permissions:
   contents: write   # GitHub Release létrehozása
 
 jobs:
+  # -------------------------------------------------------------------------
+  # Which runners this run uses.
+  #
+  # GitHub Actions cannot fall back from a self-hosted label set to a hosted
+  # runner on its own: a job whose labels match no online runner simply sits in
+  # "queued" until GitHub cancels it a day later — which is exactly how the
+  # Linux/ARM64 jobs got stuck. Nor can a workflow ask whether an org runner is
+  # online: that REST endpoint needs org-admin credentials the GITHUB_TOKEN does
+  # not have.
+  #
+  # So availability is *declared*, not detected. Each platform takes its label
+  # set from a repository variable and falls back to a GitHub-hosted runner when
+  # that variable is empty — the default, so nothing can ever get stuck. Point a
+  # variable at a fleet while it is up:
+  #   gh variable set RUNNER_WINDOWS --body '["self-hosted","Windows"]'
+  #   gh variable set RUNNER_LINUX   --body '["self-hosted","Linux","ARM64"]'
+  # and clear it (gh variable delete RUNNER_LINUX) to move that platform back
+  # onto GitHub's runners on the next run — no workflow edit needed.
+  # -------------------------------------------------------------------------
+  runners:
+    runs-on: ubuntu-latest
+    outputs:
+      windows: ${{ steps.pick.outputs.windows }}
+      linux: ${{ steps.pick.outputs.linux }}
+    steps:
+      - id: pick
+        env:
+          RUNNER_WINDOWS: ${{ vars.RUNNER_WINDOWS }}
+          RUNNER_LINUX: ${{ vars.RUNNER_LINUX }}
+        run: |
+          set -euo pipefail
+          windows="${RUNNER_WINDOWS:-}"
+          linux="${RUNNER_LINUX:-}"
+          [ -n "$windows" ] || windows='["windows-latest"]'
+          [ -n "$linux" ] || linux='["ubuntu-latest"]'
+          echo "windows=$windows" >> "$GITHUB_OUTPUT"
+          echo "linux=$linux" >> "$GITHUB_OUTPUT"
+          echo "Windows jobs -> $windows"
+          echo "Linux jobs   -> $linux"
+
   release:
-    runs-on: [self-hosted, Windows]
+    needs: runners
+    runs-on: ${{ fromJSON(needs.runners.outputs.windows) }}
 
     outputs:
       new_version: ${{ steps.ver.outputs.NEW_VERSION }}
@@ -367,8 +408,8 @@ jobs:
   # Uses Microsoft.VSSDK.BuildTools (NuGet) — no workload install needed.
   # -------------------------------------------------------------------------
   build-vs-vsix:
-    needs: release
-    runs-on: [self-hosted, Windows]
+    needs: [runners, release]
+    runs-on: ${{ fromJSON(needs.runners.outputs.windows) }}
     if: success() || needs.release.result == 'success'
 
     env:
@@ -585,8 +626,8 @@ jobs:
   # jetbrains/gradle.properties).
   # -------------------------------------------------------------------------
   build-jetbrains-plugins:
-    needs: release
-    runs-on: [self-hosted, Windows]
+    needs: [runners, release]
+    runs-on: ${{ fromJSON(needs.runners.outputs.windows) }}
     if: success() || needs.release.result == 'success'
 
     env:
@@ -748,8 +789,8 @@ jobs:
   # Eclipse p2 repos).
   # -------------------------------------------------------------------------
   build-eclipse-plugin:
-    needs: release
-    runs-on: [self-hosted, Linux, ARM64]
+    needs: [runners, release]
+    runs-on: ${{ fromJSON(needs.runners.outputs.linux) }}
     if: success() || needs.release.result == 'success'
 
     env:
@@ -899,8 +940,8 @@ jobs:
   # netbeans/BUILD.md).
   # -------------------------------------------------------------------------
   build-netbeans-plugin:
-    needs: release
-    runs-on: [self-hosted, Linux, ARM64]
+    needs: [runners, release]
+    runs-on: ${{ fromJSON(needs.runners.outputs.linux) }}
     if: success() || needs.release.result == 'success'
 
     env:
@@ -1099,11 +1140,12 @@ jobs:
   post-to-buffer:
     if: ${{ needs.release.result == 'success' && github.event_name == 'push' }}
     needs:
+      - runners
       - release
       - build-vs-vsix
       - build-jetbrains-plugins
       - build-netbeans-plugin
-    runs-on: [self-hosted, Linux, ARM64]
+    runs-on: ${{ fromJSON(needs.runners.outputs.linux) }}
 
     steps:
       - uses: actions/checkout@v4

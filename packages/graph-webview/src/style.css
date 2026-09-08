@@ -377,6 +377,18 @@ body,
   opacity: 0.75;
 }
 
+/* The tie's arrowhead: same colour as the tie, solid (an arrow drawn with the
+   dotted stroke would fall apart) and pointing at the copy. */
+.edge-merged-tie-arrow {
+  fill: var(--merged-in-edge);
+  stroke: none;
+  stroke-dasharray: none;
+}
+.has-selection .edge.edge-merged-tie-arrow.edge-path {
+  fill: var(--accent);
+  stroke: none;
+}
+
 /* Merge-direction arrowhead: a solid triangle at the merge commit's end of the
    line, filled (not stroked) so the dashed merge style doesn't hollow it out. */
 .edge-arrow {

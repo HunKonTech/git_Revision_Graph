@@ -746,13 +746,12 @@ function mergedViewSchematic(inTarget: boolean): string {
     `<polygon points="${tcx},${y0 + CH} ${tcx - 4},${y0 + CH + 7} ${tcx + 4},${y0 + CH + 7}" ` +
     `fill="${C.edge}"/>`;
 
-  // The tie between a copy and the original it mirrors: same commit, same row.
+  // The tie between a copy and the original it mirrors: same commit, same row,
+  // with an arrowhead at the copy's edge so the direction it travelled shows.
   if (inTarget) {
-    s += line(TX + CW, y1 + CH / 2, BX, y1 + CH / 2, {
-      stroke: MERGED_EDGE,
-      sw: 1.2,
-      dashed: true,
-    });
+    const ty = y1 + CH / 2;
+    s += line(TX + CW, ty, BX, ty, { stroke: MERGED_EDGE, sw: 1.2, dashed: true });
+    s += `<polygon points="${TX + CW},${ty} ${TX + CW + 6},${ty - 3.5} ${TX + CW + 6},${ty + 3.5}" fill="${MERGED_EDGE}"/>`;
   }
 
   // Cards last so the edges tuck under them.

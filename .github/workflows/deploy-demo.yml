@@ -7,9 +7,9 @@
 # example the local commit dialog) is visible on the demo page as soon as the
 # code lands.
 #
-# Everything here runs on self-hosted runners only (org policy). The demo build
-# is plain Node + esbuild — no Windows/VS SDK — so the self-hosted Linux runner
-# fits and needs no Git-Bash-over-WSL workaround (bash + tar are native there).
+# The demo build is plain Node + esbuild — no Windows/VS SDK — so it is happy on
+# either a self-hosted Linux runner or a GitHub-hosted one. Which one it uses is
+# resolved by the `runners` job below; see the comment there.
 #
 # One-time setup: repo Settings → Pages → Build and deployment → Source =
 # "GitHub Actions". Then the demo is live at:
@@ -44,20 +44,42 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Which runner the Linux jobs use. A job whose self-hosted labels match no
+  # online runner sits in "queued" until GitHub cancels it a day later, and a
+  # workflow cannot ask whether an org runner is up (that endpoint needs
+  # org-admin credentials the GITHUB_TOKEN does not have) — so availability is
+  # declared, not detected. Set the RUNNER_LINUX repository variable to a label
+  # set (e.g. ["self-hosted","Linux","ARM64"]) while that fleet is up; leave it
+  # empty and the build runs on GitHub's runners. Same variable as the release
+  # workflow, so one switch moves both.
+  runners:
+    runs-on: ubuntu-latest
+    outputs:
+      linux: ${{ steps.pick.outputs.linux }}
+    steps:
+      - id: pick
+        env:
+          RUNNER_LINUX: ${{ vars.RUNNER_LINUX }}
+        run: |
+          set -euo pipefail
+          linux="${RUNNER_LINUX:-}"
+          [ -n "$linux" ] || linux='["ubuntu-latest"]'
+          echo "linux=$linux" >> "$GITHUB_OUTPUT"
+          echo "Linux jobs -> $linux"
+
   build:
+    needs: runners
     # Deploy only for a successful release (skip when it failed or was
     # cancelled), or when triggered by push / hand.
     if: >-
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'push' ||
       github.event.workflow_run.conclusion == 'success'
-    # Self-hosted Linux (the org's ARM64 Linux runner) — separate machine from
-    # the release build's self-hosted Windows runner, so no contention.
-    runs-on: [self-hosted, Linux, ARM64]
+    runs-on: ${{ fromJSON(needs.runners.outputs.linux) }}
     steps:
       - uses: actions/checkout@v4
 
-      # No `cache: npm`: on the memory-constrained self-hosted runners the
+      # No `cache: npm`: on a memory-constrained self-hosted runner the
       # actions/cache restore can fail to allocate its download buffer and hang
       # before falling through, so npm's own cache is left to do the job.
       - uses: actions/setup-node@v4
@@ -83,10 +105,9 @@ jobs:
           path: dist/demo
 
   deploy:
-    needs: build
-    # deploy-pages just calls the Pages REST API; run it on the same self-hosted
-    # Linux runner (org policy allows self-hosted only).
-    runs-on: [self-hosted, Linux, ARM64]
+    needs: [runners, build]
+    # deploy-pages just calls the Pages REST API — same runner as the build.
+    runs-on: ${{ fromJSON(needs.runners.outputs.linux) }}
     timeout-minutes: 10
     environment:
       name: github-pages

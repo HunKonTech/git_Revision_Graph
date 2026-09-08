@@ -606,6 +606,14 @@ export class GraphView {
           this.edgeRecords.push({ el: arrow, fromId: e.fromId, toId: e.toId, stash: false, merge: true });
         }
       }
+      // The tie between a merged-in copy and its original carries one arrowhead
+      // too, so the dotted line reads as "came from there", not just "these two
+      // are related".
+      if (e.isMergedTie) {
+        const arrow = this.tieArrow(e);
+        edgeLayer.appendChild(arrow);
+        this.edgeRecords.push({ el: arrow, fromId: e.fromId, toId: e.toId, stash: false, merge: false });
+      }
     }
     this.viewport.appendChild(edgeLayer);
 
@@ -874,8 +882,37 @@ export class GraphView {
     return arrows;
   }
 
+  /**
+   * Arrowhead for a merged-in tie, pointing from the original box *into* the
+   * copy — the direction the commit travelled to get there. Placed so its tip
+   * touches the copy's edge.
+   */
+  private tieArrow(e: LayoutEdge): SVGPathElement {
+    const rightward = e.toLane > e.fromLane; // original sits right of the copy
+    const top = this.boxY(e.fromRow);
+    const span = Math.min(
+      this.ownHeight.get(e.fromId) ?? CONTENT_H,
+      this.ownHeight.get(e.toId) ?? CONTENT_H,
+    );
+    const lo = Math.min(e.fromLane, e.toLane) + 1;
+    const hi = Math.max(e.fromLane, e.toLane) - 1;
+    let blocked = false;
+    for (let lane = lo; lane <= hi; lane++) {
+      if (this.boxBottom.has(`${e.fromRow}:${lane}`)) blocked = true;
+    }
+    if (blocked) {
+      // The tie dips through the row gap and comes back up into the copy's
+      // bottom edge, so the arrow points straight up there.
+      const cx = this.boxX(e.fromLane) + BOX_W / 2;
+      return this.arrowAt(cx, top + span + 5, 0, -1, "edge-merged-tie-arrow");
+    }
+    const dx = rightward ? -1 : 1; // flow runs from the original toward the copy
+    const x = (rightward ? this.boxX(e.fromLane) + BOX_W : this.boxX(e.fromLane)) - dx * 5;
+    return this.arrowAt(x, top + span / 2, dx, 0, "edge-merged-tie-arrow");
+  }
+
   /** One filled triangle centred on (x, y), pointing along the axis-aligned unit direction (dx, dy). */
-  private arrowAt(x: number, y: number, dx: number, dy: number): SVGPathElement {
+  private arrowAt(x: number, y: number, dx: number, dy: number, cls = "edge-merge"): SVGPathElement {
     const tipX = x + dx * 5;
     const tipY = y + dy * 5;
     const bx = x - dx * 4; // base centre
@@ -883,7 +920,7 @@ export class GraphView {
     const nx = -dy; // perpendicular to the flow
     const ny = dx;
     const arrow = document.createElementNS(SVG_NS, "path");
-    arrow.classList.add("edge", "edge-merge", "edge-arrow");
+    arrow.classList.add("edge", cls, "edge-arrow");
     arrow.setAttribute(
       "d",
       `M ${tipX} ${tipY} L ${bx + nx * 5} ${by + ny * 5} L ${bx - nx * 5} ${by - ny * 5} Z`,
