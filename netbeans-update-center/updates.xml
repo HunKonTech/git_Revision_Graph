@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 
 <!DOCTYPE module_updates PUBLIC "-//NetBeans//DTD Autoupdate Catalog 2.8//EN" "https://netbeans.apache.org/dtds/autoupdate-catalog-2_8.dtd">
-<module_updates timestamp="53/31/12/08/09/2026">
+<module_updates timestamp="33/52/12/08/09/2026">
 
 
 
-<module codenamebase="io.github.benkoncsik.netbeans" distribution="netbeans-2.0.84.nbm" downloadsize="51576323" homepage="https://github.com/HunKonTech/git_Revision_Graph" license="35156281" moduleauthor="HunKonTech" needsrestart="false" releasedate="2026/09/08">
+<module codenamebase="io.github.benkoncsik.netbeans" distribution="netbeans-2.0.85.nbm" downloadsize="51576420" homepage="https://github.com/HunKonTech/git_Revision_Graph" license="35156281" moduleauthor="HunKonTech" needsrestart="false" releasedate="2026/09/08">
         
-    <manifest OpenIDE-Module="io.github.benkoncsik.netbeans" OpenIDE-Module-Display-Category="io.github.benkoncsik" OpenIDE-Module-Implementation-Version="2.0.84" OpenIDE-Module-Long-Description="TortoiseSVN-style revision graph for Git inside Apache NetBeans." OpenIDE-Module-Module-Dependencies="org.openide.windows &gt; 6.100, org.openide.awt &gt; 7.91, org.openide.util &gt; 9.31, org.openide.util.ui &gt; 9.32, org.openide.util.lookup &gt; 8.57, org.openide.modules &gt; 7.71, org.openide.filesystems &gt; 9.36, org.netbeans.modules.projectapi/1 &gt; 1.94, org.netbeans.modules.projectuiapi.base/1 &gt; 1.109.0.9" OpenIDE-Module-Name="Revision Graph for Git (SVN style)" OpenIDE-Module-Requires="org.openide.modules.ModuleFormat1" OpenIDE-Module-Short-Description="TortoiseSVN-style revision graph for Git inside Apache NetBeans." OpenIDE-Module-Specification-Version="2.0.84"/>
+    <manifest OpenIDE-Module="io.github.benkoncsik.netbeans" OpenIDE-Module-Display-Category="io.github.benkoncsik" OpenIDE-Module-Implementation-Version="2.0.85" OpenIDE-Module-Long-Description="TortoiseSVN-style revision graph for Git inside Apache NetBeans." OpenIDE-Module-Module-Dependencies="org.openide.windows &gt; 6.100, org.openide.awt &gt; 7.91, org.openide.util &gt; 9.31, org.openide.util.ui &gt; 9.32, org.openide.util.lookup &gt; 8.57, org.openide.modules &gt; 7.71, org.openide.filesystems &gt; 9.36, org.netbeans.modules.projectapi/1 &gt; 1.94, org.netbeans.modules.projectuiapi.base/1 &gt; 1.109.0.9" OpenIDE-Module-Name="Revision Graph for Git (SVN style)" OpenIDE-Module-Requires="org.openide.modules.ModuleFormat1" OpenIDE-Module-Short-Description="TortoiseSVN-style revision graph for Git inside Apache NetBeans." OpenIDE-Module-Specification-Version="2.0.85"/>
         
 
-    <message_digest algorithm="SHA-512" value="b5e62a36c1362fbc5b28dd462ac5fbad769f48a0d6030cfc4227a0f26721f1a66706207162d0df6314dffd92a346875b574b15444a33c7fba2e979cb2c433603"/>
+    <message_digest algorithm="SHA-512" value="36b6342d64305efb686e9f7430d792c269ac7e9ce2dd4e45ee4925c57bc0d44a9e5a65b6301cc284f65fff9e7bc1bad51d30f5472276daaca51256492dd57131"/>
 </module>
 
 <license name="35156281">License text copyright (c) 2017 MariaDB Corporation Ab, All Rights Reserved.
