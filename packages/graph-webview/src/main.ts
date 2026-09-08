@@ -21,6 +21,7 @@ import { openMergeDialog, closeMergeDialog, setMergePreview, setMergeFileDiff } 
 import { getBranchDialogMode } from "./branchDialogMode.js";
 import { getMainBranch, onMainBranchChange } from "./mainBranch.js";
 import { getDisplayMode, onDisplayModeChange } from "./displayMode.js";
+import { showsMergedInTarget, onMergedViewChange } from "./mergedView.js";
 import { getThemeChoice, onThemeChange, LIGHT_THEME, DARK_THEME } from "./theme.js";
 import { t, onLangChange, type MsgKey } from "./i18n.js";
 import { getGitMode, getCustomGitPath, onGitSourceChange, receiveGitPathFromBrowse } from "./gitPathSetting.js";
@@ -138,7 +139,11 @@ function boot(): void {
       }
 
       const sha = commit.sha;
-      const localBranches = commit.refs.filter((r) => r.type === "localBranch");
+      // A merged-in copy carries no refs of its own (they belong on the box in
+      // the branch the commit was written on). Read the ref-driven entries from
+      // that original box so the copy's menu offers exactly the same actions.
+      const refSource = commit.mergedIn ? view.getPositionedCommit(sha) ?? commit : commit;
+      const localBranches = refSource.refs.filter((r) => r.type === "localBranch");
       const allRefs = lastData?.refs ?? [];
       // The branch currently checked out — the merge target.
       const currentBranch = allRefs.find((r) => r.type === "localBranch" && r.isCurrent)?.name;
@@ -146,11 +151,11 @@ function boot(): void {
       const items: MenuItem[] = [
         {
           label: t("menu.createBranch"),
-          action: () => startCreateBranch(sha, commit.refs),
+          action: () => startCreateBranch(sha, refSource.refs),
         },
         {
           label: t("menu.checkout"),
-          action: () => bridge.post({ type: "checkout", sha, ref: boxBranchRef(commit) }),
+          action: () => bridge.post({ type: "checkout", sha, ref: boxBranchRef(refSource) }),
         },
       ];
 
@@ -181,6 +186,16 @@ function boot(): void {
             renderStatus(() => t("status.undoing"));
             bridge.post({ type: "undoCommit", sha });
           },
+        });
+      }
+
+      // On a merged-in copy, offer a jump to the box on the branch the commit
+      // was actually written on — the copy is the same commit, so every other
+      // entry above already acts on the right sha.
+      if (commit.mergedIn) {
+        items.push({
+          label: t("menu.jumpToOriginal"),
+          action: () => view.jumpToNode(sha),
         });
       }
 
@@ -412,7 +427,7 @@ function boot(): void {
     detailsPanel.dataset.hidden = "";
     currentHead = data.head ?? null;
     lastData = data;
-    view.setData(data, getMainBranch());
+    view.setData(data, getMainBranch(), showsMergedInTarget());
     updateCommitSearch(false);
     renderStatus(() => {
       const summary = t("status.summary", {
@@ -499,13 +514,29 @@ function boot(): void {
   // Re-lay-out the existing data when the user changes the main branch.
   onMainBranchChange(() => {
     if (lastData) {
-      view.setData(lastData, getMainBranch());
+      view.setData(lastData, getMainBranch(), showsMergedInTarget());
       updateCommitSearch(false);
     }
   });
 
   // Switch the canvas between the modern and classic navigation styles.
   onDisplayModeChange(() => view.setMode(getDisplayMode()));
+
+  // Show (or stop showing) merged-in commits inside the branch that received
+  // them. Pure layout — re-lay-out the data already on screen, and reveal the
+  // matching legend row so the pale boxes are explained.
+  const applyMergedViewToLegend = (): void => {
+    if (showsMergedInTarget()) legend.setAttribute("data-merged-in", "");
+    else legend.removeAttribute("data-merged-in");
+  };
+  applyMergedViewToLegend();
+  onMergedViewChange(() => {
+    applyMergedViewToLegend();
+    if (lastData) {
+      view.setData(lastData, getMainBranch(), showsMergedInTarget());
+      updateCommitSearch(false);
+    }
+  });
 
   // Toolbar: refresh + remote ops (fetch/pull/push/sync) + reset view + settings.
   const toolbar = document.createElement("div");
@@ -656,6 +687,11 @@ function boot(): void {
     searchNextBtn.title = t("search.next");
     updateSearchCount();
     relabelLegend(legend);
+    // Node tooltips are localized too, so redraw the graph in the new language.
+    if (lastData) {
+      view.setData(lastData, getMainBranch(), showsMergedInTarget());
+      updateCommitSearch(false);
+    }
     statusText.textContent = statusFn();
     githubLink.textContent = t("footer.github");
   });
@@ -712,6 +748,9 @@ const LEGEND_ITEMS: { cls: string; key: MsgKey }[] = [
   { cls: "tag", key: "legend.tag" },
   { cls: "commit", key: "legend.commit" },
   { cls: "stash", key: "legend.stash" },
+  // Only meaningful while merged-in commits are shown in the receiving branch's
+  // lane; CSS hides the row unless the legend carries `data-merged-in`.
+  { cls: "merged-in", key: "legend.mergedIn" },
 ];
 
 function buildLegend(): HTMLElement {
@@ -727,7 +766,7 @@ function buildLegend(): HTMLElement {
   body.className = "legend-body";
   for (const { cls } of LEGEND_ITEMS) {
     const row = document.createElement("div");
-    row.className = "legend-row";
+    row.className = `legend-row ${cls}`;
     row.innerHTML = `<span class="legend-swatch ${cls}"></span><span class="legend-label"></span>`;
     body.appendChild(row);
   }

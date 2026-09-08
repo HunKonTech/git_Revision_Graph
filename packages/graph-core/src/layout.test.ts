@@ -574,3 +574,180 @@ describe("computeLayout", () => {
     expect(stash.lane).toBeLessThan(maxNonStash + 2);
   });
 });
+
+describe("computeLayout — showMergedInTarget", () => {
+  //   C          (main)
+  //   MG  <- merge of B and T2
+  //   |\
+  //   B T2       (test)
+  //   | T1
+  //   |/
+  //   A
+  const merged = () =>
+    data(
+      [
+        commit("C", ["MG"]),
+        commit("MG", ["B", "T2"]),
+        commit("T2", ["T1"]),
+        commit("T1", ["A"]),
+        commit("B", ["A"]),
+        commit("A"),
+      ],
+      {
+        refs: [
+          { name: "main", type: "localBranch", targetSha: "C", isCurrent: true },
+          { name: "test", type: "localBranch", targetSha: "T2" },
+        ],
+        head: "C",
+      },
+    );
+
+  it("leaves merged commits in their own lane when off", () => {
+    const layout = computeLayout(merged(), { mainBranch: "main" });
+    expect(layout.commits.some((c) => c.mergedIn)).toBe(false);
+    // The plain first-parent edge of the merge is still drawn.
+    expect(layout.edges.some((e) => e.fromSha === "MG" && e.toSha === "B" && !e.isMerge)).toBe(true);
+  });
+
+  it("copies the merged commits into the receiving branch's lane", () => {
+    const layout = computeLayout(merged(), { mainBranch: "main", showMergedInTarget: true });
+    const copies = layout.commits.filter((c) => c.mergedIn);
+    expect(copies.map((c) => c.sha).sort()).toEqual(["T1", "T2"]);
+    for (const copy of copies) {
+      expect(copy.lane).toBe(0); // the trunk — where the merge landed
+      expect(copy.mergedBy).toBe("MG");
+      expect(copy.branch).toBe("main");
+      expect(copy.originBranch).toBe("test");
+      expect(copy.nodeId).toBe(`${copy.sha}@merged:MG`);
+      expect(copy.refs).toEqual([]);
+    }
+    // The originals keep their own boxes in the test lane.
+    const originals = layout.commits.filter((c) => !c.mergedIn && (c.sha === "T1" || c.sha === "T2"));
+    expect(originals).toHaveLength(2);
+    for (const o of originals) expect(o.lane).not.toBe(0);
+  });
+
+  it("levels each copy with its original and stacks them under the merge", () => {
+    const layout = computeLayout(merged(), { mainBranch: "main", showMergedInTarget: true });
+    const at = (sha: string, mergedIn = false) =>
+      layout.commits.find((c) => c.sha === sha && !!c.mergedIn === mergedIn)!;
+    for (const sha of ["T1", "T2"]) {
+      expect(at(sha, true).row).toBe(at(sha).row);
+    }
+    // Rows grow downwards: merge on top, then T2, T1, then the merge's first parent.
+    expect(at("MG").row).toBeLessThan(at("T2", true).row);
+    expect(at("T2", true).row).toBeLessThan(at("T1", true).row);
+    expect(at("T1", true).row).toBeLessThan(at("B").row);
+    // A commit made on main after the merge still sits above it.
+    expect(at("C").row).toBeLessThan(at("MG").row);
+  });
+
+  it("runs the receiving branch's line through the copies", () => {
+    const layout = computeLayout(merged(), { mainBranch: "main", showMergedInTarget: true });
+    // The plain merge -> first-parent edge is replaced by the block's chain.
+    expect(layout.edges.some((e) => e.fromId === "MG" && e.toId === "B")).toBe(false);
+    const chain = (from: string, to: string) =>
+      layout.edges.some((e) => e.fromId === from && e.toId === to && !e.isMergedTie);
+    expect(chain("MG", "T2@merged:MG")).toBe(true);
+    expect(chain("T2@merged:MG", "T1@merged:MG")).toBe(true);
+    expect(chain("T1@merged:MG", "B")).toBe(true);
+    // The merge edge to the second parent survives, so the merge is still visible.
+    expect(layout.edges.some((e) => e.fromSha === "MG" && e.toSha === "T2" && e.isMerge)).toBe(true);
+    // Each copy is tied to its original.
+    const ties = layout.edges.filter((e) => e.isMergedTie);
+    expect(ties).toHaveLength(2);
+    for (const tie of ties) expect(tie.fromRow).toBe(tie.toRow);
+  });
+
+  it("adds nothing for a squashed merge (one ordinary commit)", () => {
+    // A squash writes a single-parent commit, so the branch never becomes an
+    // ancestor of main — there is nothing to bring in.
+    const layout = computeLayout(
+      data(
+        [
+          commit("S", ["B"]), // the squashed commit on main
+          commit("T2", ["T1"]),
+          commit("T1", ["A"]),
+          commit("B", ["A"]),
+          commit("A"),
+        ],
+        {
+          refs: [
+            { name: "main", type: "localBranch", targetSha: "S", isCurrent: true },
+            { name: "test", type: "localBranch", targetSha: "T2" },
+          ],
+          head: "S",
+        },
+      ),
+      { mainBranch: "main", showMergedInTarget: true },
+    );
+    expect(layout.commits.some((c) => c.mergedIn)).toBe(false);
+  });
+
+  it("keeps the trunk's copies when two branches merge into each other", () => {
+    // main and feat each merged the other in — they cannot both stack above the
+    // other, so the trunk's merge wins and the feature's is left alone.
+    const layout = computeLayout(
+      data(
+        [
+          commit("M", ["M2", "PM"]), // feat lands on main
+          commit("M2", ["M1"]),
+          commit("PM", ["F1", "M1"]), // main was refreshed into feat earlier
+          commit("F1", ["A"]),
+          commit("M1", ["A"]),
+          commit("A"),
+        ],
+        {
+          refs: [
+            { name: "main", type: "localBranch", targetSha: "M", isCurrent: true },
+            { name: "feat", type: "localBranch", targetSha: "PM" },
+          ],
+          head: "M",
+        },
+      ),
+      { mainBranch: "main", showMergedInTarget: true },
+    );
+    const copies = layout.commits.filter((c) => c.mergedIn);
+    expect(copies.map((c) => c.sha).sort()).toEqual(["F1", "PM"]);
+    for (const c of copies) expect(c.lane).toBe(0);
+    // M1 is main's own commit; feat's merge of it gets no copies.
+    expect(copies.some((c) => c.sha === "M1")).toBe(false);
+  });
+
+  it("copies a commit into one column only, however often it is merged on", () => {
+    //  main:  M2 <- MG2 (merge of M1 and F2)
+    //  feat:  F2 <- MG1 (merge of F1 and T1) <- F1
+    //  test:  T1
+    const layout = computeLayout(
+      data(
+        [
+          commit("MG2", ["M1", "F2"]),
+          commit("F2", ["MG1"]),
+          commit("MG1", ["F1", "T1"]),
+          commit("T1", ["A"]),
+          commit("F1", ["A"]),
+          commit("M1", ["A"]),
+          commit("A"),
+        ],
+        {
+          refs: [
+            { name: "main", type: "localBranch", targetSha: "MG2", isCurrent: true },
+            { name: "feat", type: "localBranch", targetSha: "F2" },
+            { name: "test", type: "localBranch", targetSha: "T1" },
+          ],
+          head: "MG2",
+        },
+      ),
+      { mainBranch: "main", showMergedInTarget: true },
+    );
+    const copiesOfT1 = layout.commits.filter((c) => c.mergedIn && c.sha === "T1");
+    expect(copiesOfT1).toHaveLength(1);
+    // Merges are taken in column order, so the trunk claims it: main is the
+    // history people read, and "feat also contains T1" is the lesser fact.
+    expect(copiesOfT1[0]!.mergedBy).toBe("MG2");
+    expect(copiesOfT1[0]!.lane).toBe(0);
+    // Every synthetic node id is still unique.
+    const ids = layout.commits.map((c) => c.nodeId);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+});

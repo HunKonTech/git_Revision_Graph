@@ -2,6 +2,7 @@ import { computeLayout } from "@rev-graph/graph-core";
 import type { PositionedCommit, GraphLayout, LayoutEdge } from "@rev-graph/graph-core";
 import type { GraphData, GitRef, ThemeTokens } from "@rev-graph/protocol";
 import type { DisplayMode } from "./displayMode.js";
+import { t } from "./i18n.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -72,8 +73,21 @@ export class GraphView {
   private nodeRecords: Array<{ el: SVGGElement; id: string }> = [];
   /** Every positioned node by its unique nodeId (real, phantom and stash). */
   private nodeById = new Map<string, PositionedCommit>();
-  /** The non-phantom node id carrying each sha (phantoms are label duplicates). */
+  /** The node id that really draws each sha (phantoms and merged-in copies aside). */
   private realNodeId = new Map<string, string>();
+  /**
+   * The line as it is *drawn*: node id → the node id one step down its branch
+   * line. Built from the solid first-parent edges, so when merged-in commits are
+   * shown in the receiving branch's lane the line runs through those copies
+   * exactly as the graph does. Merge, stash and tie connectors are excluded.
+   */
+  private chainNext = new Map<string, string>();
+  /**
+   * Node ids that stand for the same commit: the real box plus any merged-in
+   * copies of it. Phantoms are deliberately left out — they are branch labels,
+   * not the commit — and keep their existing "stay dim" behaviour.
+   */
+  private sameCommitIds = new Map<string, string[]>();
   /** Node id whose line is currently highlighted, if any. */
   private selectedNodeId: string | null = null;
   /** Commit nodes matching the current toolbar search. */
@@ -198,8 +212,8 @@ export class GraphView {
     this.container.dataset.theme = theme.kind;
   }
 
-  setData(data: GraphData, mainBranch?: string): void {
-    this.layout = computeLayout(data, { mainBranch });
+  setData(data: GraphData, mainBranch?: string, showMergedInTarget = false): void {
+    this.layout = computeLayout(data, { mainBranch, showMergedInTarget });
     this.head = data.head ?? null;
     this.selectedNodeId = null;
     this.searchMatchIds.clear();
@@ -211,11 +225,25 @@ export class GraphView {
     this.adjacency = new Map();
     this.nodeById = new Map();
     this.realNodeId = new Map();
+    this.sameCommitIds = new Map();
+    this.chainNext = new Map();
     for (const c of this.layout.commits) {
       this.nodeById.set(c.nodeId, c);
       if (c.stash) continue;
       this.adjacency.set(c.sha, c.parents);
-      if (!c.phantom) this.realNodeId.set(c.sha, c.nodeId);
+      if (!c.phantom) {
+        if (!c.mergedIn) this.realNodeId.set(c.sha, c.nodeId);
+        const ids = this.sameCommitIds.get(c.sha);
+        if (ids) ids.push(c.nodeId);
+        else this.sameCommitIds.set(c.sha, [c.nodeId]);
+      }
+    }
+    // The drawn branch line: solid parent connectors only. A phantom's sprout
+    // (same sha at both ends) is a label link, not a step down the line.
+    for (const e of this.layout.edges) {
+      if (e.isMerge || e.isStash || e.isMergedTie) continue;
+      if (e.fromSha === e.toSha) continue;
+      this.chainNext.set(e.fromId, e.toId);
     }
     // Rows are structural levels and several commits may share a row, so a row's
     // height is the tallest box on it (each box is sized to list all its refs).
@@ -242,14 +270,14 @@ export class GraphView {
   }
 
   getPositionedCommit(sha: string): PositionedCommit | undefined {
-    return this.layout?.commits.find((c) => c.sha === sha);
+    return this.layout?.commits.find((c) => c.sha === sha && !c.mergedIn);
   }
 
   findCommitMessages(query: string): PositionedCommit[] {
     const q = query.trim().toLocaleLowerCase();
     if (!q || !this.layout) return [];
     return this.layout.commits.filter(
-      (c) => !c.stash && !c.phantom && c.summary.toLocaleLowerCase().includes(q),
+      (c) => !c.stash && !c.phantom && !c.mergedIn && c.summary.toLocaleLowerCase().includes(q),
     );
   }
 
@@ -333,6 +361,13 @@ export class GraphView {
     for (const tip of mergedTips) {
       for (const id of this.lineOf(tip)) lit.add(id);
     }
+    // A merged-in copy and the box it mirrors are one and the same commit, so
+    // lighting one lights the other (and with it the tie between them).
+    for (const id of [...lit]) {
+      const sha = this.nodeById.get(id)?.sha;
+      if (sha === undefined) continue;
+      for (const other of this.sameCommitIds.get(sha) ?? []) lit.add(other);
+    }
 
     for (const r of this.edgeRecords) {
       // Merge edges light only when they landed on the selected branch (above);
@@ -363,13 +398,14 @@ export class GraphView {
     const visited = new Set<string>([nodeId]);
     const start = this.nodeById.get(nodeId);
     if (!start || start.stash) return visited;
+    // A phantom carries no line of its own — continue from the box that really
+    // draws its commit, so selecting the label still lights the branch below it.
+    let cur: string | undefined = start.phantom ? this.realNodeId.get(start.sha) : nodeId;
     const seen = new Set<string>();
-    let sha: string | undefined = start.sha;
-    while (sha !== undefined && !seen.has(sha)) {
-      seen.add(sha);
-      const realId = this.realNodeId.get(sha);
-      if (realId !== undefined) visited.add(realId);
-      sha = this.adjacency.get(sha)?.[0];
+    while (cur !== undefined && !seen.has(cur)) {
+      seen.add(cur);
+      visited.add(cur);
+      cur = this.chainNext.get(cur);
     }
     return visited;
   }
@@ -385,16 +421,15 @@ export class GraphView {
   private ownSegmentOf(nodeId: string): Set<string> {
     const segment = new Set<string>();
     const start = this.nodeById.get(nodeId);
-    if (!start || start.stash) return segment;
+    if (!start || start.stash || start.phantom) return segment;
     const seen = new Set<string>();
-    let sha: string | undefined = start.sha;
-    while (sha !== undefined && !seen.has(sha)) {
-      seen.add(sha);
-      const realId = this.realNodeId.get(sha);
-      const node = realId !== undefined ? this.nodeById.get(realId) : undefined;
+    let cur: string | undefined = nodeId;
+    while (cur !== undefined && !seen.has(cur)) {
+      seen.add(cur);
+      const node = this.nodeById.get(cur);
       if (!node || node.lane !== start.lane) break;
       segment.add(node.nodeId);
-      sha = this.adjacency.get(sha)?.[0];
+      cur = this.chainNext.get(cur);
     }
     return segment;
   }
@@ -637,6 +672,49 @@ export class GraphView {
     path.classList.add("edge");
     if (e.isMerge) path.classList.add("edge-merge");
 
+    if (e.isMergedTie) {
+      // The same commit drawn twice on one row (its own branch box and the copy
+      // inside the branch a merge carried it into): a short, faint dotted tie
+      // between the facing sides of the two boxes. It is not a parent link, so
+      // it gets no arrow and never enters the routing gutters. When another box
+      // sits between them on that row the tie dips through the row gap instead
+      // of crossing it.
+      path.classList.add("edge-merged-tie");
+      const rightward = e.toLane > e.fromLane;
+      const x1 = rightward ? this.boxX(e.fromLane) + BOX_W : this.boxX(e.fromLane);
+      const x2 = rightward ? this.boxX(e.toLane) : this.boxX(e.toLane) + BOX_W;
+      const top = this.boxY(e.fromRow);
+      const span = Math.min(
+        this.ownHeight.get(e.fromId) ?? CONTENT_H,
+        this.ownHeight.get(e.toId) ?? CONTENT_H,
+      );
+      const y = top + span / 2;
+      const lo = Math.min(e.fromLane, e.toLane) + 1;
+      const hi = Math.max(e.fromLane, e.toLane) - 1;
+      let blocked = false;
+      for (let lane = lo; lane <= hi; lane++) {
+        if (this.boxBottom.has(`${e.fromRow}:${lane}`)) blocked = true;
+      }
+      if (!blocked) {
+        path.setAttribute("d", `M ${x1} ${y} L ${x2} ${y}`);
+      } else {
+        const gapY = this.rowBottom(e.fromRow) + ROW_GAP / 2;
+        path.setAttribute(
+          "d",
+          roundedPath(
+            [
+              [this.boxX(e.fromLane) + BOX_W / 2, top + span],
+              [this.boxX(e.fromLane) + BOX_W / 2, gapY],
+              [this.boxX(e.toLane) + BOX_W / 2, gapY],
+              [this.boxX(e.toLane) + BOX_W / 2, top + span],
+            ],
+            8,
+          ),
+        );
+      }
+      return path;
+    }
+
     if (e.isStash || e.isBranch) {
       // New branch (phantom) or stash → fork commit. Both sit on the *same row*
       // as the commit they came from, one or more lanes to the right, so the
@@ -834,6 +912,10 @@ export class GraphView {
     if (isHead) g.classList.add("node-current");
     // Fetched-but-not-pulled commits: stay in their lane, flagged by colour.
     if (c.remoteOnly) g.classList.add("node-remote-only");
+    // A commit a merge carried into this branch, shown here as well as on the
+    // branch it was written on. Drawn on a pale "pasted in" ground so it never
+    // reads as having been made here; the legend explains the colour.
+    if (c.mergedIn) g.classList.add("node-merged-in");
     g.dataset.sha = c.sha;
     g.setAttribute("transform", `translate(${x} ${y})`);
 
@@ -868,8 +950,11 @@ export class GraphView {
       g.appendChild(marker);
     }
 
-    // branch name header (top of box, only when a branch ref points here)
-    const branch = primaryBranch(c);
+    // Branch name header (top of box, only when a branch owns this column). On a
+    // merged-in copy it names the branch the commit was really written on, with
+    // an arrow marking that it arrived here through a merge rather than
+    // repeating the header of the column it is standing in.
+    const branch = c.mergedIn ? `⤵ ${c.originBranch ?? ""}`.trim() : primaryBranch(c);
     const dy = branch ? BRANCH_HEADER_H : 0;
     if (branch) {
       const branchEl = document.createElementNS(SVG_NS, "text");
@@ -927,6 +1012,13 @@ export class GraphView {
     // tooltip
     const title = document.createElementNS(SVG_NS, "title");
     title.textContent = `${c.sha}\n${c.summary}\n${c.author} <${c.authorEmail}>\n${c.date}`;
+    if (c.mergedIn) {
+      title.textContent += `\n\n${t("node.mergedInTooltip", {
+        merge: (c.mergedBy ?? "").slice(0, 7),
+        target: c.branch ?? "",
+        origin: c.originBranch ?? "",
+      })}`;
+    }
     g.appendChild(title);
 
     this.wireNodeEvents(g, c);

@@ -14,6 +14,7 @@ import { getThemeChoice, setThemeChoice, type ThemeChoice } from "./theme.js";
 import { getDiffMinimap, setDiffMinimap } from "./diffMinimap.js";
 import { getCommitReviewBeforeCommit, setCommitReviewBeforeCommit } from "./commitReviewSetting.js";
 import { getMergeMode, setMergeMode, type MergeMode } from "./mergeMode.js";
+import { getMergedView, setMergedView, type MergedView } from "./mergedView.js";
 import { detectHost } from "./host.js";
 import { getGitMode, getCustomGitPath, setGitSource, onGitSourceChange, type GitMode } from "./gitPathSetting.js";
 import {
@@ -29,6 +30,8 @@ import {
   jargonEnglishSchematic,
   mergeCommitSchematic,
   squashMergeSchematic,
+  mergedOnBranchSchematic,
+  mergedInTargetSchematic,
 } from "./schematics.js";
 
 /** Context the settings dialog needs from the app. */
@@ -133,6 +136,7 @@ export function toggleSettings(ctx: SettingsContext): void {
     // Merge section: how the Merge Branch dialog merges (normal vs squash).
     const merge = section(t("settings.sectionMerge"));
     merge.appendChild(mergeModeRow());
+    merge.appendChild(mergedViewRow());
     body.appendChild(merge);
 
     // Advanced section: git executable source — collapsed by default.
@@ -499,6 +503,37 @@ function mergeModeRow(): HTMLElement {
   ];
   row.appendChild(
     choiceWithPreview(choices, getMergeMode(), (key) => setMergeMode(key as MergeMode)),
+  );
+  return row;
+}
+
+/**
+ * Where the commits a merge brought in are drawn:
+ *  - branchOnly — only in the lane of the branch they were written on.
+ *  - inTarget   — also in the lane of the branch that received them.
+ *
+ * A display choice, not a git one: it changes nothing about how merges are made,
+ * and a squash merge looks the same either way (it writes one ordinary commit,
+ * so the branch's own commits never enter the target's history).
+ */
+function mergedViewRow(): HTMLElement {
+  const row = stackedRow(t("settings.mergedView"));
+  const choices: PreviewChoice[] = [
+    {
+      key: "branchOnly",
+      label: t("settings.mergedViewBranch"),
+      caption: t("settings.mergedViewBranchHint"),
+      svg: mergedOnBranchSchematic(),
+    },
+    {
+      key: "inTarget",
+      label: t("settings.mergedViewTarget"),
+      caption: t("settings.mergedViewTargetHint"),
+      svg: mergedInTargetSchematic(),
+    },
+  ];
+  row.appendChild(
+    choiceWithPreview(choices, getMergedView(), (key) => setMergedView(key as MergedView)),
   );
   return row;
 }

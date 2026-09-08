@@ -45,6 +45,22 @@ export interface PositionedCommit extends GitCommit {
   stash?: boolean;
   /** For stash nodes: the `stash@{N}` stack index. */
   stashIndex?: number;
+  /**
+   * True for a synthetic *second copy* of a commit that a merge brought into
+   * another branch. The original keeps its own box in the branch it was written
+   * on; this copy sits in the column the merge landed on, so the receiving
+   * branch shows the commits it actually contains. Only produced when
+   * {@link LayoutOptions.showMergedInTarget} is on.
+   */
+  mergedIn?: boolean;
+  /** For merged-in copies: sha of the merge commit that brought this one in. */
+  mergedBy?: string;
+  /**
+   * For merged-in copies: the branch the commit was really written on (the
+   * column owning the original box). The renderer shows this in the header so
+   * the copy never reads as "made here".
+   */
+  originBranch?: string | null;
 }
 
 /** A connection from a child commit down to one of its parents. */
@@ -68,6 +84,12 @@ export interface LayoutEdge {
    * sprouting from the *right side* of the fork commit rather than its top.
    */
   isBranch?: boolean;
+  /**
+   * True for the short horizontal tie between a merged-in copy and the original
+   * box it mirrors (same row, neighbouring lanes). Drawn faint and dotted — it
+   * is not a parent link, just "these two boxes are the same commit".
+   */
+  isMergedTie?: boolean;
 }
 
 export interface GraphLayout {
@@ -86,6 +108,16 @@ export interface LayoutOptions {
    * falls back to main/master, then the current branch, then HEAD.
    */
   mainBranch?: string;
+  /**
+   * Also show the commits a merge brought in inside the *receiving* branch's
+   * column, as a second (clearly marked) copy stacked under the merge commit —
+   * not only beside it in the branch they were written on.
+   *
+   * Squash merges are unaffected by construction: a squash writes one ordinary
+   * single-parent commit, so the source branch's commits never become ancestors
+   * of the target and there is nothing to bring in.
+   */
+  showMergedInTarget?: boolean;
 }
 
 /**
@@ -294,6 +326,82 @@ export function computeLayout(data: GraphData, options: LayoutOptions = {}): Gra
     phantoms.push({ branch: ref.name, refs: phRefs, anchorSha: sha, anchorGen: genOf.get(sha) ?? 0 });
   }
 
+  // ---- Phase 1c: what each merge brought into the branch it landed on. ----
+  // A merge's "imported block" is everything reachable from its second-or-later
+  // parents but NOT from its first parent — exactly the commits that entered the
+  // receiving branch through that merge. Each commit belongs to the *earliest*
+  // merge that imported it, so a commit merged onwards never gets a second copy
+  // in the same place twice.
+  //
+  // To give the block its own rows inside the receiving column we add *virtual
+  // parent edges*: the block is chained oldest-to-newest onto the merge's first
+  // parent. The existing `height = max(parent) + 1` rule then lifts the whole
+  // block into the open band between the first parent and the merge commit, so
+  // the copies land on free rows AND stay level with their originals.
+  //
+  // Two branches that merge *into each other* (the common "merge main into the
+  // feature, then land the feature on main" pattern) cannot both stack above the
+  // other, so their virtual edges would close a loop. Merges are therefore taken
+  // in column order — the trunk's first, since that is the history most people
+  // read — and any merge whose block would close a loop is left out. Only that
+  // merge loses its copies; every other one keeps them.
+  interface MergedBlock {
+    /** The merge commit that imported these. */
+    mergeSha: string;
+    /** The merge's first parent — the receiving branch's tip at merge time. */
+    firstParentSha: string;
+    /** Imported commits, oldest first (bottom of the block first). */
+    shas: string[];
+  }
+  const mergedBlocks: MergedBlock[] = [];
+  const extraParents = new Map<string, string[]>();
+  if (options.showMergedInTarget) {
+    const merges = commits
+      .filter((c) => c.parents.filter((p) => present.has(p)).length > 1)
+      .sort(
+        (a, b) =>
+          (colOf.get(a.sha) ?? 0) - (colOf.get(b.sha) ?? 0) ||
+          (genOf.get(a.sha) ?? 0) - (genOf.get(b.sha) ?? 0),
+      );
+    // `checkEach` verifies one merge at a time and skips the ones that would
+    // close a loop; it is only needed when the optimistic pass produced one.
+    const collect = (checkEach: boolean): void => {
+      mergedBlocks.length = 0;
+      extraParents.clear();
+      const claimed = new Set<string>();
+      for (const m of merges) {
+        const ps = m.parents.filter((p) => present.has(p));
+        const first = ps[0]!;
+        const fromFirst = reachableFrom([first], bySha, present);
+        const fromRest = reachableFrom(ps.slice(1), bySha, present);
+        const shas = [...fromRest].filter((s) => !fromFirst.has(s) && !claimed.has(s));
+        if (shas.length === 0) continue;
+        // Oldest first; a parent always has a strictly smaller generation than
+        // its child, so this is a valid topological order for the chain below.
+        shas.sort((a, b) => (genOf.get(a) ?? 0) - (genOf.get(b) ?? 0) || rowOf.get(b)! - rowOf.get(a)!);
+        let prev = first;
+        for (const s of shas) {
+          const list = extraParents.get(s);
+          if (list) list.push(prev);
+          else extraParents.set(s, [prev]);
+          prev = s;
+        }
+        if (checkEach && hasCycle(commits, bySha, present, extraParents)) {
+          // This merge cannot be stacked without contradicting one already taken:
+          // undo its edges and leave its commits to their own lane. An unclaimed
+          // commit carries no edge from an earlier accepted block, so dropping
+          // the whole entry is enough.
+          for (const s of shas) extraParents.delete(s);
+          continue;
+        }
+        for (const s of shas) claimed.add(s);
+        mergedBlocks.push({ mergeSha: m.sha, firstParentSha: first, shas });
+      }
+    };
+    collect(false);
+    if (hasCycle(commits, bySha, present, extraParents)) collect(true);
+  }
+
   // ---- Row (level) assignment: fork-aligned height. ----
   // A commit's height is its first-parent distance from the root, EXCEPT a fork
   // step (a column base to the commit it branched from, in another column) costs
@@ -313,6 +421,9 @@ export function computeLayout(data: GraphData, options: LayoutOptions = {}): Gra
         continue;
       }
       const parents = bySha.get(sha)!.parents.filter((p) => present.has(p));
+      // Virtual parents chain an imported block onto the merge's first parent
+      // (Phase 1c). They are never "first parents": no fork step, always +1.
+      const virtual = extraParents.get(sha) ?? [];
       let ready = true;
       for (const p of parents) {
         if (!heightOf.has(p)) {
@@ -320,8 +431,15 @@ export function computeLayout(data: GraphData, options: LayoutOptions = {}): Gra
           ready = false;
         }
       }
+      for (const p of virtual) {
+        if (!heightOf.has(p)) {
+          stack.push(p);
+          ready = false;
+        }
+      }
       if (!ready) continue;
       let h = 0;
+      for (const p of virtual) h = Math.max(h, heightOf.get(p)! + 1);
       parents.forEach((p, idx) => {
         const ph = heightOf.get(p)!;
         // First parent, same column: +1 (a normal step down the trunk).
@@ -361,11 +479,26 @@ export function computeLayout(data: GraphData, options: LayoutOptions = {}): Gra
   // ---- Phase 2: assign lanes with column compaction. ----
   // Each column's commits occupy a contiguous row span (tip = topmost row; base
   // = bottommost), taken from the (possibly shifted) per-commit rows.
+  // Imported copies (Phase 1c) sit in the merge's own column, so their rows
+  // count towards that column's span — otherwise lane packing could slide
+  // another column on top of them.
+  const importedRowsByCol = new Map<number, number[]>();
+  for (const b of mergedBlocks) {
+    const cid = colOf.get(b.mergeSha);
+    if (cid === undefined) continue;
+    const rows = importedRowsByCol.get(cid) ?? [];
+    for (const s of b.shas) rows.push(levelOf(s));
+    importedRowsByCol.set(cid, rows);
+  }
   for (const col of columns) {
     let lo = Infinity;
     let hi = 0;
     for (const sha of colMembers.get(col.id) ?? []) {
       const r = rowBySha.get(sha) ?? 0;
+      if (r < lo) lo = r;
+      if (r > hi) hi = r;
+    }
+    for (const r of importedRowsByCol.get(col.id) ?? []) {
       if (r < lo) lo = r;
       if (r > hi) hi = r;
     }
@@ -504,10 +637,15 @@ export function computeLayout(data: GraphData, options: LayoutOptions = {}): Gra
   });
 
   const edges: LayoutEdge[] = [];
+  // Merges whose imported block is drawn in their own column: the trunk line
+  // runs *through* the imported copies, so the plain first-parent edge would
+  // duplicate that run and is replaced by the block's chain below.
+  const importingMerges = new Set(mergedBlocks.map((b) => b.mergeSha));
   for (const c of positioned) {
     c.parents.forEach((p, index) => {
       const parent = posBySha.get(p);
       if (!parent) return; // parent out of view
+      if (index === 0 && importingMerges.has(c.sha)) return;
       // A first-parent edge whose child was pulled down onto its fork commit's
       // row (a dangling side branch) is drawn as a sideways sprout from the fork
       // commit's right edge, exactly like a phantom branch — not a top-entering
@@ -554,6 +692,76 @@ export function computeLayout(data: GraphData, options: LayoutOptions = {}): Gra
       isMerge: false,
       isBranch: true,
     });
+  }
+
+  // ---- Phase 3b: imported copies inside the receiving branch's column. ----
+  // One extra box per imported commit, stacked under its merge commit in the
+  // merge's own lane and level with the original box it mirrors. The column's
+  // line is re-drawn through them (merge -> newest copy -> … -> oldest copy ->
+  // the merge's first parent), and a faint tie links each copy to its original.
+  for (const b of mergedBlocks) {
+    const merge = posBySha.get(b.mergeSha);
+    if (!merge) continue;
+    const lane = merge.lane;
+    let prevSha = merge.sha;
+    let prevId = merge.nodeId;
+    let prevRow = merge.row;
+    for (let i = b.shas.length - 1; i >= 0; i--) {
+      const sha = b.shas[i]!;
+      const orig = posBySha.get(sha);
+      if (!orig) continue;
+      const nodeId = `${sha}@merged:${b.mergeSha}`;
+      positioned.push({
+        ...orig,
+        refs: [],
+        lane,
+        nodeId,
+        branch: merge.branch,
+        originBranch: orig.branch,
+        mergedIn: true,
+        mergedBy: b.mergeSha,
+      });
+      edges.push({
+        fromSha: prevSha,
+        toSha: sha,
+        fromId: prevId,
+        toId: nodeId,
+        fromRow: prevRow,
+        fromLane: lane,
+        toRow: orig.row,
+        toLane: lane,
+        isMerge: false,
+      });
+      edges.push({
+        fromSha: sha,
+        toSha: sha,
+        fromId: nodeId,
+        toId: orig.nodeId,
+        fromRow: orig.row,
+        fromLane: lane,
+        toRow: orig.row,
+        toLane: orig.lane,
+        isMerge: false,
+        isMergedTie: true,
+      });
+      prevSha = sha;
+      prevId = nodeId;
+      prevRow = orig.row;
+    }
+    const firstParent = posBySha.get(b.firstParentSha);
+    if (firstParent) {
+      edges.push({
+        fromSha: prevSha,
+        toSha: firstParent.sha,
+        fromId: prevId,
+        toId: firstParent.nodeId,
+        fromRow: prevRow,
+        fromLane: lane,
+        toRow: firstParent.row,
+        toLane: firstParent.lane,
+        isMerge: false,
+      });
+    }
   }
 
   // ---- Phase 4: stash entries placed just right of their own row. ----
@@ -748,6 +956,48 @@ function firstParentReaches(
     if (cur === target) return true;
     seen.add(cur);
     cur = bySha.get(cur)?.parents.filter((p) => present.has(p))[0];
+  }
+  return false;
+}
+
+/**
+ * True when the parent graph, augmented with `extraParents`, contains a loop.
+ * Real git history never does; the virtual edges added for imported merge blocks
+ * are checked here so a pathological history degrades to the plain layout
+ * instead of hanging the height DFS.
+ */
+function hasCycle(
+  commits: GitCommit[],
+  bySha: Map<string, GitCommit>,
+  present: Set<string>,
+  extraParents: Map<string, string[]>,
+): boolean {
+  const WHITE = 0;
+  const GREY = 1;
+  const BLACK = 2;
+  const color = new Map<string, number>();
+  const parentsOf = (sha: string): string[] => [
+    ...(bySha.get(sha)?.parents ?? []).filter((p) => present.has(p)),
+    ...(extraParents.get(sha) ?? []),
+  ];
+  for (const start of commits) {
+    if ((color.get(start.sha) ?? WHITE) !== WHITE) continue;
+    const stack: string[] = [start.sha];
+    while (stack.length > 0) {
+      const sha = stack[stack.length - 1]!;
+      const c = color.get(sha) ?? WHITE;
+      if (c === WHITE) {
+        color.set(sha, GREY);
+        for (const p of parentsOf(sha)) {
+          const pc = color.get(p) ?? WHITE;
+          if (pc === GREY) return true;
+          if (pc === WHITE) stack.push(p);
+        }
+      } else {
+        if (c === GREY) color.set(sha, BLACK);
+        stack.pop();
+      }
+    }
   }
   return false;
 }

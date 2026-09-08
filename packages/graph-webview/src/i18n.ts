@@ -98,6 +98,11 @@ type Dict = {
   "settings.mergeModeSquash": string;
   "settings.mergeModeMergeHint": string;
   "settings.mergeModeSquashHint": string;
+  "settings.mergedView": string;
+  "settings.mergedViewBranch": string;
+  "settings.mergedViewTarget": string;
+  "settings.mergedViewBranchHint": string;
+  "settings.mergedViewTargetHint": string;
   "legend.title": string;
   "legend.head": string;
   "legend.local": string;
@@ -106,6 +111,7 @@ type Dict = {
   "legend.tag": string;
   "legend.commit": string;
   "legend.stash": string;
+  "legend.mergedIn": string;
   "menu.jumpHead": string;
   "menu.resetView": string;
   "menu.createBranch": string;
@@ -118,6 +124,8 @@ type Dict = {
   "menu.undoCommit": string;
   "menu.viewChanges": string;
   "menu.mergeBranch": string;
+  "menu.jumpToOriginal": string;
+  "node.mergedInTooltip": string;
   "changes.title": string;
   "changes.tabChanged": string;
   "changes.tabAll": string;
@@ -331,6 +339,13 @@ const DICTS: Record<Lang, Dict> = {
       "Merges the branch as it is: its commits become part of the current branch's history, joined by a merge commit (or fast-forwarded when possible).",
     "settings.mergeModeSquashHint":
       "Collapses the whole branch into a single commit on the current branch (git merge --squash). The branch's own commits never enter the current branch's history — you only see one commit there. The branch itself is left untouched, so its commits stay visible in its own lane.",
+    "settings.mergedView": "Merged commits in the graph",
+    "settings.mergedViewBranch": "Only on their own branch",
+    "settings.mergedViewTarget": "Also in the branch they were merged into",
+    "settings.mergedViewBranchHint":
+      "A merged branch's commits are drawn only in their own lane; the merge shows up as a connector. The classic view.",
+    "settings.mergedViewTargetHint":
+      "The commits a merge brought in are drawn in the receiving branch's lane as well, stacked under the merge commit and level with the originals — because that branch really does contain them now. The copies are pale and headed with the branch they were written on, so it stays clear they were not made there. Squash merges are unaffected: a squash writes one ordinary commit, so only that commit ever appears.",
     "legend.title": "Legend",
     "legend.head": "HEAD / current branch",
     "legend.local": "Local branch",
@@ -339,6 +354,7 @@ const DICTS: Record<Lang, Dict> = {
     "legend.tag": "Tag (version)",
     "legend.commit": "Commit",
     "legend.stash": "Stash (shelved work)",
+    "legend.mergedIn": "Came in with a merge (written on another branch)",
     "menu.jumpHead": "⌖ Go to checkout",
     "menu.resetView": "⤢ Reset view",
     "menu.createBranch": "Create branch from here…",
@@ -351,6 +367,9 @@ const DICTS: Record<Lang, Dict> = {
     "menu.undoCommit": "Undo commit (keep changes)…",
     "menu.viewChanges": "View changes…",
     "menu.mergeBranch": 'Merge "{source}" into "{target}"…',
+    "menu.jumpToOriginal": "Go to the original commit",
+    "node.mergedInTooltip":
+      "Merge {merge} brought this commit into \"{target}\" — it was written on \"{origin}\".",
     "changes.title": "Changes in {sha}",
     "changes.tabChanged": "Changed",
     "changes.tabAll": "All Files",
@@ -563,6 +582,13 @@ const DICTS: Record<Lang, Dict> = {
       "Az ágat úgy olvasztja be, ahogy van: a commitjai bekerülnek az aktuális ág történetébe, egy merge commit köti őket össze (vagy fast-forward, ha lehet).",
     "settings.mergeModeSquashHint":
       "Az egész ágat egyetlen commitba vonja össze az aktuális ágon (git merge --squash). Az ág saját commitjai nem kerülnek be az aktuális ág történetébe — ott csak egy commit látszik. Magát az ágat nem bántja, így annak commitjai a saját oszlopukban továbbra is látszanak.",
+    "settings.mergedView": "Beolvasztott commitok a gráfon",
+    "settings.mergedViewBranch": "Csak a saját águkon",
+    "settings.mergedViewTarget": "Abban az ágban is, amelybe beolvadtak",
+    "settings.mergedViewBranchHint":
+      "A beolvasztott ág commitjai csak a saját sávjukban látszanak, a merge pedig összekötő vonalként. A megszokott nézet.",
+    "settings.mergedViewTargetHint":
+      "A merge-csel behozott commitok a fogadó ág sávjában is megjelennek, a merge commit alatt, az eredetivel egy sorban — mert az az ág valóban tartalmazza őket. A másolatok halvány hátterűek, és annak az ágnak a nevét viselik, amelyen készültek, így egyértelmű marad, hogy nem ott jöttek létre. A squash merge-re nincs hatással: a squash egyetlen közönséges commitot ír, tehát csak az az egy commit látszik.",
     "legend.title": "Jelmagyarázat",
     "legend.head": "HEAD / aktuális branch",
     "legend.local": "Lokális branch",
@@ -571,6 +597,7 @@ const DICTS: Record<Lang, Dict> = {
     "legend.tag": "Tag (verzió)",
     "legend.commit": "Commit",
     "legend.stash": "Stash (félretett munka)",
+    "legend.mergedIn": "Merge-csel került ide (másik ágon készült)",
     "menu.jumpHead": "⌖ Ugrás a checkout-ra",
     "menu.resetView": "⤢ Nézet visszaállítása",
     "menu.createBranch": "Branch létrehozása innen…",
@@ -583,6 +610,9 @@ const DICTS: Record<Lang, Dict> = {
     "menu.undoCommit": "Commit visszavonása (változások megtartása)…",
     "menu.viewChanges": "Változások megtekintése…",
     "menu.mergeBranch": '"{source}" beolvasztása ide: "{target}"…',
+    "menu.jumpToOriginal": "Ugrás az eredeti commitra",
+    "node.mergedInTooltip":
+      "Ezt a commitot a(z) {merge} merge hozta be a(z) „{target}” ágba — eredetileg a(z) „{origin}” ágon készült.",
     "changes.title": "Változások — {sha}",
     "changes.tabChanged": "Változott",
     "changes.tabAll": "Összes fájl",
@@ -795,6 +825,13 @@ const DICTS: Record<Lang, Dict> = {
       "按原样合并分支：它的提交会成为当前分支历史的一部分，由一个合并提交连接（可以快进时则快进）。",
     "settings.mergeModeSquashHint":
       "把整个分支压缩成当前分支上的一个提交（git merge --squash）。分支自己的提交不会进入当前分支的历史——那里只看到一个提交。分支本身保持不变，它的提交仍显示在自己的列中。",
+    "settings.mergedView": "图中的已合并提交",
+    "settings.mergedViewBranch": "仅显示在各自的分支上",
+    "settings.mergedViewTarget": "也显示在被合入的分支中",
+    "settings.mergedViewBranchHint":
+      "被合并分支的提交只画在自己的泳道里，合并本身显示为一条连接线。这是经典视图。",
+    "settings.mergedViewTargetHint":
+      "合并带入的提交同时画在接收分支的泳道中，堆叠在合并提交下方，与原始提交同一行——因为该分支确实已经包含它们。副本使用浅色底并标注它们真正被写入的分支，因此不会被误认为是在此处创建的。Squash 合并不受影响：squash 只写入一个普通提交，因此只会出现那一个提交。",
     "legend.title": "图例",
     "legend.head": "HEAD / 当前分支",
     "legend.local": "本地分支",
@@ -803,6 +840,7 @@ const DICTS: Record<Lang, Dict> = {
     "legend.tag": "标签（版本）",
     "legend.commit": "提交",
     "legend.stash": "储藏（暂存的工作）",
+    "legend.mergedIn": "随合并进入（在其他分支上创建）",
     "menu.jumpHead": "⌖ 跳转到检出位置",
     "menu.resetView": "⤢ 重置视图",
     "menu.createBranch": "从此处创建分支…",
@@ -815,6 +853,9 @@ const DICTS: Record<Lang, Dict> = {
     "menu.undoCommit": "撤销提交（保留更改）…",
     "menu.viewChanges": "查看更改…",
     "menu.mergeBranch": '将 “{source}” 合并到 “{target}”…',
+    "menu.jumpToOriginal": "跳转到原始提交",
+    "node.mergedInTooltip":
+      "合并 {merge} 将此提交带入 “{target}” — 它是在 “{origin}” 上创建的。",
     "changes.title": "{sha} 中的更改",
     "changes.tabChanged": "已更改",
     "changes.tabAll": "所有文件",
@@ -1027,6 +1068,13 @@ const DICTS: Record<Lang, Dict> = {
       "Сливает ветку как есть: её коммиты входят в историю текущей ветки и связываются коммитом слияния (или выполняется fast-forward, если возможно).",
     "settings.mergeModeSquashHint":
       "Схлопывает всю ветку в один коммит в текущей ветке (git merge --squash). Собственные коммиты ветки не попадают в историю текущей ветки — там виден только один коммит. Сама ветка не изменяется, поэтому её коммиты остаются видны в своей колонке.",
+    "settings.mergedView": "Влитые коммиты на графе",
+    "settings.mergedViewBranch": "Только в своей ветке",
+    "settings.mergedViewTarget": "Также в ветке, в которую их влили",
+    "settings.mergedViewBranchHint":
+      "Коммиты влитой ветки рисуются только в её собственной дорожке, а слияние — соединительной линией. Классический вид.",
+    "settings.mergedViewTargetHint":
+      "Коммиты, которые принесло слияние, рисуются и в дорожке принимающей ветки — под коммитом слияния, на одной строке с оригиналами, ведь эта ветка действительно их содержит. Копии показаны на светлом фоне и подписаны веткой, в которой были написаны, так что видно: созданы они не здесь. На squash-слияние это не влияет: squash пишет один обычный коммит, поэтому виден только он.",
     "legend.title": "Легенда",
     "legend.head": "HEAD / текущая ветка",
     "legend.local": "Локальная ветка",
@@ -1035,6 +1083,7 @@ const DICTS: Record<Lang, Dict> = {
     "legend.tag": "Тег (версия)",
     "legend.commit": "Коммит",
     "legend.stash": "Stash (отложенная работа)",
+    "legend.mergedIn": "Попал сюда со слиянием (создан в другой ветке)",
     "menu.jumpHead": "⌖ Перейти к checkout",
     "menu.resetView": "⤢ Сбросить вид",
     "menu.createBranch": "Создать ветку отсюда…",
@@ -1047,6 +1096,9 @@ const DICTS: Record<Lang, Dict> = {
     "menu.undoCommit": "Отменить коммит (сохранить изменения)…",
     "menu.viewChanges": "Просмотреть изменения…",
     "menu.mergeBranch": 'Слить «{source}» в «{target}»…',
+    "menu.jumpToOriginal": "Перейти к исходному коммиту",
+    "node.mergedInTooltip":
+      "Слияние {merge} принесло этот коммит в «{target}» — он был написан в «{origin}».",
     "changes.title": "Изменения в {sha}",
     "changes.tabChanged": "Изменённые",
     "changes.tabAll": "Все файлы",

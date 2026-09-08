@@ -13,6 +13,12 @@
   --head-bg: #b0473a;
   /* Commits that exist only on the remote (fetched, not pulled) — "in the cloud". */
   --remote-only-bg: #33506e;
+  /* Commits a merge carried into another branch, drawn a second time in that
+     branch's lane. A pale "pasted in" ground, unlike every other node hue, so
+     the copy never reads as a commit made on that branch. */
+  --merged-in-bg: #f2f0ea;
+  --merged-in-fg: #1b1b1b;
+  --merged-in-edge: #8f8a7c;
   /* Stash entries — drawn in their own column with a distinct purple hue. */
   --stash-bg: #7a4fb0;
   --stash-edge: #9a6fd0;
@@ -362,6 +368,15 @@ body,
   stroke: var(--stash-edge);
   stroke-dasharray: 3 3;
 }
+/* Ties a merged-in copy to the original box it mirrors: same commit, same row,
+   two lanes. Faint and dotted so it never reads as a parent link. */
+.edge-merged-tie {
+  stroke: var(--merged-in-edge);
+  stroke-dasharray: 2 4;
+  stroke-width: 1.5;
+  opacity: 0.75;
+}
+
 /* Merge-direction arrowhead: a solid triangle at the merge commit's end of the
    line, filled (not stroked) so the dashed merge style doesn't hollow it out. */
 .edge-arrow {
@@ -443,6 +458,30 @@ body,
   stroke-dasharray: 4 3;
   opacity: 0.97;
 }
+/* A commit that a merge brought into this branch: the same commit already has
+   its own box on the branch it was written on, and this is the copy standing in
+   the branch that received it. Pale ground + dark text, so it is unmistakably a
+   different kind of box; the legend spells out what it means. */
+.node-merged-in .node-rect {
+  fill: var(--merged-in-bg);
+  stroke: var(--merged-in-edge);
+  stroke-width: 1.5;
+}
+.node-merged-in .node-branch,
+.node-merged-in .node-summary {
+  fill: var(--merged-in-fg);
+}
+.node-merged-in .node-sha,
+.node-merged-in .node-author {
+  fill: rgba(0, 0, 0, 0.72);
+}
+.node-merged-in .node-date {
+  fill: rgba(0, 0, 0, 0.55);
+}
+.node-merged-in .node-branch-sep {
+  stroke: rgba(0, 0, 0, 0.2);
+}
+
 /* Fetched-but-not-pulled: lives only on the remote ("in the cloud"). Stays in
    its branch lane — no rightward shift — and is flagged by a dashed, cloud-tinted
    box instead. Applies whatever ref kind the node carries, so an un-pulled remote
@@ -577,6 +616,14 @@ body,
 .legend-swatch.remote-only {
   background: var(--remote-only-bg);
   border: 1px dashed var(--remote-bg);
+}
+.legend-swatch.merged-in {
+  background: var(--merged-in-bg);
+  border: 1px solid var(--merged-in-edge);
+}
+/* The merged-in row only means something while that view is switched on. */
+.legend:not([data-merged-in]) .legend-row.merged-in {
+  display: none;
 }
 .legend-swatch.stash {
   background: var(--stash-bg);

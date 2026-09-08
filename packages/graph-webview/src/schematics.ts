@@ -666,6 +666,118 @@ export function squashMergeSchematic(): string {
   return mergeStyleSchematic(true);
 }
 
+// ---------------------------------------------------------------------------
+// Merged commits in the graph — where the commits a merge brought in are drawn.
+// Both pictures show the SAME history (one feature commit merged into main) on
+// the same three-row grid, so the only difference the eye has to catch is the
+// pale card appearing in main's own column:
+//   branch  — the commits stay in their own lane; the merge is just a connector
+//   target  — a second, pale copy also sits in main's lane under the merge
+//             commit, level with the original and tied to it by a dotted line
+// ---------------------------------------------------------------------------
+
+/* The pale "brought in by a merge" palette, matching --merged-in-* in style.css.
+   Hard-coded rather than themed: the whole point of the box is that it looks the
+   same — like a sheet of paper pasted in — in both light and dark themes. */
+const MERGED_BG = "#f2f0ea";
+const MERGED_FG = "#1b1b1b";
+const MERGED_EDGE = "#8f8a7c";
+
+/** A commit card as drawn for a merged-in copy: pale ground, dark text. */
+function mergedCard(x: number, y: number, label: string): string {
+  let s = rect(x, y, CW, CH, { fill: MERGED_BG, stroke: MERGED_EDGE, r: 3, sw: 1.2 });
+  s += rect(x + 1, y + 1, CW - 2, 11, { fill: "rgba(0,0,0,0.08)", r: 2 });
+  s += text(x + 6, y + 9, label, { size: 7, weight: 600, fill: MERGED_FG });
+  s += rect(x + 6, y + 18, CW - 26, 3, { fill: "rgba(0,0,0,0.28)" });
+  s += rect(x + 6, y + 25, CW - 40, 3, { fill: "rgba(0,0,0,0.18)" });
+  return s;
+}
+
+function mergedViewSchematic(inTarget: boolean): string {
+  const TX = 26;
+  const BX = TX + LANE;
+  // Newest-first: row 0 is the TOP, so the merge commit sits above the commits
+  // it pulled in and those sit above the commit the branch forked from.
+  const y0 = 52; // main's merge commit
+  const y1 = y0 + ROW; // the feature commit — and, when on, its copy in main
+  const y2 = y0 + 2 * ROW; // the commit both lanes share (the fork point)
+  const tcx = TX + CW / 2;
+  const bcx = BX + CW / 2;
+
+  let s = open();
+  s += rect(8, 8, W - 16, H - 16, { fill: C.faint, r: 4 });
+
+  // Route header: the same merge in both pictures (feature landed on main).
+  const srcW = branchPillWidth("feature");
+  const routeY = 20;
+  let rx = 16;
+  s += branchPill(rx, routeY, "feature", false);
+  rx += srcW + 7;
+  s += text(rx, routeY + 11, "\u2192", { size: 11, opacity: 0.8 });
+  rx += 13;
+  s += branchPill(rx, routeY, "main", true);
+  rx += branchPillWidth("main") + 8;
+  s += text(rx, routeY + 11, "merged", { size: 8, opacity: 0.6 });
+
+  // main's own line. With the copy shown the line runs THROUGH it, exactly as
+  // the graph draws it; without, it drops straight past the empty row.
+  if (inTarget) {
+    s += vEdge(tcx, y0 + CH, y1);
+    s += vEdge(tcx, y1 + CH, y2);
+  } else {
+    s += vEdge(tcx, y0 + CH, y2);
+  }
+  // The feature commit's own parent link back to the fork point.
+  s += elbow([
+    [bcx, y1 + CH],
+    [bcx, y2 + CH / 2],
+    [TX + CW, y2 + CH / 2],
+  ]);
+
+  // The merge connector: up from the feature tip into main's merge commit.
+  const gap = y1 - 6;
+  s += elbow([
+    [bcx, y1],
+    [bcx, gap],
+    [tcx, gap],
+    [tcx, y0 + CH],
+  ]);
+  s +=
+    `<polygon points="${tcx},${y0 + CH} ${tcx - 4},${y0 + CH + 7} ${tcx + 4},${y0 + CH + 7}" ` +
+    `fill="${C.edge}"/>`;
+
+  // The tie between a copy and the original it mirrors: same commit, same row.
+  if (inTarget) {
+    s += line(TX + CW, y1 + CH / 2, BX, y1 + CH / 2, {
+      stroke: MERGED_EDGE,
+      sw: 1.2,
+      dashed: true,
+    });
+  }
+
+  // Cards last so the edges tuck under them.
+  s += commitCard(TX, y0, "main", true);
+  s += commitCard(TX, y2, "main");
+  s += commitCard(BX, y1, "feature");
+  if (inTarget) s += mergedCard(TX, y1, "\u2935 feature");
+
+  // Badge naming what the picture is showing, beside the row that differs.
+  const label = inTarget ? "in main too" : "feature only";
+  const bw = label.length * 4.8 + 14;
+  const bx = W - bw - 14;
+  const by = y1 + 9;
+  s += rect(bx, by, bw, 16, { fill: C.accent, r: 8 });
+  s += text(bx + bw / 2, by + 11, label, { size: 8, weight: 600, anchor: "middle", fill: "#fff" });
+  return s + close();
+}
+
+export function mergedOnBranchSchematic(): string {
+  return mergedViewSchematic(false);
+}
+export function mergedInTargetSchematic(): string {
+  return mergedViewSchematic(true);
+}
+
 /**
  * Every schematic by id, for the build-time `.svg` emitter. The native dialog is
  * emitted in both IDE flavours so each host can ship its own file if needed.
@@ -684,4 +796,6 @@ export const ALL_SCHEMATICS: { id: string; svg: () => string }[] = [
   { id: "jargon-english", svg: jargonEnglishSchematic },
   { id: "merge-commit", svg: mergeCommitSchematic },
   { id: "merge-squash", svg: squashMergeSchematic },
+  { id: "merged-view-branch", svg: mergedOnBranchSchematic },
+  { id: "merged-view-target", svg: mergedInTargetSchematic },
 ];
