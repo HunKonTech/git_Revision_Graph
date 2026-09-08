@@ -610,9 +610,10 @@ export class GraphView {
       // too, so the dotted line reads as "came from there", not just "these two
       // are related".
       if (e.isMergedTie) {
-        const arrow = this.tieArrow(e);
-        edgeLayer.appendChild(arrow);
-        this.edgeRecords.push({ el: arrow, fromId: e.fromId, toId: e.toId, stash: false, merge: false });
+        for (const arrow of this.tieArrows(e)) {
+          edgeLayer.appendChild(arrow);
+          this.edgeRecords.push({ el: arrow, fromId: e.fromId, toId: e.toId, stash: false, merge: false });
+        }
       }
     }
     this.viewport.appendChild(edgeLayer);
@@ -883,12 +884,17 @@ export class GraphView {
   }
 
   /**
-   * Arrowhead for a merged-in tie, pointing from the original box *into* the
-   * copy — the direction the commit travelled to get there. Placed so its tip
-   * touches the copy's edge.
+   * Solid arrowheads for a merged-in tie, pointing from the original box *into*
+   * the copy — the direction the commit travelled to get there. Always one where
+   * the tie meets the copy, plus one at the middle of the horizontal run when
+   * that run is long enough to read as a line rather than a short link (a tie
+   * between neighbouring lanes is barely wider than the arrow itself, so a
+   * second head there would just sit on the first).
    */
-  private tieArrow(e: LayoutEdge): SVGPathElement {
+  private tieArrows(e: LayoutEdge): SVGPathElement[] {
+    const cls = "edge-merged-tie-arrow";
     const rightward = e.toLane > e.fromLane; // original sits right of the copy
+    const dx = rightward ? -1 : 1; // flow runs from the original toward the copy
     const top = this.boxY(e.fromRow);
     const span = Math.min(
       this.ownHeight.get(e.fromId) ?? CONTENT_H,
@@ -900,15 +906,29 @@ export class GraphView {
     for (let lane = lo; lane <= hi; lane++) {
       if (this.boxBottom.has(`${e.fromRow}:${lane}`)) blocked = true;
     }
+
     if (blocked) {
       // The tie dips through the row gap and comes back up into the copy's
-      // bottom edge, so the arrow points straight up there.
-      const cx = this.boxX(e.fromLane) + BOX_W / 2;
-      return this.arrowAt(cx, top + span + 5, 0, -1, "edge-merged-tie-arrow");
+      // bottom edge, so the end arrow points straight up there. That detour only
+      // happens with a box in between, so its horizontal run is always long.
+      const copyCx = this.boxX(e.fromLane) + BOX_W / 2;
+      const origCx = this.boxX(e.toLane) + BOX_W / 2;
+      return [
+        this.arrowAt(copyCx, top + span + 5, 0, -1, cls),
+        this.arrowAt((copyCx + origCx) / 2, this.rowBottom(e.fromRow) + ROW_GAP / 2, dx, 0, cls),
+      ];
     }
-    const dx = rightward ? -1 : 1; // flow runs from the original toward the copy
-    const x = (rightward ? this.boxX(e.fromLane) + BOX_W : this.boxX(e.fromLane)) - dx * 5;
-    return this.arrowAt(x, top + span / 2, dx, 0, "edge-merged-tie-arrow");
+
+    const x1 = rightward ? this.boxX(e.fromLane) + BOX_W : this.boxX(e.fromLane); // copy's edge
+    const x2 = rightward ? this.boxX(e.toLane) : this.boxX(e.toLane) + BOX_W; // original's edge
+    const y = top + span / 2;
+    const arrows = [this.arrowAt(x1 - dx * 5, y, dx, 0, cls)];
+    // A tie between neighbouring lanes spans one gutter (LANE_W - BOX_W); only
+    // once it reaches across more than that is there room for a second head.
+    if (Math.abs(x2 - x1) > (LANE_W - BOX_W) * 2) {
+      arrows.push(this.arrowAt((x1 + x2) / 2, y, dx, 0, cls));
+    }
+    return arrows;
   }
 
   /** One filled triangle centred on (x, y), pointing along the axis-aligned unit direction (dx, dy). */
