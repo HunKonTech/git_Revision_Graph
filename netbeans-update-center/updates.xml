@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 
 <!DOCTYPE module_updates PUBLIC "-//NetBeans//DTD Autoupdate Catalog 2.8//EN" "https://netbeans.apache.org/dtds/autoupdate-catalog-2_8.dtd">
-<module_updates timestamp="33/52/12/08/09/2026">
+<module_updates timestamp="15/49/14/08/09/2026">
 
 
 
-<module codenamebase="io.github.benkoncsik.netbeans" distribution="netbeans-2.0.85.nbm" downloadsize="51576420" homepage="https://github.com/HunKonTech/git_Revision_Graph" license="35156281" moduleauthor="HunKonTech" needsrestart="false" releasedate="2026/09/08">
+<module codenamebase="io.github.benkoncsik.netbeans" distribution="netbeans-2.0.86.nbm" downloadsize="51577182" homepage="https://github.com/HunKonTech/git_Revision_Graph" license="35156281" moduleauthor="HunKonTech" needsrestart="false" releasedate="2026/09/08">
         
-    <manifest OpenIDE-Module="io.github.benkoncsik.netbeans" OpenIDE-Module-Display-Category="io.github.benkoncsik" OpenIDE-Module-Implementation-Version="2.0.85" OpenIDE-Module-Long-Description="TortoiseSVN-style revision graph for Git inside Apache NetBeans." OpenIDE-Module-Module-Dependencies="org.openide.windows &gt; 6.100, org.openide.awt &gt; 7.91, org.openide.util &gt; 9.31, org.openide.util.ui &gt; 9.32, org.openide.util.lookup &gt; 8.57, org.openide.modules &gt; 7.71, org.openide.filesystems &gt; 9.36, org.netbeans.modules.projectapi/1 &gt; 1.94, org.netbeans.modules.projectuiapi.base/1 &gt; 1.109.0.9" OpenIDE-Module-Name="Revision Graph for Git (SVN style)" OpenIDE-Module-Requires="org.openide.modules.ModuleFormat1" OpenIDE-Module-Short-Description="TortoiseSVN-style revision graph for Git inside Apache NetBeans." OpenIDE-Module-Specification-Version="2.0.85"/>
+    <manifest OpenIDE-Module="io.github.benkoncsik.netbeans" OpenIDE-Module-Display-Category="io.github.benkoncsik" OpenIDE-Module-Implementation-Version="2.0.86" OpenIDE-Module-Long-Description="TortoiseSVN-style revision graph for Git inside Apache NetBeans. Commits, branches, tags, stashes and merges as connected, color-coded boxes. Create a branch from any commit, merge or squash-merge branches, reword a message, undo a commit, check out, inspect changed files and diffs, stage and commit working-tree changes, and fetch/pull/push/sync from the toolbar. A built-in legend explains every node color (HEAD, local, remote, remote-only, tag, stash, merged-in) and every connecting line (parent, merge, fork-off, stash, merged-in chain and tie)." OpenIDE-Module-Module-Dependencies="org.openide.windows &gt; 6.100, org.openide.awt &gt; 7.91, org.openide.util &gt; 9.31, org.openide.util.ui &gt; 9.32, org.openide.util.lookup &gt; 8.57, org.openide.modules &gt; 7.71, org.openide.filesystems &gt; 9.36, org.netbeans.modules.projectapi/1 &gt; 1.94, org.netbeans.modules.projectuiapi.base/1 &gt; 1.109.0.9" OpenIDE-Module-Name="Revision Graph for Git (SVN style)" OpenIDE-Module-Requires="org.openide.modules.ModuleFormat1" OpenIDE-Module-Short-Description="TortoiseSVN-style revision graph for Git inside Apache NetBeans." OpenIDE-Module-Specification-Version="2.0.86"/>
         
 
-    <message_digest algorithm="SHA-512" value="36b6342d64305efb686e9f7430d792c269ac7e9ce2dd4e45ee4925c57bc0d44a9e5a65b6301cc284f65fff9e7bc1bad51d30f5472276daaca51256492dd57131"/>
+    <message_digest algorithm="SHA-512" value="f68c2e03adb371d8537ef886bc4c9f8841b61ff315ed2662599cd7ebf1f2315e1801e90da8f0c4c7f7a3d195016e61342e348f274de5b15bc64c5b8e7f7661fa"/>
 </module>
 
 <license name="35156281">License text copyright (c) 2017 MariaDB Corporation Ab, All Rights Reserved.
