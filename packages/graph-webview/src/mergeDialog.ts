@@ -1,6 +1,7 @@
 import { t, onLangChange, type MsgKey } from "./i18n.js";
 import { getDiffMinimap, onDiffMinimapChange } from "./diffMinimap.js";
 import { buildDiffView, attachMinimaps, buildChangeNav, MM_W } from "./diffView.js";
+import { attachDiffFind, resetDiffFind } from "./diffFind.js";
 import { getMergeMode } from "./mergeMode.js";
 import type { MergePreview, MergePreviewFile, MergeFileStatus, FileDiff } from "@rev-graph/protocol";
 
@@ -56,6 +57,8 @@ let langUnsub: (() => void) | null = null;
 let minimapUnsub: (() => void) | null = null;
 // Tears down the current diff's minimap strips (listeners + DOM); null when none.
 let minimapCleanup: (() => void) | null = null;
+// Tears down the Ctrl/Cmd+F find box of the current diff; null when none.
+let findCleanup: (() => void) | null = null;
 
 // Dialog state, module-scoped so the host-message handlers can update it.
 let ctx: MergeDialogContext | null = null;
@@ -86,6 +89,9 @@ export function closeMergeDialog(): void {
   }
   minimapCleanup?.();
   minimapCleanup = null;
+  findCleanup?.();
+  findCleanup = null;
+  resetDiffFind();
   ctx = null;
   preview = null;
   selected = null;
@@ -303,6 +309,8 @@ export function openMergeDialog(context: MergeDialogContext): void {
   /** (Re)draw the right-pane diff from the current `selected`/`diff`. */
   function renderDiff(): void {
     if (!diffPaneEl) return;
+    findCleanup?.();
+    findCleanup = null;
     diffPaneEl.innerHTML = "";
     const scroll = el("div", "changes-diff-scroll");
     const showEmpty = (key: MsgKey): void => {
@@ -327,6 +335,7 @@ export function openMergeDialog(context: MergeDialogContext): void {
     if (blocks.length > 1) {
       diffPaneEl.appendChild(buildChangeNav(scroll, blocks, minimapOn ? MM_W + 10 : 14));
     }
+    findCleanup = attachDiffFind(diffPaneEl, scroll, minimapOn ? MM_W + 10 : 14);
   }
 
   render();

@@ -2,6 +2,7 @@ import { t, onLangChange } from "./i18n.js";
 import { getDiffMinimap, onDiffMinimapChange } from "./diffMinimap.js";
 import { getCommitReviewBeforeCommit } from "./commitReviewSetting.js";
 import { buildDiffView, attachMinimaps, buildChangeNav, MM_W } from "./diffView.js";
+import { attachDiffFind, resetDiffFind } from "./diffFind.js";
 import type { FileDiff, WorkingTreeFile } from "@rev-graph/protocol";
 
 export interface CommitDialogContext {
@@ -23,6 +24,8 @@ let openOverlay: HTMLElement | null = null;
 let langUnsub: (() => void) | null = null;
 let minimapUnsub: (() => void) | null = null;
 let minimapCleanup: (() => void) | null = null;
+/** Tears down the Ctrl/Cmd+F find box of the current diff; null when none. */
+let findCleanup: (() => void) | null = null;
 let ctx: CommitDialogContext | null = null;
 let files: WorkingTreeFile[] | null = null;
 let selected: WorkingTreeFile | null = null;
@@ -44,6 +47,9 @@ export function closeCommitDialog(): void {
   minimapUnsub = null;
   minimapCleanup?.();
   minimapCleanup = null;
+  findCleanup?.();
+  findCleanup = null;
+  resetDiffFind();
   ctx = null;
   files = null;
   selected = null;
@@ -138,6 +144,8 @@ export function openCommitDialog(context: CommitDialogContext): void {
     }
 
     function renderDiff(): void {
+      findCleanup?.();
+      findCleanup = null;
       diffPane.innerHTML = "";
       const scroll = el("div", "changes-diff-scroll");
       const empty = (key: Parameters<typeof t>[0]) => {
@@ -157,6 +165,7 @@ export function openCommitDialog(context: CommitDialogContext): void {
       if (built.blocks.length > 1) {
         diffPane.appendChild(buildChangeNav(scroll, built.blocks, minimapOn ? MM_W + 10 : 14));
       }
+      findCleanup = attachDiffFind(diffPane, scroll, minimapOn ? MM_W + 10 : 14);
     }
 
     function renderFooter(): void {

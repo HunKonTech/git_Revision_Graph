@@ -150,6 +150,11 @@ type Dict = {
   "changes.noSearchResults": string;
   "changes.maximize": string;
   "changes.restore": string;
+  "find.placeholder": string;
+  "find.prev": string;
+  "find.next": string;
+  "find.close": string;
+  "find.noResults": string;
   "commit.title": string;
   "commit.close": string;
   "commit.loading": string;
@@ -394,6 +399,11 @@ const DICTS: Record<Lang, Dict> = {
     "changes.noSearchResults": "No files match your search.",
     "changes.maximize": "Maximize",
     "changes.restore": "Restore size",
+    "find.placeholder": "Find in diff…",
+    "find.prev": "Previous match",
+    "find.next": "Next match",
+    "find.close": "Close search",
+    "find.noResults": "No results",
     "commit.title": "Commit Changes",
     "commit.close": "Close",
     "commit.loading": "Reading working tree…",
@@ -637,6 +647,11 @@ const DICTS: Record<Lang, Dict> = {
     "changes.noSearchResults": "Nincs a keresésnek megfelelő fájl.",
     "changes.maximize": "Nagyítás",
     "changes.restore": "Eredeti méret",
+    "find.placeholder": "Keresés a diffben…",
+    "find.prev": "Előző találat",
+    "find.next": "Következő találat",
+    "find.close": "Keresés bezárása",
+    "find.noResults": "Nincs találat",
     "commit.title": "Változások commitolása",
     "commit.close": "Bezárás",
     "commit.loading": "Working tree beolvasása…",
@@ -880,6 +895,11 @@ const DICTS: Record<Lang, Dict> = {
     "changes.noSearchResults": "没有匹配的文件。",
     "changes.maximize": "最大化",
     "changes.restore": "还原大小",
+    "find.placeholder": "在差异中查找…",
+    "find.prev": "上一个匹配",
+    "find.next": "下一个匹配",
+    "find.close": "关闭搜索",
+    "find.noResults": "无结果",
     "commit.title": "提交更改",
     "commit.close": "关闭",
     "commit.loading": "正在读取工作区…",
@@ -1123,6 +1143,11 @@ const DICTS: Record<Lang, Dict> = {
     "changes.noSearchResults": "Нет файлов, соответствующих поиску.",
     "changes.maximize": "Развернуть",
     "changes.restore": "Восстановить размер",
+    "find.placeholder": "Поиск в diff…",
+    "find.prev": "Предыдущее совпадение",
+    "find.next": "Следующее совпадение",
+    "find.close": "Закрыть поиск",
+    "find.noResults": "Ничего не найдено",
     "commit.title": "Commit Changes",
     "commit.close": "Закрыть",
     "commit.loading": "Чтение working tree…",

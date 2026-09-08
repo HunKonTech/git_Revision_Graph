@@ -1,6 +1,7 @@
 import { t, onLangChange } from "./i18n.js";
 import { getDiffMinimap, onDiffMinimapChange } from "./diffMinimap.js";
 import { buildDiffView, buildContentView, attachMinimaps, buildChangeNav, MM_W } from "./diffView.js";
+import { attachDiffFind, resetDiffFind } from "./diffFind.js";
 import type { CommitChangeFile, DiffFileStatus, FileDiff } from "@rev-graph/protocol";
 
 /**
@@ -201,6 +202,8 @@ let openOverlay: HTMLElement | null = null;
 let langUnsub: (() => void) | null = null;
 let minimapUnsub: (() => void) | null = null;
 let minimapCleanup: (() => void) | null = null;
+/** Tears down the Ctrl/Cmd+F find box of the current diff; null when none. */
+let findCleanup: (() => void) | null = null;
 
 // Dialog state, module-scoped so host-message handlers can update it.
 let ctx: ChangesDialogContext | null = null;
@@ -246,6 +249,9 @@ export function closeChangesDialog(): void {
   if (minimapUnsub) { minimapUnsub(); minimapUnsub = null; }
   minimapCleanup?.();
   minimapCleanup = null;
+  findCleanup?.();
+  findCleanup = null;
+  resetDiffFind();
   clearTimeout(searchDebounce);
   ctx = null;
   files = null;
@@ -640,6 +646,8 @@ export function openChangesDialog(context: ChangesDialogContext): void {
 
   function renderDiff(): void {
     if (!diffPaneEl) return;
+    findCleanup?.();
+    findCleanup = null;
     diffPaneEl.innerHTML = "";
     const scroll = el("div", "changes-diff-scroll");
     const showEmpty = (key: Parameters<typeof t>[0]): void => {
@@ -659,6 +667,7 @@ export function openChangesDialog(context: ChangesDialogContext): void {
       minimapCleanup?.();
       minimapCleanup = minimapOn ? attachMinimaps(diffPaneEl, scroll, minimaps) : null;
       applySearchHighlight(scroll);
+      findCleanup = attachDiffFind(diffPaneEl, scroll, minimapOn ? MM_W + 10 : 14);
       return;
     }
 
@@ -677,6 +686,7 @@ export function openChangesDialog(context: ChangesDialogContext): void {
       diffPaneEl.appendChild(buildChangeNav(scroll, blocks, minimapOn ? MM_W + 10 : 14));
     }
     applySearchHighlight(scroll);
+    findCleanup = attachDiffFind(diffPaneEl, scroll, minimapOn ? MM_W + 10 : 14);
   }
 
   /** Mark the active search term in the just-rendered diff/content and reveal the first hit. */
