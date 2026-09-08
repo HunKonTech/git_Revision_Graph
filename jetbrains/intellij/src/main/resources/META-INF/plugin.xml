@@ -6,8 +6,8 @@
     <description><![CDATA[
         <p>A <b>TortoiseSVN-style revision graph</b> for Git inside your
         <b>JetBrains IDE</b> (IntelliJ IDEA, WebStorm, PyCharm, GoLand, …).
-        Commits, local &amp; remote branches, and tags are displayed as
-        connected, color-coded boxes.</p>
+        Commits, local &amp; remote branches, tags, stashes and merges are
+        displayed as connected, color-coded boxes.</p>
 
         <p><b>▶ <a href="https://hunkontech.github.io/git_Revision_Graph/">Try the live demo in your browser</a></b>
         — no install required; runs the real renderer on a sample repository.</p>
@@ -24,17 +24,22 @@
 
         <h2>Features</h2>
         <ul>
-            <li><b>DAG layout</b> — commits arranged in columns per branch with connecting lines.</li>
-            <li><b>Color-coded nodes</b> — HEAD/current branch (red), local branches (green), remote branches (blue), tags (yellow), plain commits (grey).</li>
-            <li><b>Right-click a commit</b> → <em>"Create branch from here…"</em> — creates a new branch at that commit using Git, then refreshes the graph.</li>
-            <li><b>Checkout</b> a commit directly from the graph.</li>
-            <li><b>Copy SHA</b> of any commit.</li>
-            <li><b>Zoom &amp; pan</b> the graph canvas.</li>
+            <li><b>DAG layout</b> — commits in columns per branch with connecting lines; modern (free canvas) or classic (trunk-pinned) display modes.</li>
+            <li><b>Color-coded nodes</b> — HEAD/current branch (red), local branches (green), remote branches (blue), remote-only commits, tags (yellow), stashes, plain commits (grey), and commits merged into the branch that received them.</li>
+            <li><b>Branch</b> — create a branch from any commit via an SVN-style folder-tree dialog or the IDE's native branch UI; rename, delete or push a branch.</li>
+            <li><b>Merge</b> — merge or squash-merge one branch into another, with a schematic preview that shows the merge direction.</li>
+            <li><b>Rewrite history</b> — reword a commit message; undo a commit while keeping its changes.</li>
+            <li><b>Inspect</b> — a commit's changed files, file diffs with a minimap, and search inside a diff (Ctrl/Cmd+F).</li>
+            <li><b>Commit</b> — stage and commit working-tree changes from the graph, with an optional review step.</li>
+            <li><b>Stash</b> — apply, pop or drop a stash.</li>
+            <li><b>Remotes</b> — fetch, pull, push and sync from the toolbar; search commit messages; jump to HEAD; zoom &amp; pan.</li>
+            <li><b>Localized</b> — English, Magyar, 中文, Русский; light/dark themes; optional plain-language labels instead of git jargon.</li>
         </ul>
 
         <h2>Other hosts</h2>
-        <p>Also available for <a href="https://marketplace.visualstudio.com/items?itemName=BenKoncsik.rev-graph-vscode">VS Code</a>
-        and <a href="https://marketplace.visualstudio.com/items?itemName=BenKoncsik.GitRevisionGraph">Visual Studio 2022 / 2026</a>.</p>
+        <p>Also available for <a href="https://marketplace.visualstudio.com/items?itemName=BenKoncsik.rev-graph-vscode">VS Code</a>,
+        <a href="https://marketplace.visualstudio.com/items?itemName=BenKoncsik.GitRevisionGraph">Visual Studio 2022 / 2026</a>,
+        Eclipse and Apache NetBeans.</p>
 
         <h2>Source code &amp; license</h2>
         <ul>
@@ -50,7 +55,8 @@
 
         <p>Egy <b>TortoiseSVN-stílusú revíziógraf</b> Git-hez a <b>JetBrains IDE-den</b>
         belül (IntelliJ IDEA, WebStorm, PyCharm, GoLand, …). A commitok, helyi és
-        távoli ágak, valamint tagek összekötött, színkódolt dobozokként jelennek meg.</p>
+        távoli ágak, tagek, stash-ek és merge-ök összekötött, színkódolt
+        dobozokként jelennek meg.</p>
 
         <p><b>▶ <a href="https://hunkontech.github.io/git_Revision_Graph/">Próbáld ki az élő demót a böngésződben</a></b>
         — telepítés nélkül; a valódi megjelenítő fut egy minta-repozitóriummal.</p>
@@ -67,17 +73,22 @@
 
         <h2>Funkciók</h2>
         <ul>
-            <li><b>DAG elrendezés</b> — a commitok áganként oszlopokba rendezve, összekötő vonalakkal.</li>
-            <li><b>Színkódolt csomópontok</b> — HEAD/aktuális ág (piros), helyi ágak (zöld), távoli ágak (kék), tagek (sárga), sima commitok (szürke).</li>
-            <li><b>Jobb klikk egy commitra</b> → <em>"Ág létrehozása innen…"</em> — új ágat hoz létre az adott committól a Git-en keresztül, majd frissíti a gráfot.</li>
-            <li><b>Checkout</b> — commit közvetlen kivétele a gráfból.</li>
-            <li><b>SHA másolása</b> bármely commithoz.</li>
-            <li><b>Nagyítás és mozgatás</b> a gráf felületén.</li>
+            <li><b>DAG elrendezés</b> — commitok áganként oszlopokban, összekötő vonalakkal; modern (szabad vászon) vagy klasszikus (balra rögzített törzs) nézet.</li>
+            <li><b>Színkódolt csomópontok</b> — HEAD/aktuális ág (piros), helyi ágak (zöld), távoli ágak (kék), csak-távoli commitok, tagek (sárga), stash-ek, sima commitok (szürke), és a fogadó ágba merge-ölt commitok.</li>
+            <li><b>Ág</b> — új ág bármely committól SVN-stílusú mappafa-párbeszéddel vagy az IDE natív ág-ablakával; ág átnevezése, törlése, push-olása.</li>
+            <li><b>Merge</b> — egy ág merge-ölése vagy squash-merge-ölése egy másikba, a merge irányát mutató sematikus előnézettel.</li>
+            <li><b>Történet átírása</b> — commit üzenet átírása; commit visszavonása a változtatások megtartásával.</li>
+            <li><b>Vizsgálat</b> — egy commit módosított fájljai, fájl-diffek minimappel, és keresés a diffen belül (Ctrl/Cmd+F).</li>
+            <li><b>Commit</b> — a munkakönyvtár változtatásainak stage-elése és commitolása a gráfból, opcionális átnézési lépéssel.</li>
+            <li><b>Stash</b> — stash alkalmazása, pop-olása vagy eldobása.</li>
+            <li><b>Távoli</b> — fetch, pull, push és sync az eszköztárból; commit üzenetek keresése; ugrás a HEAD-re; nagyítás és mozgatás.</li>
+            <li><b>Honosított</b> — English, Magyar, 中文, Русский; világos/sötét téma; opcionálisan közérthető feliratok a git szakzsargon helyett.</li>
         </ul>
 
         <h2>Más hosztokon</h2>
-        <p>Elérhető <a href="https://marketplace.visualstudio.com/items?itemName=BenKoncsik.rev-graph-vscode">VS Code</a>-hoz
-        és <a href="https://marketplace.visualstudio.com/items?itemName=BenKoncsik.GitRevisionGraph">Visual Studio 2022 / 2026</a>-höz is.</p>
+        <p>Elérhető <a href="https://marketplace.visualstudio.com/items?itemName=BenKoncsik.rev-graph-vscode">VS Code</a>-hoz,
+        <a href="https://marketplace.visualstudio.com/items?itemName=BenKoncsik.GitRevisionGraph">Visual Studio 2022 / 2026</a>-höz,
+        Eclipse-hez és Apache NetBeans-hez is.</p>
 
         <h2>Forráskód és licenc</h2>
         <ul>

@@ -5,7 +5,7 @@
     <Identity Id="GitRevisionGraph.benkoncsik.b7e9c2a4"
               Version="0.1.0" Language="en-US" Publisher="BenKoncsik" />
     <DisplayName>Revision Graph for Git (SVN style)</DisplayName>
-    <Description xml:space="preserve">A TortoiseSVN-style revision graph for Git, right inside Visual Studio. Commits, local and remote branches, and tags appear as connected, color-coded boxes — just like SVN's classic revision graph. Right-click a commit to branch, check out, or copy its SHA.</Description>
+    <Description xml:space="preserve">A TortoiseSVN-style revision graph for Git, right inside Visual Studio. Commits, local and remote branches, tags, stashes and merges appear as connected, color-coded boxes — just like SVN's classic revision graph. Right-click a commit to create a branch, merge or squash-merge branches, reword a message, undo a commit, check out, view changed files and diffs, or stage and commit working-tree changes. Fetch, pull, push and sync from the toolbar; search commit messages; switch between modern and classic layouts; four UI languages and light/dark themes.</Description>
     <MoreInfo>https://github.com/HunKonTech/git_Revision_Graph</MoreInfo>
     <ReleaseNotes>https://github.com/HunKonTech/git_Revision_Graph/releases</ReleaseNotes>
     <!-- In-IDE Extension Manager artwork. Unlike the Marketplace icon (the
@@ -16,7 +16,7 @@
          resizes the icon to 32x32 and the preview to 200x200. -->
     <Icon>Resources\MarketplaceIcon.png</Icon>
     <PreviewImage>Resources\MarketplaceIcon.png</PreviewImage>
-    <Tags>git;revision graph;tortoisesvn;branches;tags;dag;version control;source control</Tags>
+    <Tags>git;revision graph;tortoisesvn;branches;tags;stash;merge;diff;dag;version control;source control</Tags>
   </Metadata>
   <Installation>
     <!-- VS 2022 (17.0) through the next major (covers VS 2026 previews). -->

@@ -1,7 +1,7 @@
 {
   "name": "rev-graph-vscode",
   "displayName": "Revision Graph for Git (SVN style)",
-  "description": "TortoiseSVN-style revision graph for Git: commits, local & remote branches, and tags as connected boxes. Right-click a commit to create a branch from it.",
+  "description": "TortoiseSVN-style revision graph for Git: commits, branches, tags, stashes and merges as connected boxes. Branch, merge, reword, checkout, diff and commit straight from the graph.",
   "version": "0.1.0",
   "publisher": "benkoncsik",
   "icon": "icons/marketplace-icon.png",

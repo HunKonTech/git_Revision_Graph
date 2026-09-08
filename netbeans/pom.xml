@@ -31,7 +31,7 @@
     <packaging>nbm</packaging>
 
     <name>Revision Graph for Git (SVN style)</name>
-    <description>TortoiseSVN-style revision graph for Git inside Apache NetBeans.</description>
+    <description>TortoiseSVN-style revision graph for Git inside Apache NetBeans. Commits, branches, tags, stashes and merges as connected, color-coded boxes. Create a branch from any commit, merge or squash-merge branches, reword a message, undo a commit, check out, inspect changed files and diffs, stage and commit working-tree changes, and fetch/pull/push/sync from the toolbar.</description>
     <!-- <url>, <developers> and <scm> are MANDATORY for a Maven Central deploy
          (the `central-deploy` profile below). They also feed the auto-populated
          NetBeans Plugin Portal listing. -->

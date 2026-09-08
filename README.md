@@ -1,13 +1,14 @@
 # Git Revision Graph
 
-A **TortoiseSVN-style Revision Graph** for **Git**, for both **Visual Studio
-(2022 / 2026)** and **VS Code**. Commits, local & remote branches, and tags are
-drawn as connected boxes; right-click a commit to **create a branch from it**
-using the host's native Git.
+A **TortoiseSVN-style Revision Graph** for **Git**, shipped for **VS Code**,
+**Visual Studio (2022 / 2026)**, the **JetBrains** IDE family, **Eclipse** and
+**Apache NetBeans**. Commits, local & remote branches, tags, stashes and merges
+are drawn as connected, color-coded boxes; from the graph you can branch, merge,
+reword, undo, checkout, diff and commit — all through the host's native Git.
 
 **▶ [Try the live demo](https://hunkontech.github.io/git_Revision_Graph/)** — runs the
-real renderer in your browser with a sample repository; every action (create
-branch, checkout, copy SHA, stash, zoom & pan) works against mock data.
+real renderer in your browser with a sample repository; every action (branch,
+merge, reword, checkout, diff, commit, stash, zoom & pan) works against mock data.
 
 ![Example](docs/RevisionGraph.png)
 
@@ -17,15 +18,30 @@ branch, checkout, copy SHA, stash, zoom & pan) works against mock data.
 - [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=BenKoncsik.rev-graph-vscode)
 - [Visual Studio Marketplace (2022 / 2026)](https://marketplace.visualstudio.com/items?itemName=BenKoncsik.GitRevisionGraph)
 - [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/32627-revision-graph-for-git-svn-style-) — IntelliJ IDEA, Android Studio, DevEco Studio, WebStorm, PyCharm, GoLand, etc.
+- **Eclipse** — p2 update site published with each GitHub Release.
+- **Apache NetBeans** — `.nbm` on each GitHub Release, plus a NetBeans Autoupdate Center.
 
 ## What it does
-- Renders the git DAG as boxes-and-edges, with a column-per-branch layout.
-- Colors nodes by ref type: current/HEAD, local branch, remote branch, tag,
-  plain commit — echoing the SVN graph's grey/green/yellow scheme.
-- Shows **local and remote** branches and tags.
-- **Right-click → "Create branch from here…"** seeds a new branch at the clicked
-  commit via the host's native Git, then refreshes.
-- Checkout a commit, copy its SHA, zoom & pan.
+- Renders the git DAG as boxes-and-edges with a column-per-branch layout, in a
+  modern (free canvas) or classic (trunk-pinned) display mode.
+- Colors nodes by ref type: current/HEAD, local branch, remote branch,
+  remote-only, tag, stash, plain commit, and commits merged into the branch that
+  received them — echoing the SVN graph's grey/green/yellow scheme.
+- **Branch** — create a branch from any commit via an SVN-style folder-tree
+  dialog or the host's native branch UI; rename, delete or push a branch.
+- **Merge** — merge or squash-merge one branch into another, with a schematic
+  preview that shows the merge direction.
+- **Rewrite history** — reword a commit message; undo a commit while keeping its
+  changes.
+- **Inspect** — a commit's changed files, file diffs with a minimap, and search
+  inside a diff (`Ctrl/Cmd+F`).
+- **Commit** — stage and commit working-tree changes from the graph, with an
+  optional review step.
+- **Stash** — apply, pop or drop a stash.
+- **Remotes** — fetch, pull, push and sync from the toolbar; search commit
+  messages; jump to HEAD; checkout, copy SHA, zoom & pan.
+- **Localized** — English, Magyar, 中文, Русский; light/dark themes; optional
+  plain-language labels instead of git jargon.
 
 ## How to open the graph
 
@@ -39,26 +55,40 @@ branch, checkout, copy SHA, stash, zoom & pan) works against mock data.
 1. Open a folder or solution that is inside a Git repository.
 2. Go to **View → Other Windows → Revision Graph**.
 
-Right-click any commit node to **create a branch from it** or to copy its SHA.
+### JetBrains IDEs
+1. Open a project under Git version control.
+2. **Tools → Revision Graph** (or press **Shift** twice and type "Revision Graph").
+
+### Eclipse
+1. Open a workspace with a Git repository.
+2. **Revision Graph** menu → **Revision Graph**, or **Window → Show View → Other → Git → Revision Graph**.
+
+### Apache NetBeans
+1. Open a project inside a Git repository.
+2. **Tools → Revision Graph**.
+
+Right-click any commit node to branch, merge, reword, undo, checkout, view its
+changes, or copy its SHA.
 
 ## Architecture (monorepo)
-One shared web renderer, embedded by two thin hosts:
+One shared web renderer, embedded by several thin hosts:
 
 ```
 packages/
   protocol/      host <-> webview message contracts (single source of truth)
   graph-core/    pure DAG lane/row layout algorithm (unit-tested, no DOM)
-  graph-webview/ the SVG renderer + context menu (builds to one bundle)
-vscode/          VS Code extension (TS): vscode.git data + native createBranch
+  graph-webview/ the SVG renderer + context menus + i18n (builds to one bundle)
+vscode/          VS Code extension (TS): vscode.git data + git CLI
 vs/              Visual Studio VSIX (C#): tool window + WebView2 host
+jetbrains/       JetBrains plugin (Kotlin, IntelliJ Platform, JCEF host)
+eclipse/         Eclipse plugin (Java, PDE/OSGi, SWT Browser host)
+netbeans/        Apache NetBeans module (Kotlin, JavaFX WebView host; reuses the
+                 JetBrains host's shared git/DTO Kotlin)
 ```
 
-The `graph-webview` bundle is the shared artifact: VS Code loads it in a webview,
-the C# VSIX loads the same files in WebView2. Branch creation uses the
-**native** Git of each host:
-- VS Code: `vscode.git` API `Repository.createBranch(name, checkout, ref)`.
-- Visual Studio: git CLI behind a themed dialog (native-dialog seeding is a
-  documented future enhancement).
+The `graph-webview` bundle is the shared artifact loaded by every host's
+webview. Each host talks to its own **native** Git (the `vscode.git` API or a
+git CLI wrapper) behind the same message protocol.
 
 ## Develop
 
@@ -116,6 +146,8 @@ All outputs land in `dist/installers/`.
 - ✅ shared SVG renderer + context menu (verified in browser harness)
 - ✅ VS Code extension (data layer verified against a real repo end-to-end)
 - ✅ Visual Studio VSIX authored (build & run on Windows per `vs/BUILD.md`)
+- ✅ JetBrains plugin authored (Kotlin, one build across the IntelliJ Platform family per `jetbrains/BUILD.md`)
+- ✅ Eclipse plugin authored (Java, PDE/OSGi + Tycho p2 update site per `eclipse/BUILD.md`)
 - ✅ Apache NetBeans plugin authored (Kotlin, reuses the JetBrains shared git/DTO code; build the `.nbm` per `netbeans/BUILD.md`)
 
 ## License
@@ -126,11 +158,16 @@ All outputs land in `dist/installers/`.
 
 # Git Revision Graph (Magyar)
 
-Egy **TortoiseSVN-stílusú revíziógraf** **Git**-hez, mind **Visual Studio (2022 / 2026)**, mind **VS Code** alatt. A commitok, helyi és távoli ágak, valamint tagek összekötött dobozokként jelennek meg; jobb klikkel egy commiton **új ágat hozhatsz létre belőle** a fogadó alkalmazás natív Git-jén keresztül.
+Egy **TortoiseSVN-stílusú revíziógraf** **Git**-hez, amely elérhető **VS Code**,
+**Visual Studio (2022 / 2026)**, a **JetBrains** IDE-család, **Eclipse** és
+**Apache NetBeans** alá. A commitok, helyi és távoli ágak, tagek, stash-ek és
+merge-ök összekötött, színkódolt dobozokként jelennek meg; a gráfból branch-elhetsz,
+merge-elhetsz, átnevezhetsz, visszavonhatsz, checkout-olhatsz, diffelhetsz és
+commitolhatsz — mindezt a fogadó alkalmazás natív Git-jén keresztül.
 
 **▶ [Próbáld ki az élő demót](https://hunkontech.github.io/git_Revision_Graph/)** — a
 valódi megjelenítő fut a böngésződben egy minta-repozitóriummal; minden funkció
-(ág létrehozása, checkout, SHA másolás, stash, nagyítás és mozgatás) működik a
+(ág, merge, átnevezés, checkout, diff, commit, stash, nagyítás és mozgatás) működik a
 mock adatokon.
 
 ![Example](docs/RevisionGraph.png)
@@ -141,13 +178,20 @@ mock adatokon.
 - [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=BenKoncsik.rev-graph-vscode)
 - [Visual Studio Marketplace (2022 / 2026)](https://marketplace.visualstudio.com/items?itemName=BenKoncsik.GitRevisionGraph)
 - [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/32627-revision-graph-for-git-svn-style-) — IntelliJ IDEA, Android Studio, DevEco Studio, WebStorm, PyCharm, GoLand, stb.
+- **Eclipse** — p2 update site, minden GitHub Release-hez közzétéve.
+- **Apache NetBeans** — `.nbm` minden GitHub Release-en, plusz NetBeans Autoupdate Center.
 
 ## Mit csinál
-- A git DAG-ot dobozok és élek formájában rajzolja ki, áganként egy oszloppal.
-- A csomópontokat ref-típus szerint színezi: aktuális/HEAD, helyi ág, távoli ág, tag, sima commit — az SVN-gráf szürke/zöld/sárga sémájára emlékeztetve.
-- Megjeleníti a **helyi és távoli** ágakat és tageket.
-- **Jobb klikk → „Ág létrehozása innen…"** — új ágat hoz létre a kiválasztott committól a fogadó alkalmazás natív Git-jén keresztül, majd frissíti a gráfot.
-- Commit közvetlen kivétele (checkout), SHA másolása, nagyítás és mozgatás.
+- A git DAG-ot dobozok és élek formájában rajzolja ki, áganként egy oszloppal, modern (szabad vászon) vagy klasszikus (balra rögzített törzs) nézetben.
+- A csomópontokat ref-típus szerint színezi: aktuális/HEAD, helyi ág, távoli ág, csak-távoli, tag, stash, sima commit, és a fogadó ágba merge-ölt commitok — az SVN-gráf szürke/zöld/sárga sémájára emlékeztetve.
+- **Ág** — új ág bármely committól SVN-stílusú mappafa-párbeszéddel vagy a fogadó alkalmazás natív ág-ablakával; ág átnevezése, törlése, push-olása.
+- **Merge** — egy ág merge-ölése vagy squash-merge-ölése egy másikba, a merge irányát mutató sematikus előnézettel.
+- **Történet átírása** — commit üzenet átírása; commit visszavonása a változtatások megtartásával.
+- **Vizsgálat** — egy commit módosított fájljai, fájl-diffek minimappel, és keresés a diffen belül (`Ctrl/Cmd+F`).
+- **Commit** — a munkakönyvtár változtatásainak stage-elése és commitolása a gráfból, opcionális átnézési lépéssel.
+- **Stash** — stash alkalmazása, pop-olása vagy eldobása.
+- **Távoli** — fetch, pull, push és sync az eszköztárból; commit üzenetek keresése; ugrás a HEAD-re; checkout, SHA másolása, nagyítás és mozgatás.
+- **Honosított** — English, Magyar, 中文, Русский; világos/sötét téma; opcionálisan közérthető feliratok a git szakzsargon helyett.
 
 ## A gráf megnyitása
 
@@ -161,23 +205,37 @@ mock adatokon.
 1. Nyiss meg egy mappát vagy megoldást, amely egy Git repozitóriumon belül van.
 2. Lépj a **Nézet → Egyéb ablakok → Revision Graph** menüpontba.
 
-Jobb klikkel bármely commit csomóponton **új ágat hozhatsz létre**, vagy másolhatod a SHA-ját.
+### JetBrains IDE-k
+1. Nyiss meg egy Git verziókövetés alatt álló projektet.
+2. **Tools → Revision Graph** (vagy nyomd meg kétszer a **Shift**et és írd be: „Revision Graph").
+
+### Eclipse
+1. Nyiss meg egy Git repozitóriumot tartalmazó workspace-t.
+2. **Revision Graph** menü → **Revision Graph**, vagy **Window → Show View → Other → Git → Revision Graph**.
+
+### Apache NetBeans
+1. Nyiss meg egy Git repozitóriumon belüli projektet.
+2. **Tools → Revision Graph**.
+
+Jobb klikkel bármely commit csomóponton branch-elhetsz, merge-elhetsz, átnevezhetsz, visszavonhatsz, checkout-olhatsz, megnézheted a változtatásait, vagy másolhatod a SHA-ját.
 
 ## Architektúra (monorepo)
-Egy közös webes megjelenítő, amelyet két vékony hoszt foglal magában:
+Egy közös webes megjelenítő, amelyet több vékony hoszt foglal magában:
 
 ```
 packages/
   protocol/      hoszt <-> webview üzenetszerződések (egyetlen forrás)
   graph-core/    tiszta DAG sáv/sor elrendező algoritmus (egységtesztelt, DOM nélkül)
-  graph-webview/ az SVG megjelenítő + helyi menü (egy bundle-lé épül)
-vscode/          VS Code bővítmény (TS): vscode.git adat + natív createBranch
+  graph-webview/ az SVG megjelenítő + helyi menük + i18n (egy bundle-lé épül)
+vscode/          VS Code bővítmény (TS): vscode.git adat + git CLI
 vs/              Visual Studio VSIX (C#): eszközablak + WebView2 hoszt
+jetbrains/       JetBrains plugin (Kotlin, IntelliJ Platform, JCEF hoszt)
+eclipse/         Eclipse plugin (Java, PDE/OSGi, SWT Browser hoszt)
+netbeans/        Apache NetBeans modul (Kotlin, JavaFX WebView hoszt; a JetBrains
+                 hoszt közös git/DTO Kotlin kódját újrahasználja)
 ```
 
-A `graph-webview` bundle a közös termék: a VS Code egy webview-ban tölti be, a C# VSIX ugyanezeket a fájlokat WebView2-ben. Az ág létrehozása az egyes hosztok **natív** Git-jét használja:
-- VS Code: `vscode.git` API `Repository.createBranch(name, checkout, ref)`.
-- Visual Studio: git CLI egy témázott párbeszédablak mögött.
+A `graph-webview` bundle a közös termék, amelyet minden hoszt webview-ja betölt. Minden hoszt a saját **natív** Git-jével beszél (a `vscode.git` API vagy egy git CLI wrapper) ugyanazon üzenet-protokoll mögött.
 
 ## Fejlesztés
 
@@ -228,6 +286,9 @@ Minden kimenet a `dist/installers/` mappába kerül.
 - ✅ közös SVG megjelenítő + helyi menü (böngészős harness-ben ellenőrizve)
 - ✅ VS Code bővítmény (adatréteg valós repón végigvizsgálva)
 - ✅ Visual Studio VSIX elkészítve (build & futtatás Windows alatt a `vs/BUILD.md` szerint)
+- ✅ JetBrains plugin elkészítve (Kotlin, egyetlen build az IntelliJ Platform családhoz a `jetbrains/BUILD.md` szerint)
+- ✅ Eclipse plugin elkészítve (Java, PDE/OSGi + Tycho p2 update site a `eclipse/BUILD.md` szerint)
+- ✅ Apache NetBeans plugin elkészítve (Kotlin, a JetBrains közös git/DTO kódot újrahasználja; `.nbm` a `netbeans/BUILD.md` szerint)
 
 ## Licenc
 

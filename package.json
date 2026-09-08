@@ -2,7 +2,7 @@
   "name": "git-revision-graph",
   "private": true,
   "version": "0.1.0",
-  "description": "TortoiseSVN-style Revision Graph for Git, in Visual Studio and VS Code",
+  "description": "TortoiseSVN-style Revision Graph for Git — VS Code, Visual Studio, JetBrains, Eclipse and Apache NetBeans",
   "workspaces": [
     "packages/protocol",
     "packages/graph-core",

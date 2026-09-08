@@ -7,9 +7,13 @@
 
    <description url="https://github.com/HunKonTech/git_Revision_Graph">
       A TortoiseSVN-style revision graph for Git inside Eclipse. Commits, local
-      and remote branches, tags and stashes are drawn as connected, color-coded
-      boxes by the same shared web renderer used by the VS Code, Visual Studio
-      and JetBrains hosts.
+      and remote branches, tags, stashes and merges are drawn as connected,
+      color-coded boxes by the same shared web renderer used by the VS Code,
+      Visual Studio, JetBrains and Apache NetBeans hosts. Create a branch from
+      any commit, merge or squash-merge branches, reword a message, undo a
+      commit, check out, inspect changed files and diffs, stage and commit
+      working-tree changes, apply stashes, and fetch/pull/push/sync from the
+      toolbar.
    </description>
 
    <copyright>

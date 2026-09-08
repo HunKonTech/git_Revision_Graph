@@ -1,7 +1,7 @@
 # Git Revision Graph
 
 A **TortoiseSVN-style revision graph** for Git inside **VS Code**.
-Commits, local & remote branches, and tags are displayed as connected, color-coded boxes.
+Commits, local & remote branches, tags, stashes and merges are displayed as connected, color-coded boxes.
 
 **▶ [Try the live demo in your browser](https://hunkontech.github.io/git_Revision_Graph/)** — no install required; runs the real renderer on a sample repository.
 
@@ -17,12 +17,16 @@ Open a folder or workspace that contains a Git repository, then either:
 
 ## Features
 
-- **DAG layout** — commits arranged in columns per branch with connecting lines.
-- **Color-coded nodes** — HEAD/current branch (red), local branches (green), remote branches (blue), tags (yellow), plain commits (grey).
-- **Right-click a commit** → *"Create branch from here…"* — creates a new branch at that commit using VS Code's built-in Git, then refreshes the graph.
-- **Checkout** a commit directly from the graph.
-- **Copy SHA** of any commit.
-- **Zoom & pan** the graph canvas.
+- **DAG layout** — commits in columns per branch with connecting lines; modern (free canvas) or classic (trunk-pinned) display modes.
+- **Color-coded nodes** — HEAD/current branch (red), local branches (green), remote branches (blue), remote-only commits, tags (yellow), stashes, plain commits (grey), and commits merged into the branch that received them.
+- **Branch** — create a branch from any commit via an SVN-style folder-tree dialog or VS Code's native branch UI; rename, delete or push a branch.
+- **Merge** — merge or squash-merge one branch into another, with a schematic preview that shows the merge direction.
+- **Rewrite history** — reword a commit message; undo a commit while keeping its changes.
+- **Inspect** — a commit's changed files, file diffs with a minimap, and search inside a diff (`Ctrl/Cmd+F`).
+- **Commit** — stage and commit working-tree changes from the graph, with an optional review step.
+- **Stash** — apply, pop or drop a stash.
+- **Remotes** — fetch, pull, push and sync from the toolbar; search commit messages; jump to HEAD; zoom & pan.
+- **Localized** — English, Magyar, 中文, Русский; light/dark themes; optional plain-language labels instead of git jargon.
 
 ## Settings
 
@@ -32,7 +36,7 @@ Open a folder or workspace that contains a Git repository, then either:
 
 ## Other hosts
 
-Also available for **[Visual Studio 2022 / 2026](https://marketplace.visualstudio.com/items?itemName=BenKoncsik.GitRevisionGraph)** and **[JetBrains IDEs](https://plugins.jetbrains.com/plugin/32627-revision-graph-for-git-svn-style-)** (IntelliJ IDEA, Android Studio, DevEco Studio, WebStorm, PyCharm, GoLand, etc.).
+Also available for **[Visual Studio 2022 / 2026](https://marketplace.visualstudio.com/items?itemName=BenKoncsik.GitRevisionGraph)**, **[JetBrains IDEs](https://plugins.jetbrains.com/plugin/32627-revision-graph-for-git-svn-style-)** (IntelliJ IDEA, Android Studio, DevEco Studio, WebStorm, PyCharm, GoLand, etc.), **Eclipse** and **Apache NetBeans**.
 
 ## Source code & license
 
@@ -44,7 +48,7 @@ Also available for **[Visual Studio 2022 / 2026](https://marketplace.visualstudi
 # Git Revision Graph (Magyar)
 
 Egy **TortoiseSVN-stílusú revíziógraf** Git-hez **VS Code**-on belül.
-A commitok, helyi és távoli ágak, valamint tagek összekötött, színkódolt dobozokként jelennek meg.
+A commitok, helyi és távoli ágak, tagek, stash-ek és merge-ök összekötött, színkódolt dobozokként jelennek meg.
 
 **▶ [Próbáld ki az élő demót a böngésződben](https://hunkontech.github.io/git_Revision_Graph/)** — telepítés nélkül; a valódi megjelenítő fut egy minta-repozitóriummal.
 
@@ -60,12 +64,16 @@ Nyiss meg egy mappát vagy munkaterületet, amely egy Git repozitóriumot tartal
 
 ## Funkciók
 
-- **DAG elrendezés** — a commitok áganként oszlopokba rendezve, összekötő vonalakkal.
-- **Színkódolt csomópontok** — HEAD/aktuális ág (piros), helyi ágak (zöld), távoli ágak (kék), tagek (sárga), sima commitok (szürke).
-- **Jobb klikk egy commitra** → *"Ág létrehozása innen…"* — új ágat hoz létre az adott committól a VS Code beépített Git-jén keresztül, majd frissíti a gráfot.
-- **Checkout** — commit közvetlen kivétele a gráfból.
-- **SHA másolása** bármely commithoz.
-- **Nagyítás és mozgatás** a gráf felületén.
+- **DAG elrendezés** — commitok áganként oszlopokban, összekötő vonalakkal; modern (szabad vászon) vagy klasszikus (balra rögzített törzs) nézet.
+- **Színkódolt csomópontok** — HEAD/aktuális ág (piros), helyi ágak (zöld), távoli ágak (kék), csak-távoli commitok, tagek (sárga), stash-ek, sima commitok (szürke), és a fogadó ágba merge-ölt commitok.
+- **Ág** — új ág bármely committól SVN-stílusú mappafa-párbeszéddel vagy a VS Code natív ág-ablakával; ág átnevezése, törlése, push-olása.
+- **Merge** — egy ág merge-ölése vagy squash-merge-ölése egy másikba, a merge irányát mutató sematikus előnézettel.
+- **Történet átírása** — commit üzenet átírása; commit visszavonása a változtatások megtartásával.
+- **Vizsgálat** — egy commit módosított fájljai, fájl-diffek minimappel, és keresés a diffen belül (`Ctrl/Cmd+F`).
+- **Commit** — a munkakönyvtár változtatásainak stage-elése és commitolása a gráfból, opcionális átnézési lépéssel.
+- **Stash** — stash alkalmazása, pop-olása vagy eldobása.
+- **Távoli** — fetch, pull, push és sync az eszköztárból; commit üzenetek keresése; ugrás a HEAD-re; nagyítás és mozgatás.
+- **Honosított** — English, Magyar, 中文, Русский; világos/sötét téma; opcionálisan közérthető feliratok a git szakzsargon helyett.
 
 ## Beállítások
 
@@ -75,7 +83,7 @@ Nyiss meg egy mappát vagy munkaterületet, amely egy Git repozitóriumot tartal
 
 ## Más hosztokon
 
-Elérhető **[Visual Studio 2022 / 2026](https://marketplace.visualstudio.com/items?itemName=BenKoncsik.GitRevisionGraph)**-höz és **[JetBrains IDE-khez](https://plugins.jetbrains.com/plugin/32627-revision-graph-for-git-svn-style-)** is (IntelliJ IDEA, Android Studio, DevEco Studio, WebStorm, PyCharm, GoLand, stb.).
+Elérhető **[Visual Studio 2022 / 2026](https://marketplace.visualstudio.com/items?itemName=BenKoncsik.GitRevisionGraph)**-höz, **[JetBrains IDE-khez](https://plugins.jetbrains.com/plugin/32627-revision-graph-for-git-svn-style-)** (IntelliJ IDEA, Android Studio, DevEco Studio, WebStorm, PyCharm, GoLand, stb.), **Eclipse**-hez és **Apache NetBeans**-hez is.
 
 ## Forráskód és licenc
 
