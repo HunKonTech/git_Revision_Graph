@@ -55,6 +55,9 @@
     <Reference Include="PresentationFramework" />
     <Reference Include="System.Xaml" />
     <Reference Include="System.Design" />
+    <!-- System.Windows.Forms.Message is the parameter type of
+         WindowPane.PreProcessMessage, overridden in RevisionGraphToolWindow. -->
+    <Reference Include="System.Windows.Forms" />
   </ItemGroup>
 
   <ItemGroup>

@@ -36,6 +36,13 @@ namespace RevisionGraph
         private FileSystemWatcher _watcher;
         private DispatcherTimer _refreshTimer;
 
+        /// <summary>
+        /// True while the keyboard focus is inside the WebView2 — i.e. the page,
+        /// not some other part of Visual Studio. <see cref="RevisionGraphToolWindow"/>
+        /// only steals the search key chords from the shell in that case.
+        /// </summary>
+        internal bool IsWebViewKeyboardFocused => WebView != null && WebView.IsKeyboardFocusWithin;
+
         public WebViewHostControl()
         {
             InitializeComponent();

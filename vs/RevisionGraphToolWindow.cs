@@ -19,6 +19,23 @@ namespace RevisionGraph
     {
         private readonly WebViewHostControl _control;
 
+        // Keyboard messages Visual Studio would otherwise turn into IDE commands
+        // before the WebView2 ever sees them (see PreProcessMessage).
+        private const int WM_KEYDOWN = 0x0100;
+        private const int VK_F = 0x46;
+        private const int VK_G = 0x47;
+        private const int VK_F3 = 0x72;
+        private const int VK_CONTROL = 0x11;
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetFocus();
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern short GetKeyState(int nVirtKey);
+
         public RevisionGraphToolWindow() : base(null)
         {
             Caption = "Revision Graph";
@@ -39,6 +56,47 @@ namespace RevisionGraph
             ThreadHelper.ThrowIfNotOnUIThread();
             base.OnToolWindowCreated();
             Initialize((IServiceProvider)Package);
+        }
+
+        /// <summary>
+        /// Hand the webview's own search shortcuts to the WebView2 instead of
+        /// letting Visual Studio turn them into IDE commands.
+        ///
+        /// VS pre-translates key chords for the active tool window: Ctrl+F would
+        /// become Edit.Find (and F3 Edit.FindNext) and the message would never be
+        /// dispatched to the browser control, so the webview's "find in this diff"
+        /// box never opened — the shortcut simply did nothing on Windows. This
+        /// runs BEFORE that translation (see WindowPane.PreProcessMessage), sends
+        /// the key straight to the focused browser window, and reports the message
+        /// as handled so the shell stops routing it.
+        ///
+        /// SendMessage (not PostMessage) on purpose: it goes directly to the
+        /// window procedure, so the key cannot come back around through the
+        /// message pump and into this method again.
+        ///
+        /// Only the search chords are taken, and only while the keyboard focus is
+        /// inside our WebView2 — every other key keeps VS's normal behaviour.
+        /// </summary>
+        protected override bool PreProcessMessage(ref System.Windows.Forms.Message m)
+        {
+            if (m.Msg == WM_KEYDOWN && IsWebviewSearchKey(m.WParam.ToInt32()) && _control.IsWebViewKeyboardFocused)
+            {
+                IntPtr focused = GetFocus();
+                if (focused != IntPtr.Zero)
+                {
+                    SendMessage(focused, m.Msg, m.WParam, m.LParam);
+                    return true;
+                }
+            }
+            return base.PreProcessMessage(ref m);
+        }
+
+        /// <summary>Ctrl+F / Ctrl+G / F3 — the shortcuts the webview itself implements.</summary>
+        private static bool IsWebviewSearchKey(int virtualKey)
+        {
+            if (virtualKey == VK_F3) return true;
+            bool ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
+            return ctrl && (virtualKey == VK_F || virtualKey == VK_G);
         }
 
         /// <summary>Bind the window to the repository of the current solution.</summary>
