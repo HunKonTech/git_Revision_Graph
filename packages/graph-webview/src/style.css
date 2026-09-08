@@ -461,33 +461,21 @@ body,
 
 /* Legend hover preview: dim the whole graph except the one kind of line (or box)
    the pointer is over in the legend, so "which line is this?" is answered by
-   pointing at it. Deliberately written at the same specificity as the selection
-   rules above and placed after them, so the preview wins while a commit line is
-   selected — and the selection comes back untouched on mouseleave. */
+   pointing at it. A lit line keeps its two end boxes lit too — GraphView marks
+   both with .legend-lit, since which boxes an edge joins is not something a
+   selector can know. Written at the specificity of the selection rules above and
+   placed after them, so the preview wins while a commit line is selected — and
+   the selection comes back untouched on mouseleave. */
 .legend-hl .edge,
 .legend-hl.has-selection .edge,
 .legend-hl .node,
 .legend-hl.has-selection .node {
   opacity: 0.07;
 }
-/* A plain parent edge is the one with no kind of its own: everything else is
-   subtracted here, so a new edge kind can never silently join this row. */
-.legend-hl[data-legend-hl="parent"] .edge:not(.edge-merge):not(.edge-branch):not(.edge-branch-arrow):not(.edge-stash):not(.edge-merged-tie):not(.edge-merged-tie-arrow):not(.edge-merged-chain),
-.legend-hl[data-legend-hl="merge"] .edge-merge,
-.legend-hl[data-legend-hl="branch"] .edge-branch,
-.legend-hl[data-legend-hl="branch"] .edge-branch-arrow,
-.legend-hl[data-legend-hl="stash-edge"] .edge-stash,
-.legend-hl[data-legend-hl="merged-chain"] .edge-merged-chain,
-.legend-hl[data-legend-hl="merged-tie"] .edge-merged-tie,
-.legend-hl[data-legend-hl="merged-tie"] .edge-merged-tie-arrow,
-.legend-hl[data-legend-hl="head"] .node-head,
-.legend-hl[data-legend-hl="local"] .node-localBranch,
-.legend-hl[data-legend-hl="remote"] .node-remoteBranch,
-.legend-hl[data-legend-hl="remote-only"] .node-remote-only,
-.legend-hl[data-legend-hl="tag"] .node-tag,
-.legend-hl[data-legend-hl="commit"] .node-commit,
-.legend-hl[data-legend-hl="stash"] .node-stash,
-.legend-hl[data-legend-hl="merged-in"] .node-merged-in {
+.legend-hl .edge.legend-lit,
+.legend-hl.has-selection .edge.legend-lit,
+.legend-hl .node.legend-lit,
+.legend-hl.has-selection .node.legend-lit {
   opacity: 1;
 }
 

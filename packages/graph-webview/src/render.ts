@@ -6,8 +6,51 @@ import { t } from "./i18n.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
+/**
+ * Which of the six drawn line kinds an edge is — the same vocabulary the legend
+ * uses, so hovering a legend row can pick out exactly its lines (and the boxes
+ * they run between).
+ */
+type EdgeKind = "parent" | "merge" | "branch" | "stash-edge" | "merged-chain" | "merged-tie";
+
 /** An edge's DOM element plus its endpoint node ids and flags, for highlighting. */
-type EdgeRecord = { el: SVGPathElement; fromId: string; toId: string; stash: boolean; merge: boolean };
+type EdgeRecord = {
+  el: SVGPathElement;
+  fromId: string;
+  toId: string;
+  stash: boolean;
+  merge: boolean;
+  kind: EdgeKind;
+};
+
+/** A node's DOM element plus the legend rows it answers to. */
+type NodeRecord = { el: SVGGElement; id: string; kinds: string[] };
+
+/** The legend row a line belongs to. Checked most specific first. */
+function edgeKind(e: LayoutEdge): EdgeKind {
+  if (e.isStash) return "stash-edge";
+  if (e.isMergedTie) return "merged-tie";
+  if (e.isBranch) return "branch";
+  if (e.isMerge) return "merge";
+  if (e.isMergedChain) return "merged-chain";
+  return "parent";
+}
+
+/** The legend rows a box answers to: its ref kind, plus any state modifiers. */
+function nodeKinds(c: PositionedCommit): string[] {
+  const byRef: Record<NodeKind, string> = {
+    head: "head",
+    localBranch: "local",
+    remoteBranch: "remote",
+    tag: "tag",
+    commit: "commit",
+    stash: "stash",
+  };
+  const kinds = [byRef[nodeKind(c)]];
+  if (c.remoteOnly) kinds.push("remote-only");
+  if (c.mergedIn) kinds.push("merged-in");
+  return kinds;
+}
 
 /** Pixel geometry of the grid. Tuned to resemble the TortoiseSVN graph. */
 const LANE_W = 210;
@@ -72,7 +115,7 @@ export class GraphView {
   /** Edge DOM elements with their endpoint node ids, for path highlighting. */
   private edgeRecords: EdgeRecord[] = [];
   /** Node DOM elements with their node id, for path highlighting. */
-  private nodeRecords: Array<{ el: SVGGElement; id: string }> = [];
+  private nodeRecords: NodeRecord[] = [];
   /** Every positioned node by its unique nodeId (real, phantom and stash). */
   private nodeById = new Map<string, PositionedCommit>();
   /** The node id that really draws each sha (phantoms and merged-in copies aside). */
@@ -226,11 +269,26 @@ export class GraphView {
   setLegendHighlight(kind: string | null): void {
     if (kind === null) {
       this.viewport.classList.remove("legend-hl");
-      this.viewport.removeAttribute("data-legend-hl");
+      for (const r of this.edgeRecords) r.el.classList.remove("legend-lit");
+      for (const r of this.nodeRecords) r.el.classList.remove("legend-lit");
       return;
     }
+    // A lit line keeps the two boxes it runs between lit as well: a line hanging
+    // in an empty grey field says nothing about what it connects, which is the
+    // whole question the legend row is answering.
+    const endpoints = new Set<string>();
+    for (const r of this.edgeRecords) {
+      const on = r.kind === kind;
+      r.el.classList.toggle("legend-lit", on);
+      if (on) {
+        endpoints.add(r.fromId);
+        endpoints.add(r.toId);
+      }
+    }
+    for (const r of this.nodeRecords) {
+      r.el.classList.toggle("legend-lit", r.kinds.includes(kind) || endpoints.has(r.id));
+    }
     this.viewport.classList.add("legend-hl");
-    this.viewport.setAttribute("data-legend-hl", kind);
   }
 
   setData(data: GraphData, mainBranch?: string, showMergedInTarget = false): void {
@@ -525,6 +583,9 @@ export class GraphView {
   private draw(): void {
     while (this.viewport.firstChild) this.viewport.removeChild(this.viewport.firstChild);
     this.viewport.classList.remove("has-selection");
+    // The rebuilt elements carry no lit marks, so a redraw mid-hover would dim
+    // the whole graph with nothing left standing.
+    this.viewport.classList.remove("legend-hl");
     this.edgeRecords = [];
     this.nodeRecords = [];
     if (!this.layout) return;
@@ -608,6 +669,7 @@ export class GraphView {
     edgeLayer.classList.add("edges");
     for (const e of this.layout.edges) {
       const el = this.edgePath(e);
+      const kind = edgeKind(e);
       edgeLayer.appendChild(el);
       this.edgeRecords.push({
         el,
@@ -615,6 +677,7 @@ export class GraphView {
         toId: e.toId,
         stash: e.isStash === true,
         merge: e.isMerge === true,
+        kind,
       });
       // Merge edges carry arrowheads (start, middle, end of the line) pointing
       // at the commit that received the merge, so the direction of the merge is
@@ -624,7 +687,7 @@ export class GraphView {
       if (e.isMerge && !e.isStash) {
         for (const arrow of this.mergeArrows(e)) {
           edgeLayer.appendChild(arrow);
-          this.edgeRecords.push({ el: arrow, fromId: e.fromId, toId: e.toId, stash: false, merge: true });
+          this.edgeRecords.push({ el: arrow, fromId: e.fromId, toId: e.toId, stash: false, merge: true, kind });
         }
       }
       // A branch sprout gets a single head at the branch end, so the sideways
@@ -633,7 +696,7 @@ export class GraphView {
       if (e.isBranch && !e.isStash) {
         for (const arrow of this.branchArrows(e)) {
           edgeLayer.appendChild(arrow);
-          this.edgeRecords.push({ el: arrow, fromId: e.fromId, toId: e.toId, stash: false, merge: false });
+          this.edgeRecords.push({ el: arrow, fromId: e.fromId, toId: e.toId, stash: false, merge: false, kind });
         }
       }
       // The tie between a merged-in copy and its original carries one arrowhead
@@ -642,7 +705,7 @@ export class GraphView {
       if (e.isMergedTie) {
         for (const arrow of this.tieArrows(e)) {
           edgeLayer.appendChild(arrow);
-          this.edgeRecords.push({ el: arrow, fromId: e.fromId, toId: e.toId, stash: false, merge: false });
+          this.edgeRecords.push({ el: arrow, fromId: e.fromId, toId: e.toId, stash: false, merge: false, kind });
         }
       }
     }
@@ -653,7 +716,7 @@ export class GraphView {
     for (const c of this.layout.commits) {
       const el = this.nodeBox(c);
       nodeLayer.appendChild(el);
-      this.nodeRecords.push({ el, id: c.nodeId });
+      this.nodeRecords.push({ el, id: c.nodeId, kinds: nodeKinds(c) });
     }
     this.viewport.appendChild(nodeLayer);
     this.updateSearchClasses();
