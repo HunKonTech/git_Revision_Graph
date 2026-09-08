@@ -659,6 +659,33 @@ describe("computeLayout — showMergedInTarget", () => {
     for (const tie of ties) expect(tie.fromRow).toBe(tie.toRow);
   });
 
+  it("marks the chain edges so the renderer can tint them apart from the trunk", () => {
+    const layout = computeLayout(merged(), { mainBranch: "main", showMergedInTarget: true });
+    const chainOf = (from: string, to: string) =>
+      layout.edges.find((e) => e.fromId === from && e.toId === to && !e.isMergedTie)!;
+    // Every hop of the borrowed run is flagged: into the copies, between them,
+    // and back out to the merge's first parent.
+    const hops: Array<[string, string]> = [
+      ["MG", "T2@merged:MG"],
+      ["T2@merged:MG", "T1@merged:MG"],
+      ["T1@merged:MG", "B"],
+    ];
+    for (const [from, to] of hops) {
+      expect(chainOf(from, to).isMergedChain).toBe(true);
+    }
+    // A tie is not a chain edge, and neither is the merge's own connector.
+    for (const tie of layout.edges.filter((e) => e.isMergedTie)) {
+      expect(tie.isMergedChain).toBeUndefined();
+    }
+    expect(layout.edges.find((e) => e.isMerge)!.isMergedChain).toBeUndefined();
+  });
+
+  it("flags no chain edges while the merged-in view is off", () => {
+    const layout = computeLayout(merged(), { mainBranch: "main" });
+    expect(layout.edges.some((e) => e.isMergedChain)).toBe(false);
+    expect(layout.edges.some((e) => e.isMergedTie)).toBe(false);
+  });
+
   it("adds nothing for a squashed merge (one ordinary commit)", () => {
     // A squash writes a single-parent commit, so the branch never becomes an
     // ancestor of main — there is nothing to bring in.

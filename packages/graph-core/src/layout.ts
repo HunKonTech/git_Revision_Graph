@@ -90,6 +90,13 @@ export interface LayoutEdge {
    * is not a parent link, just "these two boxes are the same commit".
    */
   isMergedTie?: boolean;
+  /**
+   * True for the chain edges that redraw the receiving column through the
+   * merged-in copies (copy -> copy, and the oldest copy -> the merge's first
+   * parent). They are real parent links, but they run through borrowed boxes,
+   * so the renderer tints them like the copies instead of like the trunk.
+   */
+  isMergedChain?: boolean;
 }
 
 export interface GraphLayout {
@@ -731,6 +738,7 @@ export function computeLayout(data: GraphData, options: LayoutOptions = {}): Gra
         toRow: orig.row,
         toLane: lane,
         isMerge: false,
+        isMergedChain: true,
       });
       edges.push({
         fromSha: sha,
@@ -760,6 +768,7 @@ export function computeLayout(data: GraphData, options: LayoutOptions = {}): Gra
         toRow: firstParent.row,
         toLane: firstParent.lane,
         isMerge: false,
+        isMergedChain: true,
       });
     }
   }

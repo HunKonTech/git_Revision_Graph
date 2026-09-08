@@ -112,6 +112,14 @@ type Dict = {
   "legend.commit": string;
   "legend.stash": string;
   "legend.mergedIn": string;
+  "legend.nodes": string;
+  "legend.lines": string;
+  "legend.edgeParent": string;
+  "legend.edgeMerge": string;
+  "legend.edgeBranch": string;
+  "legend.edgeStash": string;
+  "legend.edgeMergedChain": string;
+  "legend.edgeMergedTie": string;
   "menu.jumpHead": string;
   "menu.resetView": string;
   "menu.createBranch": string;
@@ -361,6 +369,14 @@ const DICTS: Record<Lang, Dict> = {
     "legend.commit": "Commit",
     "legend.stash": "Stash (shelved work)",
     "legend.mergedIn": "Came in with a merge (written on another branch)",
+    "legend.nodes": "Boxes",
+    "legend.lines": "Lines",
+    "legend.edgeParent": "Previous commit on the same line",
+    "legend.edgeMerge": "Merged-in branch — the arrow points at the merge commit",
+    "legend.edgeBranch": "A branch forked off here",
+    "legend.edgeStash": "Stash and the commit it was shelved on",
+    "legend.edgeMergedChain": "This branch's line running through the merged-in commits",
+    "legend.edgeMergedTie": "The same commit on the branch it was written on",
     "menu.jumpHead": "⌖ Go to checkout",
     "menu.resetView": "⤢ Reset view",
     "menu.createBranch": "Create branch from here…",
@@ -610,6 +626,14 @@ const DICTS: Record<Lang, Dict> = {
     "legend.commit": "Commit",
     "legend.stash": "Stash (félretett munka)",
     "legend.mergedIn": "Merge-csel került ide (másik ágon készült)",
+    "legend.nodes": "Dobozok",
+    "legend.lines": "Vonalak",
+    "legend.edgeParent": "Előző commit ugyanazon a vonalon",
+    "legend.edgeMerge": "Beolvasztott branch — a nyíl a merge-commitra mutat",
+    "legend.edgeBranch": "Innen ágazik le egy branch",
+    "legend.edgeStash": "Stash és a commit, amire félre lett téve",
+    "legend.edgeMergedChain": "Ennek a branchnek a vonala a beolvasztott commitokon át",
+    "legend.edgeMergedTie": "Ugyanaz a commit azon a branchen, ahol készült",
     "menu.jumpHead": "⌖ Ugrás a checkout-ra",
     "menu.resetView": "⤢ Nézet visszaállítása",
     "menu.createBranch": "Branch létrehozása innen…",
@@ -859,6 +883,14 @@ const DICTS: Record<Lang, Dict> = {
     "legend.commit": "提交",
     "legend.stash": "储藏（暂存的工作）",
     "legend.mergedIn": "随合并进入（在其他分支上创建）",
+    "legend.nodes": "方框",
+    "legend.lines": "连线",
+    "legend.edgeParent": "同一条线上的上一个提交",
+    "legend.edgeMerge": "被合并进来的分支——箭头指向合并提交",
+    "legend.edgeBranch": "从这里分出了一个分支",
+    "legend.edgeStash": "储藏及其所基于的提交",
+    "legend.edgeMergedChain": "本分支的线穿过被合并进来的提交",
+    "legend.edgeMergedTie": "同一个提交在它实际创建的分支上",
     "menu.jumpHead": "⌖ 跳转到检出位置",
     "menu.resetView": "⤢ 重置视图",
     "menu.createBranch": "从此处创建分支…",
@@ -1108,6 +1140,14 @@ const DICTS: Record<Lang, Dict> = {
     "legend.commit": "Коммит",
     "legend.stash": "Stash (отложенная работа)",
     "legend.mergedIn": "Попал сюда со слиянием (создан в другой ветке)",
+    "legend.nodes": "Блоки",
+    "legend.lines": "Линии",
+    "legend.edgeParent": "Предыдущий коммит на той же линии",
+    "legend.edgeMerge": "Влитая ветка — стрелка указывает на коммит слияния",
+    "legend.edgeBranch": "Отсюда ответвилась ветка",
+    "legend.edgeStash": "Stash и коммит, на котором он отложен",
+    "legend.edgeMergedChain": "Линия этой ветки, проходящая через влитые коммиты",
+    "legend.edgeMergedTie": "Тот же коммит на ветке, где он был создан",
     "menu.jumpHead": "⌖ Перейти к checkout",
     "menu.resetView": "⤢ Сбросить вид",
     "menu.createBranch": "Создать ветку отсюда…",
@@ -1295,6 +1335,11 @@ const JARGON: Partial<Record<Lang, Partial<Record<MsgKey, JargonEntry>>>> = {
     "legend.remote": { tr: "Távoli ág" },
     "legend.remoteOnly": { tr: "Csak a felhőben (nincs lehúzva)" },
     "legend.stash": { tr: "Félretett munka" },
+    "legend.edgeMerge": { tr: "Beolvasztott ág — a nyíl az összefésülő commitra mutat" },
+    "legend.edgeBranch": { tr: "Innen ágazik le egy ág" },
+    "legend.edgeStash": { tr: "Félretett munka és a commit, amire félre lett téve" },
+    "legend.edgeMergedChain": { tr: "Ennek az ágnak a vonala a beolvasztott commitokon át" },
+    "legend.edgeMergedTie": { tr: "Ugyanaz a commit azon az ágon, ahol készült" },
     "menu.checkout": { tr: "Váltás erre a beküldésre" },
     "menu.copySha": { tr: "Beküldés SHA másolása" },
     "menu.pushBranch": { tr: '"{name}" ág feltöltése' },
@@ -1344,6 +1389,11 @@ const JARGON: Partial<Record<Lang, Partial<Record<MsgKey, JargonEntry>>>> = {
     "legend.remote": { en: "远程 branch" },
     "legend.remoteOnly": { en: "仅在云端（尚未 pull）" },
     "legend.stash": { en: "Stash（暂存的工作）" },
+    "legend.edgeMerge": { en: "被 merge 进来的 branch——箭头指向 merge commit" },
+    "legend.edgeBranch": { en: "从这里分出了一个 branch" },
+    "legend.edgeStash": { en: "Stash 及其所基于的 commit" },
+    "legend.edgeMergedChain": { en: "本 branch 的线穿过被 merge 进来的 commit" },
+    "legend.edgeMergedTie": { en: "同一个 commit 在它实际创建的 branch 上" },
     "menu.checkout": { en: "Checkout 此 commit" },
     "menu.copySha": { en: "复制 commit SHA" },
     "menu.pushBranch": { en: 'Push branch “{name}”' },
@@ -1393,6 +1443,11 @@ const JARGON: Partial<Record<Lang, Partial<Record<MsgKey, JargonEntry>>>> = {
     "legend.remote": { en: "Удалённый branch" },
     "legend.remoteOnly": { en: "Только в облаке (не сделан pull)" },
     "legend.stash": { tr: "Спрятанное (отложенная работа)" },
+    "legend.edgeMerge": { en: "Влитый branch — стрелка указывает на merge commit" },
+    "legend.edgeBranch": { en: "Отсюда ответвился branch" },
+    "legend.edgeStash": { en: "Stash и commit, на котором он отложен" },
+    "legend.edgeMergedChain": { en: "Линия этого branch, проходящая через влитые commit-ы" },
+    "legend.edgeMergedTie": { en: "Тот же commit на branch, где он был создан" },
     "menu.checkout": { en: "Checkout на этот commit" },
     "menu.copySha": { en: "Копировать SHA commit’а" },
     "menu.pushBranch": { en: 'Push branch «{name}»' },

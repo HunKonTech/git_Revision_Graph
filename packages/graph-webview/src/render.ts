@@ -217,6 +217,22 @@ export class GraphView {
     this.container.dataset.theme = theme.kind;
   }
 
+  /**
+   * Preview one legend entry: dim the whole graph except the lines (or boxes) of
+   * the hovered kind. Purely a CSS state toggle on the viewport — no DOM rebuild
+   * and no interaction with the selection, which stays as it was and comes back
+   * untouched when the pointer leaves the legend. Pass null to clear.
+   */
+  setLegendHighlight(kind: string | null): void {
+    if (kind === null) {
+      this.viewport.classList.remove("legend-hl");
+      this.viewport.removeAttribute("data-legend-hl");
+      return;
+    }
+    this.viewport.classList.add("legend-hl");
+    this.viewport.setAttribute("data-legend-hl", kind);
+  }
+
   setData(data: GraphData, mainBranch?: string, showMergedInTarget = false): void {
     this.layout = computeLayout(data, { mainBranch, showMergedInTarget });
     this.head = data.head ?? null;
@@ -611,6 +627,15 @@ export class GraphView {
           this.edgeRecords.push({ el: arrow, fromId: e.fromId, toId: e.toId, stash: false, merge: true });
         }
       }
+      // A branch sprout gets a single head at the branch end, so the sideways
+      // link reads as "this branch came off that commit" rather than as an
+      // undirected pairing.
+      if (e.isBranch && !e.isStash) {
+        for (const arrow of this.branchArrows(e)) {
+          edgeLayer.appendChild(arrow);
+          this.edgeRecords.push({ el: arrow, fromId: e.fromId, toId: e.toId, stash: false, merge: false });
+        }
+      }
       // The tie between a merged-in copy and its original carries one arrowhead
       // too, so the dotted line reads as "came from there", not just "these two
       // are related".
@@ -685,6 +710,10 @@ export class GraphView {
     const path = document.createElementNS(SVG_NS, "path");
     path.classList.add("edge");
     if (e.isMerge) path.classList.add("edge-merge");
+    // The receiving column's line where it runs through borrowed (merged-in)
+    // boxes: still a parent link, but tinted like the copies so it never reads
+    // as "this branch wrote these commits".
+    if (e.isMergedChain) path.classList.add("edge-merged-chain");
 
     if (e.isMergedTie) {
       // The same commit drawn twice on one row (its own branch box and the copy
@@ -740,48 +769,7 @@ export class GraphView {
       // that box so it stays a clean straight run rather than crossing it; if
       // there is no room within both end boxes, it routes through the row gap.
       path.classList.add(e.isStash ? "edge-stash" : "edge-branch");
-      const forkRight = this.boxX(e.toLane) + BOX_W;
-      const forkH = this.ownHeight.get(e.toId) ?? CONTENT_H;
-      const boxLeft = this.boxX(e.fromLane);
-      const boxH = this.ownHeight.get(e.fromId) ?? CONTENT_H;
-      const top = this.boxY(e.toRow); // fork commit and its branch/stash share this row
-      let y = this.rightAttachY(e, top, Math.min(forkH, boxH));
-
-      // Tallest box strictly between the two lanes on this row, if any.
-      const lo = Math.min(e.fromLane, e.toLane) + 1;
-      const hi = Math.max(e.fromLane, e.toLane) - 1;
-      let blockBottom = 0;
-      for (let lane = lo; lane <= hi; lane++) {
-        const b = this.boxBottom.get(`${e.toRow}:${lane}`);
-        if (b !== undefined && b > blockBottom) blockBottom = b;
-      }
-
-      const bottomLimit = top + Math.min(forkH, boxH); // lowest both boxes still cover
-      if (blockBottom > 0 && blockBottom + 6 <= bottomLimit - 4) {
-        // Room below the blocking box within both end boxes → keep it straight.
-        y = Math.min(bottomLimit - 4, Math.max(y, blockBottom + 6));
-        path.setAttribute("d", roundedPath([[forkRight, y], [boxLeft, y]], 8));
-      } else if (blockBottom > 0) {
-        // No room for a straight line → dip through the box-free row gap below.
-        // Stagger the vertical run and the gap height by fan-out slot so several
-        // gap-routed forks off one commit don't draw over each other.
-        const idx = this.rightAttach.get(e)?.index ?? 0;
-        const gutterX = forkRight + 8 + idx * 7;
-        const gapY = this.rowBottom(e.toRow) + ROW_GAP / 2 + idx * 5;
-        const targetCx = this.boxX(e.fromLane) + BOX_W / 2;
-        const targetBottom = top + boxH;
-        const pts: Array<[number, number]> = [
-          [forkRight, y],
-          [gutterX, y],
-          [gutterX, gapY],
-          [targetCx, gapY],
-          [targetCx, targetBottom],
-        ];
-        path.setAttribute("d", roundedPath(pts, 8));
-      } else {
-        // Clear path → straight horizontal line.
-        path.setAttribute("d", roundedPath([[forkRight, y], [boxLeft, y]], 8));
-      }
+      path.setAttribute("d", roundedPath(this.sproutRoute(e), 8));
       return path;
     }
 
@@ -803,6 +791,76 @@ export class GraphView {
     // softer look.
     path.setAttribute("d", roundedPath(this.parentEdgePoints(e), 8));
     return path;
+  }
+
+  /**
+   * Waypoints of a branch/stash sprout, fork-commit end first. Both boxes sit on
+   * the same row, so the run is horizontal: out of the fork commit's right side
+   * and into the target box's left side. When a box sits between them the line
+   * drops just below it if both end boxes still cover that height, and otherwise
+   * detours through the box-free row gap and comes back up into the target's
+   * bottom edge. Shared by the path and its arrowhead so the two can't drift.
+   */
+  private sproutRoute(e: LayoutEdge): Array<[number, number]> {
+    const forkRight = this.boxX(e.toLane) + BOX_W;
+    const forkH = this.ownHeight.get(e.toId) ?? CONTENT_H;
+    const boxLeft = this.boxX(e.fromLane);
+    const boxH = this.ownHeight.get(e.fromId) ?? CONTENT_H;
+    const top = this.boxY(e.toRow); // fork commit and its branch/stash share this row
+    let y = this.rightAttachY(e, top, Math.min(forkH, boxH));
+
+    // Tallest box strictly between the two lanes on this row, if any.
+    const lo = Math.min(e.fromLane, e.toLane) + 1;
+    const hi = Math.max(e.fromLane, e.toLane) - 1;
+    let blockBottom = 0;
+    for (let lane = lo; lane <= hi; lane++) {
+      const b = this.boxBottom.get(`${e.toRow}:${lane}`);
+      if (b !== undefined && b > blockBottom) blockBottom = b;
+    }
+
+    const bottomLimit = top + Math.min(forkH, boxH); // lowest both boxes still cover
+    if (blockBottom > 0 && blockBottom + 6 <= bottomLimit - 4) {
+      // Room below the blocking box within both end boxes → keep it straight.
+      y = Math.min(bottomLimit - 4, Math.max(y, blockBottom + 6));
+      return [[forkRight, y], [boxLeft, y]];
+    }
+    if (blockBottom > 0) {
+      // No room for a straight line → dip through the box-free row gap below.
+      // Stagger the vertical run and the gap height by fan-out slot so several
+      // gap-routed forks off one commit don't draw over each other.
+      const idx = this.rightAttach.get(e)?.index ?? 0;
+      const gutterX = forkRight + 8 + idx * 7;
+      const gapY = this.rowBottom(e.toRow) + ROW_GAP / 2 + idx * 5;
+      const targetCx = this.boxX(e.fromLane) + BOX_W / 2;
+      const targetBottom = top + boxH;
+      return [
+        [forkRight, y],
+        [gutterX, y],
+        [gutterX, gapY],
+        [targetCx, gapY],
+        [targetCx, targetBottom],
+      ];
+    }
+    // Clear path → straight horizontal line.
+    return [[forkRight, y], [boxLeft, y]];
+  }
+
+  /**
+   * Solid arrowhead for a branch sprout, pointing from the fork commit *into*
+   * the branch box that grew out of it. One head is enough: the run is short and
+   * both of its ends are in view at once. Without it the sprout reads as an
+   * undirected "these two belong together" link, which is exactly what it is
+   * not — the branch came off the commit, never the other way round.
+   */
+  private branchArrows(e: LayoutEdge): SVGPathElement[] {
+    const pts = this.sproutRoute(e);
+    const [x2, y2] = pts[pts.length - 1]!; // where the line meets the branch box
+    const [x1, y1] = pts[pts.length - 2]!;
+    const dx = Math.sign(x2 - x1);
+    const dy = Math.sign(y2 - y1);
+    if (dx === 0 && dy === 0) return [];
+    // Pull the head back by its own tip length so the tip lands on the box edge.
+    return [this.arrowAt(x2 - dx * 5, y2 - dy * 5, dx, dy, "edge-branch-arrow")];
   }
 
   /**

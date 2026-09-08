@@ -78,7 +78,9 @@ function boot(): void {
   const canvas = document.createElement("div");
   canvas.className = "graph-canvas";
   canvas.style.position = "relative";
-  const legend = buildLegend();
+  // Hovering a legend row previews that kind in the graph. `view` is created a
+  // few lines below; the closure only runs on hover, long after that.
+  const legend = buildLegend((kind) => view.setLegendHighlight(kind));
   canvas.appendChild(legend);
 
   const detailsPanel = buildDetailsPanel();
@@ -759,21 +761,69 @@ function makeButton(act: string, key: MsgKey): HTMLButtonElement {
   return btn;
 }
 
-/** Legend rows: swatch class + i18n key for the label. */
-const LEGEND_ITEMS: { cls: string; key: MsgKey }[] = [
-  { cls: "head", key: "legend.head" },
-  { cls: "local", key: "legend.local" },
-  { cls: "remote", key: "legend.remote" },
-  { cls: "remote-only", key: "legend.remoteOnly" },
-  { cls: "tag", key: "legend.tag" },
-  { cls: "commit", key: "legend.commit" },
-  { cls: "stash", key: "legend.stash" },
+/** A legend row: its own CSS class, the i18n key for its label, and the value
+ *  the graph is put into while the row is hovered (see setLegendHighlight). */
+type LegendItem = { cls: string; key: MsgKey; hl: string };
+
+/** Box colours — what the *nodes* mean. */
+const NODE_LEGEND_ITEMS: LegendItem[] = [
+  { cls: "head", key: "legend.head", hl: "head" },
+  { cls: "local", key: "legend.local", hl: "local" },
+  { cls: "remote", key: "legend.remote", hl: "remote" },
+  { cls: "remote-only", key: "legend.remoteOnly", hl: "remote-only" },
+  { cls: "tag", key: "legend.tag", hl: "tag" },
+  { cls: "commit", key: "legend.commit", hl: "commit" },
+  { cls: "stash", key: "legend.stash", hl: "stash" },
   // Only meaningful while merged-in commits are shown in the receiving branch's
   // lane; CSS hides the row unless the legend carries `data-merged-in`.
-  { cls: "merged-in", key: "legend.mergedIn" },
+  { cls: "merged-in", key: "legend.mergedIn", hl: "merged-in" },
 ];
 
-function buildLegend(): HTMLElement {
+/** Line styles — what the *connections between* the nodes mean. */
+const EDGE_LEGEND_ITEMS: LegendItem[] = [
+  { cls: "parent", key: "legend.edgeParent", hl: "parent" },
+  { cls: "merge", key: "legend.edgeMerge", hl: "merge" },
+  { cls: "branch", key: "legend.edgeBranch", hl: "branch" },
+  { cls: "stash-edge", key: "legend.edgeStash", hl: "stash-edge" },
+  // Both merged-in line kinds share the merged-in view's visibility gate.
+  { cls: "merged-chain", key: "legend.edgeMergedChain", hl: "merged-chain" },
+  { cls: "merged-tie", key: "legend.edgeMergedTie", hl: "merged-tie" },
+];
+
+/**
+ * SVG markup for a line row's swatch. Drawn with the graph's *own* edge classes
+ * rather than a copy of their colours, so a swatch can never drift from the line
+ * it explains: restyle an edge and its legend entry follows. Kinds whose lines
+ * carry a direction get the same arrowhead the graph draws, pointing right.
+ */
+function edgeSwatch(cls: string): string {
+  const line = (edgeCls: string): string =>
+    `<path class="edge ${edgeCls}" d="M1 6 H29" />`;
+  const head = (arrowCls: string): string =>
+    `<path class="edge ${arrowCls} edge-arrow" d="M29 6 L22 2.5 L22 9.5 Z" />`;
+  switch (cls) {
+    case "merge":
+      return line("edge-merge") + head("edge-merge");
+    case "branch":
+      return line("edge-branch") + head("edge-branch-arrow");
+    case "stash-edge":
+      return line("edge-stash");
+    case "merged-chain":
+      return line("edge-merged-chain");
+    case "merged-tie":
+      return line("edge-merged-tie") + head("edge-merged-tie-arrow");
+    default:
+      return line("");
+  }
+}
+
+/**
+ * The legend panel: two collapsible sections, boxes and lines. Hovering a row
+ * previews that kind in the graph (everything else dims), which is the fastest
+ * way to answer "which line is this?" — `onHover` is handed straight to
+ * GraphView.setLegendHighlight.
+ */
+function buildLegend(onHover: (kind: string | null) => void): HTMLElement {
   const legend = document.createElement("div");
   legend.className = "legend";
 
@@ -784,38 +834,66 @@ function buildLegend(): HTMLElement {
 
   const body = document.createElement("div");
   body.className = "legend-body";
-  for (const { cls } of LEGEND_ITEMS) {
-    const row = document.createElement("div");
-    row.className = `legend-row ${cls}`;
-    row.innerHTML = `<span class="legend-swatch ${cls}"></span><span class="legend-label"></span>`;
-    body.appendChild(row);
-  }
+
+  const addSection = (titleKey: MsgKey, items: LegendItem[], swatch: (i: LegendItem) => string): void => {
+    const section = document.createElement("div");
+    section.className = "legend-section";
+    const secHeader = document.createElement("div");
+    secHeader.className = "legend-section-header";
+    secHeader.innerHTML = `<span class="legend-label" data-key="${titleKey}"></span><span class="legend-toggle">▲</span>`;
+    const secBody = document.createElement("div");
+    secBody.className = "legend-section-body";
+    for (const item of items) {
+      const row = document.createElement("div");
+      row.className = `legend-row ${item.cls}`;
+      row.innerHTML = `${swatch(item)}<span class="legend-label" data-key="${item.key}"></span>`;
+      row.addEventListener("mouseenter", () => onHover(item.hl));
+      secBody.appendChild(row);
+    }
+    secHeader.addEventListener("click", () => toggleCollapsed(section, secHeader));
+    section.append(secHeader, secBody);
+    body.appendChild(section);
+  };
+
+  addSection("legend.nodes", NODE_LEGEND_ITEMS, (i) => `<span class="legend-swatch ${i.cls}"></span>`);
+  addSection(
+    "legend.lines",
+    EDGE_LEGEND_ITEMS,
+    (i) => `<svg class="legend-line" viewBox="0 0 30 12" aria-hidden="true">${edgeSwatch(i.cls)}</svg>`,
+  );
   legend.appendChild(body);
 
-  header.addEventListener("click", () => {
-    const collapsed = legend.hasAttribute("data-collapsed");
-    if (collapsed) {
-      legend.removeAttribute("data-collapsed");
-      (header.querySelector(".legend-toggle") as HTMLElement).textContent = "▲";
-    } else {
-      legend.setAttribute("data-collapsed", "");
-      (header.querySelector(".legend-toggle") as HTMLElement).textContent = "▼";
-    }
-  });
+  // One clear on the panel is enough: leaving a row always means either entering
+  // another row (which sets its own kind) or leaving the panel.
+  legend.addEventListener("mouseleave", () => onHover(null));
+
+  header.addEventListener("click", () => toggleCollapsed(legend, header));
 
   relabelLegend(legend);
   return legend;
 }
 
-/** Fill (or refresh) the legend's text in the active language. */
+/** Collapse/expand a legend panel or one of its sections, flipping its caret. */
+function toggleCollapsed(el: HTMLElement, header: HTMLElement): void {
+  const collapsed = el.hasAttribute("data-collapsed");
+  if (collapsed) el.removeAttribute("data-collapsed");
+  else el.setAttribute("data-collapsed", "");
+  const caret = header.querySelector(".legend-toggle");
+  if (caret) caret.textContent = collapsed ? "▲" : "▼";
+}
+
+/**
+ * Fill (or refresh) the legend's text in the active language. Each label carries
+ * its own key, so the two row lists can grow independently without the labels
+ * sliding onto the wrong rows.
+ */
 function relabelLegend(legend: HTMLElement): void {
   const title = legend.querySelector(".legend-title");
   if (title) title.textContent = t("legend.title");
-  const labels = legend.querySelectorAll(".legend-label");
-  LEGEND_ITEMS.forEach((item, i) => {
-    const el = labels[i];
-    if (el) el.textContent = t(item.key);
-  });
+  for (const el of legend.querySelectorAll<HTMLElement>(".legend-label")) {
+    const key = el.dataset.key as MsgKey | undefined;
+    if (key) el.textContent = t(key);
+  }
 }
 
 function buildDetailsPanel(): HTMLElement {

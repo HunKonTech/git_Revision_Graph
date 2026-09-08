@@ -24,6 +24,13 @@
   --stash-edge: #9a6fd0;
   --edge: #8a8a8a;
   --edge-merge: #c08a3a;
+  /* A branch sprouting sideways off the commit it forked from. Teal, so it is
+     never confused with the merge orange coming the other way, nor with the
+     darker local-branch green used for boxes. */
+  --edge-branch: #5aa9a0;
+  /* The receiving column's line where it runs through merged-in copies: the
+     copies' own muted hue, one step lighter so it still reads as a line. */
+  --merged-in-chain: #b8ae94;
 }
 
 * {
@@ -377,6 +384,15 @@ body,
   opacity: 0.75;
 }
 
+/* Arrowheads are solid triangles (filled, not stroked, so a dashed line style
+   can't hollow them out). This is the default fill — each line kind's own
+   arrow rule below overrides it, so an arrow always matches its line. */
+.edge-arrow {
+  fill: var(--edge-merge);
+  stroke: none;
+  stroke-dasharray: none;
+}
+
 /* The tie's arrowhead: same colour as the tie, solid (an arrow drawn with the
    dotted stroke would fall apart) and pointing at the copy. */
 .edge-merged-tie-arrow {
@@ -389,12 +405,30 @@ body,
   stroke: none;
 }
 
-/* Merge-direction arrowhead: a solid triangle at the merge commit's end of the
-   line, filled (not stroked) so the dashed merge style doesn't hollow it out. */
-.edge-arrow {
-  fill: var(--edge-merge);
+
+/* A branch (or a freshly created, still commit-less one) sprouting sideways off
+   its fork commit. Its own hue and dash so it never passes for a parent edge —
+   the two used to be drawn identically. */
+.edge-branch {
+  stroke: var(--edge-branch);
+  stroke-dasharray: 7 4;
+}
+.edge-branch-arrow {
+  fill: var(--edge-branch);
   stroke: none;
   stroke-dasharray: none;
+}
+.has-selection .edge.edge-branch-arrow.edge-path {
+  fill: var(--accent);
+  stroke: none;
+}
+
+/* The receiving branch's line where it is re-drawn through merged-in copies.
+   A real parent link, so solid — but tinted like the copies, because those
+   commits were written elsewhere. */
+.edge-merged-chain {
+  stroke: var(--merged-in-chain);
+  stroke-width: 2.5;
 }
 
 /* Ancestry-path highlight: when a node is selected, everything dims except the
@@ -422,6 +456,38 @@ body,
   opacity: 0.82;
 }
 .has-selection .node.node-search-active {
+  opacity: 1;
+}
+
+/* Legend hover preview: dim the whole graph except the one kind of line (or box)
+   the pointer is over in the legend, so "which line is this?" is answered by
+   pointing at it. Deliberately written at the same specificity as the selection
+   rules above and placed after them, so the preview wins while a commit line is
+   selected — and the selection comes back untouched on mouseleave. */
+.legend-hl .edge,
+.legend-hl.has-selection .edge,
+.legend-hl .node,
+.legend-hl.has-selection .node {
+  opacity: 0.07;
+}
+/* A plain parent edge is the one with no kind of its own: everything else is
+   subtracted here, so a new edge kind can never silently join this row. */
+.legend-hl[data-legend-hl="parent"] .edge:not(.edge-merge):not(.edge-branch):not(.edge-branch-arrow):not(.edge-stash):not(.edge-merged-tie):not(.edge-merged-tie-arrow):not(.edge-merged-chain),
+.legend-hl[data-legend-hl="merge"] .edge-merge,
+.legend-hl[data-legend-hl="branch"] .edge-branch,
+.legend-hl[data-legend-hl="branch"] .edge-branch-arrow,
+.legend-hl[data-legend-hl="stash-edge"] .edge-stash,
+.legend-hl[data-legend-hl="merged-chain"] .edge-merged-chain,
+.legend-hl[data-legend-hl="merged-tie"] .edge-merged-tie,
+.legend-hl[data-legend-hl="merged-tie"] .edge-merged-tie-arrow,
+.legend-hl[data-legend-hl="head"] .node-head,
+.legend-hl[data-legend-hl="local"] .node-localBranch,
+.legend-hl[data-legend-hl="remote"] .node-remoteBranch,
+.legend-hl[data-legend-hl="remote-only"] .node-remote-only,
+.legend-hl[data-legend-hl="tag"] .node-tag,
+.legend-hl[data-legend-hl="commit"] .node-commit,
+.legend-hl[data-legend-hl="stash"] .node-stash,
+.legend-hl[data-legend-hl="merged-in"] .node-merged-in {
   opacity: 1;
 }
 
@@ -642,6 +708,64 @@ body,
   border: 1px dashed var(--stash-edge);
 }
 .legend[data-collapsed] .legend-body { display: none; }
+
+/* Sub-sections inside the panel ("Boxes" / "Lines"), each collapsible on its
+   own so a reader can keep only the half they are puzzling over open. */
+.legend-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0 2px;
+  margin-top: 2px;
+  cursor: pointer;
+  color: var(--fg);
+  opacity: 0.75;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.legend-section-header:hover { opacity: 1; }
+.legend-section + .legend-section .legend-section-header {
+  border-top: 1px solid var(--border);
+  margin-top: 6px;
+  padding-top: 6px;
+}
+.legend-section[data-collapsed] .legend-section-body { display: none; }
+/* The list can outgrow the canvas once both halves are open — scroll the body
+   rather than letting the panel run off the bottom of the graph. */
+.legend-body {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+/* Hovering a row previews that kind in the graph; make the row look live. */
+.legend-row { cursor: default; border-radius: 4px; margin: 0 -4px; padding-left: 4px; padding-right: 4px; }
+.legend-row:hover { background: rgba(255,255,255,0.07); }
+[data-theme="light"] .legend-row:hover { background: rgba(0,0,0,0.06); }
+
+/* Line swatches are real SVG drawn with the graph's own edge classes, so a
+   legend entry cannot drift from the line it explains. */
+.legend-line {
+  width: 30px;
+  height: 12px;
+  flex-shrink: 0;
+  overflow: visible;
+}
+/* The merged-in line rows only mean something while that view is switched on. */
+.legend:not([data-merged-in]) .legend-row.merged-chain,
+.legend:not([data-merged-in]) .legend-row.merged-tie {
+  display: none;
+}
+
+/* Light theme: the two new line hues are tuned for the dark ground and go
+   washed-out on a white one, so darken them here. data-theme is set on the graph
+   container, which holds both the graph and the legend, so the swatches follow
+   the lines automatically. */
+[data-theme="light"] {
+  --edge-branch: #2f8079;
+  --merged-in-chain: #8a7f5f;
+}
 
 /* Light theme: the legend's default dark-glass panel hides the (now dark) text,
    so switch to a light translucent panel and a dark hover wash. data-theme is
