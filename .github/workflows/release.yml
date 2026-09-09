@@ -107,9 +107,14 @@ jobs:
         run: |
           # Prefer the Python already on the (self-hosted) runner; setup-python's
           # binary install is flaky here. Fall back to `py` launcher / setup.
+          # setup-python can leave a broken uv shim first on PATH (a
+          # cpython-*/python.exe that no longer exists), so don't just trust
+          # Get-Command — verify the interpreter actually runs.
           $py = $null
           foreach ($c in @('python','python3','py')) {
-            if (Get-Command $c -ErrorAction SilentlyContinue) { $py = $c; break }
+            if (-not (Get-Command $c -ErrorAction SilentlyContinue)) { continue }
+            try { & $c --version *> $null } catch { continue }
+            if ($LASTEXITCODE -eq 0) { $py = $c; break }
           }
           if (-not $py) { throw "No Python on the runner - install Python 3 on the self-hosted runner." }
           Write-Host "Using $(& $py --version)"
@@ -396,10 +401,35 @@ jobs:
             Write-Warning "VS Code stable VSIX not found - skipping."
             exit 0
           }
+          if (-not $env:VSCE_PAT) {
+            Write-Warning "VS_MARKETPLACE_PAT secret is empty - skipping VS Code Marketplace publish."
+            exit 0
+          }
           Write-Host "Publishing: $($vsix.Name)"
-          npx --yes @vscode/vsce publish `
-            --pat "$env:VSCE_PAT" `
-            --packagePath "$($vsix.FullName)"
+
+          # Best-effort, like every other publish in this workflow. The Azure
+          # DevOps-backed Marketplace has transient outages ("Azure DevOps
+          # Services Unavailable" HTML, exit 1); retry a few times, and if it is
+          # still down treat it as non-fatal - the VSIX is already attached to
+          # the GitHub Release and this job can be re-run once it recovers.
+          $max = 4
+          for ($i = 1; $i -le $max; $i++) {
+            npx --yes @vscode/vsce publish --pat "$env:VSCE_PAT" --packagePath "$($vsix.FullName)" 2>&1 |
+              Tee-Object -Variable out | ForEach-Object { Write-Host $_ }
+            if ($LASTEXITCODE -eq 0) { Write-Host "Published to the VS Code Marketplace."; exit 0 }
+            $text = ($out | Out-String)
+            if ($text -match 'already exists|already published') {
+              Write-Warning "v$env:NEW_VERSION is already published (likely a retry of this job). Nothing to do."
+              exit 0
+            }
+            if ($i -lt $max) {
+              $wait = 30 * $i
+              Write-Warning "vsce publish failed (attempt $i/$max). Retrying in $wait s..."
+              Start-Sleep -Seconds $wait
+            }
+          }
+          Write-Warning "vsce publish still failing after $max attempts (likely an Azure DevOps Marketplace outage - see log above). Treating as non-fatal; the VSIX is on the GitHub Release. Re-run this job once the Marketplace is back."
+          exit 0
 
       # -----------------------------------------------------------------------
       # 8. Visual Studio Marketplace (VsixPublisher.exe)
