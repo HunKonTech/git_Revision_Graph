@@ -131,3 +131,7 @@ vscode/LICENSE
 github-actions-org-runner-selection-spec.md alias
 .vscode
 temp
+
+# Python bytecode (KO_language_translator)
+__pycache__/
+*.pyc

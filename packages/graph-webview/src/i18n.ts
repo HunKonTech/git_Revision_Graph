@@ -739,7 +739,7 @@ const DICTS: Record<string, Partial<Dict>> & { en: Dict } = {
     "settings.gitSourceBuiltin": "Beépített",
     "settings.gitSourceBuiltinHint": "Az IDE beépített Git bővítményének git binárisát használja.",
     "settings.gitSourceCustom": "Egyéni útvonal",
-    "settings.gitSourceCustomHint": "Adja meg a sajÃ¡t git futtathatÃ³ fÃ¡jl elÃ©rÃ©si ÃºtjÃ¡t (pl. /usr/bin/git vagy C:\\â¦\\git.exe).",
+    "settings.gitSourceCustomHint": "Adja meg a saját git futtatható fájl elérési útját (pl. /usr/bin/git vagy C:\\…\\git.exe).",
     "settings.gitPath": "Git elérési útja",
     "settings.gitPathPlaceholder": "/usr/bin/git",
     "settings.gitPathBrowse": "Tallózás…",
