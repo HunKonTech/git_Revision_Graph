@@ -10,6 +10,7 @@
 #   scripts/translate-i18n.sh                # fill in only missing keys (--new-only)
 #   scripts/translate-i18n.sh --force        # re-translate every non-en/hu key
 #   scripts/translate-i18n.sh -x fr,de       # also leave French & German alone
+#   scripts/translate-i18n.sh -j 8           # 8 parallel workers (default: 4)
 #   scripts/translate-i18n.sh --force -x fr  # combine
 #
 # This is the same command the "Translate i18n" GitHub workflow runs; use it to
@@ -22,11 +23,13 @@ I18N_FILE="$ROOT/packages/graph-webview/src/i18n.ts"
 
 MODE="--new-only"
 EXTRA_EXCLUDE=""
+WORKERS="4"
 while [ $# -gt 0 ]; do
   case "$1" in
     --force)          MODE="--force"; shift ;;
     --new-only)       MODE="--new-only"; shift ;;
     -x|--exclude)     EXTRA_EXCLUDE="${2:-}"; shift 2 ;;
+    -j|--workers)     WORKERS="${2:-4}"; shift 2 ;;
     -h|--help)        sed -n '2,17p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "Unknown option: $1" >&2; exit 2 ;;
   esac
@@ -51,8 +54,8 @@ if ! "$PY" -c "import deep_translator" >/dev/null 2>&1; then
 fi
 
 echo "==> Translating $I18N_FILE"
-echo "    mode: $MODE   excluded: $EXCLUDE"
-"$PY" "$SCRIPT" "$MODE" --i18n-file "$I18N_FILE" --exclude-languages "$EXCLUDE"
+echo "    mode: $MODE   excluded: $EXCLUDE   workers: $WORKERS"
+"$PY" "$SCRIPT" "$MODE" --i18n-file "$I18N_FILE" --exclude-languages "$EXCLUDE" --workers "$WORKERS"
 
 echo ""
 echo "Done. Review the diff:  git diff -- packages/graph-webview/src/i18n.ts"

@@ -45,8 +45,9 @@ npm run translate:i18n         # fill in i18n.ts translations locally (en+hu alw
 
 `npm run translate:i18n` wraps `scripts/translate-i18n.sh`, which runs
 `KO_language_translator/main.py` against `packages/graph-webview/src/i18n.ts` —
-the same call the **Translate i18n** workflow makes. `en` and `hu` are never
-translated; `-- -x fr,de` skips more.
+the same call the **Translate i18n** workflow makes (4 parallel workers). `en`
+and `hu` are never translated; `-- -x fr,de` skips more, `-- -j 8` changes the
+worker count.
 
 Run a single test file:
 ```bash

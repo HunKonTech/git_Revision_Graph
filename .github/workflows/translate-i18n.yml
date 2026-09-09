@@ -108,7 +108,8 @@ jobs:
           "$PY" KO_language_translator/main.py \
             "--${MODE}" \
             --i18n-file "${{ github.workspace }}/packages/graph-webview/src/i18n.ts" \
-            --exclude-languages "hu,en"
+            --exclude-languages "hu,en" \
+            --workers 4
 
       - name: Commit & push updated translations
         run: |
