@@ -1,5 +1,13 @@
 # Auto-translates the shared webview i18n dictionary on every push.
 #
+# This workflow ALWAYS runs to completion on every push (no `paths:` filter), so
+# it can act as the single entry point of the release chain: "Build & Publish
+# Extensions" (release.yml) is triggered by this workflow's completion via
+# `workflow_run`, and "Deploy demo" chains off that in turn. When a push does not
+# touch i18n.ts / the translator, the "Decide whether translation is needed" step
+# below short-circuits the heavy work but the workflow still finishes green so the
+# downstream release fires.
+#
 # The KO_language_translator Python script (KO_language_translator/main.py) reads
 # the `const DICTS` object in packages/graph-webview/src/i18n.ts, takes `en` as
 # the source of truth, fills in every other language via Google Translate and
@@ -25,10 +33,6 @@ name: Translate i18n
 on:
   push:
     branches: ["**"]
-    paths:
-      - "packages/graph-webview/src/i18n.ts"
-      - "KO_language_translator/**"
-      - ".github/workflows/translate-i18n.yml"
   workflow_dispatch:
     inputs:
       mode:
@@ -73,12 +77,41 @@ jobs:
         with:
           # Need a real ref (not detached HEAD) so we can commit + push back.
           ref: ${{ github.ref_name }}
+          # Full history so the "Decide whether translation is needed" diff and
+          # the push-back rebase have something to work with.
+          fetch-depth: 0
+
+      # This workflow runs on every push. Only actually translate when the push
+      # touched i18n.ts, the translator, or this workflow — otherwise skip the
+      # heavy steps below but still finish green so release.yml's `workflow_run`
+      # trigger fires.
+      - name: Decide whether translation is needed
+        id: need
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          base='${{ github.event.before }}'
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            echo "First push / unknown base — translating to be safe."
+            echo "run=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if git diff --name-only "$base" "${{ github.sha }}" \
+               | grep -qE '^(packages/graph-webview/src/i18n\.ts|KO_language_translator/|\.github/workflows/translate-i18n\.yml)$'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "i18n.ts / translator unchanged in this push — skipping translation; workflow still completes so the release chain fires."
+          fi
 
       # Prefer the Python already on the runner (self-hosted fleets have it, and
       # actions/setup-python's binary install is flaky on some self-hosted
       # Windows runners). Only fall back to setup-python when none is present.
       - name: Locate Python
         id: py
+        if: steps.need.outputs.run == 'true'
         run: |
           for c in python3 python; do
             if command -v "$c" >/dev/null 2>&1; then
@@ -87,20 +120,23 @@ jobs:
           done
           echo "bin=" >> "$GITHUB_OUTPUT"; echo "No Python on runner; will set one up."
       - uses: actions/setup-python@v5
-        if: steps.py.outputs.bin == ''
+        if: steps.need.outputs.run == 'true' && steps.py.outputs.bin == ''
         with:
           python-version: "3.12"
       - name: Resolve interpreter
         id: interp
+        if: steps.need.outputs.run == 'true'
         run: echo "bin=${{ steps.py.outputs.bin || 'python' }}" >> "$GITHUB_OUTPUT"
 
       - name: Install dependencies
+        if: steps.need.outputs.run == 'true'
         run: |
           PY='${{ steps.interp.outputs.bin }}'
           "$PY" -m pip install --upgrade deep-translator \
             || "$PY" -m pip install --upgrade --break-system-packages deep-translator
 
       - name: Translate i18n.ts
+        if: steps.need.outputs.run == 'true'
         env:
           MODE: ${{ github.event.inputs.mode || 'new-only' }}
           PY: ${{ steps.interp.outputs.bin }}
@@ -112,6 +148,7 @@ jobs:
             --workers 4
 
       - name: Commit & push updated translations
+        if: steps.need.outputs.run == 'true'
         run: |
           set -euo pipefail
           if git diff --quiet -- packages/graph-webview/src/i18n.ts; then

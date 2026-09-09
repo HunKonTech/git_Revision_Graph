@@ -1,11 +1,11 @@
 # Builds the interactive browser demo (shared webview bundle + mock data) and
 # publishes it to GitHub Pages.
 #
-# It runs after the "Build & Publish Extensions" workflow finishes, and also on
-# pushes to main that touch the webview/demo pipeline. The push trigger keeps the
-# public browser demo current between extension releases, so newly added UI (for
-# example the local commit dialog) is visible on the demo page as soon as the
-# code lands.
+# It runs after the "Build & Publish Extensions" workflow finishes — which is the
+# last link of the release chain (push → Translate i18n → Build & Publish
+# Extensions → Deploy demo), so the demo is always redeployed from the exact code
+# that was just released, and never races ahead of the extensions. Use the manual
+# "Run workflow" button for an out-of-band redeploy.
 #
 # The demo build is plain Node + esbuild — no Windows/VS SDK — so it is happy on
 # either a self-hosted Linux runner or a GitHub-hosted one. Which one it uses is
@@ -17,14 +17,10 @@
 name: Deploy demo to GitHub Pages
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/deploy-demo.yml"
-      - "scripts/build-demo.mjs"
-      - "packages/protocol/**"
-      - "packages/graph-core/**"
-      - "packages/graph-webview/**"
+  # Strictly the last link of the release chain:
+  #   push → Translate i18n → Build & Publish Extensions → Deploy demo
+  # No direct `push` trigger — the demo redeploys only after a release build
+  # finishes, so it never races ahead of the extensions.
   workflow_run:
     workflows: ["Build & Publish Extensions"]
     types: [completed]
@@ -70,10 +66,9 @@ jobs:
   build:
     needs: runners
     # Deploy only for a successful release (skip when it failed or was
-    # cancelled), or when triggered by push / hand.
+    # cancelled), or when triggered by hand.
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      github.event_name == 'push' ||
       github.event.workflow_run.conclusion == 'success'
     runs-on: ${{ fromJSON(needs.runners.outputs.linux) }}
     steps:

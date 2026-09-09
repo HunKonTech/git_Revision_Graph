@@ -1,7 +1,15 @@
 name: Build & Publish Extensions
 
+# Ordering: this workflow does NOT trigger directly on push. Every push to main
+# first runs "Translate i18n" (translate-i18n.yml) to completion; that workflow
+# finishing is what triggers this one, via `workflow_run`. "Deploy demo" then
+# chains off THIS workflow the same way. So the release chain is strictly:
+#   push → Translate i18n → Build & Publish Extensions → Deploy demo
+# `workflow_run` always uses the workflow file / ref from the default branch.
 on:
-  push:
+  workflow_run:
+    workflows: ["Translate i18n"]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
     inputs:
@@ -36,6 +44,12 @@ jobs:
   # onto GitHub's runners on the next run — no workflow edit needed.
   # -------------------------------------------------------------------------
   runners:
+    # Only proceed when the upstream "Translate i18n" run succeeded (or when this
+    # workflow was started by hand). A failed/cancelled translate run must not
+    # produce a release. Skipping this job cascades a skip to every job below.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     outputs:
       windows: ${{ steps.pick.outputs.windows }}
@@ -88,64 +102,15 @@ jobs:
       # -----------------------------------------------------------------------
       # 1b. i18n fordítások: NEM itt készülnek. A külön "Translate i18n"
       #     workflow (translate-i18n.yml) fordít és commitol vissza a main-re
-      #     minden i18n.ts-t érintő push után. Ez a lépés csak MEGVÁRJA, amíg
-      #     az a futás befejeződik, majd a main friss csúcsára ugrik, hogy a
-      #     buildbe már a teljes szótár kerüljön. A fordító commit [skip ci],
-      #     így nem indít újabb release-t.
+      #     minden push után, és EZ a workflow csak azután indul (workflow_run),
+      #     hogy az befejeződött. Így itt nincs mit várni — csak a main friss
+      #     csúcsára ugrunk, ami már tartalmazza a [skip ci] fordító commitot
+      #     (ha volt), és onnan buildelünk.
       # -----------------------------------------------------------------------
-      - name: Wait for i18n auto-translation, then sync to latest main
+      - name: Sync to latest main (post-translation tip)
         id: sync
         shell: powershell
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          $headers = @{
-            Authorization = "Bearer $env:GH_TOKEN"
-            Accept        = "application/vnd.github+json"
-          }
-          $sha = "$env:GITHUB_SHA"
-          $api = "https://api.github.com/repos/$env:GITHUB_REPOSITORY/actions/workflows/translate-i18n.yml/runs?per_page=30"
-
-          # If no Translate i18n run appears for this commit within this window,
-          # the push didn't touch i18n.ts and there is nothing to wait for.
-          $appearBy = (Get-Date).AddMinutes(2)
-          # Hard cap so a stuck/queued translation run can't block a release.
-          $giveUpBy = (Get-Date).AddMinutes(20)
-
-          while ($true) {
-            Start-Sleep -Seconds 10
-            try { $runs = (Invoke-RestMethod -Headers $headers -Uri $api).workflow_runs } catch { $runs = @() }
-            $mine = @($runs | Where-Object { $_.head_sha -eq $sha })
-
-            if ($mine.Count -eq 0) {
-              if ((Get-Date) -gt $appearBy) {
-                Write-Host "No 'Translate i18n' run for $sha - i18n dictionary unchanged by this push."
-                break
-              }
-              Write-Host "Waiting for the 'Translate i18n' run to appear..."
-              continue
-            }
-
-            $pending = @($mine | Where-Object { $_.status -ne 'completed' })
-            if ($pending.Count -eq 0) {
-              $bad = @($mine | Where-Object { $_.conclusion -notin @('success','skipped') })
-              if ($bad.Count) {
-                Write-Warning "'Translate i18n' finished with '$($bad[0].conclusion)'; building with whatever is on main."
-              } else {
-                Write-Host "'Translate i18n' finished."
-              }
-              break
-            }
-
-            if ((Get-Date) -gt $giveUpBy) {
-              Write-Warning "'Translate i18n' still running after 20 min; proceeding with the current tip of main."
-              break
-            }
-            Write-Host "'Translate i18n' still running - waiting..."
-          }
-
-          # Jump to the tip of main (which now includes the [skip ci]
-          # auto-translate commit, if any) and build from there.
           git fetch origin main --quiet
           git reset --hard origin/main
           $new = (git rev-parse HEAD).Trim()
@@ -1250,7 +1215,9 @@ jobs:
   # Buffer release announcement (X / Twitter)
   # -------------------------------------------------------------------------
   post-to-buffer:
-    if: ${{ needs.release.result == 'success' && github.event_name == 'push' }}
+    # Only auto-announce for push-driven releases (i.e. the upstream Translate
+    # i18n run was itself triggered by a push), not manual workflow_dispatch.
+    if: ${{ needs.release.result == 'success' && github.event_name == 'workflow_run' && github.event.workflow_run.event == 'push' }}
     needs:
       - runners
       - release
