@@ -351,7 +351,10 @@ def process_i18n_ts(file_path, force_translate, exclude_languages, source_lang, 
         values = lang_map[name]
         ordered_keys = [k for k, _ in source_entries]
         ordered_keys += [k for k in values if k not in ordered_keys]
-        lines = [f"{indent}{name}: {{"]
+        # Quote the language key unless it is a bare JS identifier — locale codes
+        # like "zh-tw" contain a hyphen and are a syntax error unquoted.
+        name_repr = name if re.fullmatch(r"[A-Za-z_$][A-Za-z0-9_$]*", name) else f'"{name}"'
+        lines = [f"{indent}{name_repr}: {{"]
         for key in ordered_keys:
             if key not in values:
                 continue

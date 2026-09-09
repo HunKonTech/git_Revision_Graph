@@ -32428,7 +32428,7 @@ const DICTS: Record<string, Partial<Dict>> & { en: Dict } = {
     "search.visibilityHint": "បង្ហាញការស្វែងរកជារូបតំណាងរបារឧបករណ៍ ឬរបារបន្តនៅផ្នែកខាងលើ។",
     "footer.github": "GitHub",
   },
-  zh-tw: {
+  "zh-tw": {
     "toolbar.refresh": "⟳ 刷新",
     "toolbar.fetch": "⤓ 獲取",
     "toolbar.pull": "⇩ 拉動",
@@ -32928,7 +32928,7 @@ const DICTS: Record<string, Partial<Dict>> & { en: Dict } = {
     "search.visibilityHint": "検索をツールバー アイコンまたは上部に永続的なバーとして表示します。",
     "footer.github": "GitHub",
   },
-  mni-mtei: {
+  "mni-mtei": {
   },
   ko: {
     "toolbar.refresh": "⟳ 새로고침",
