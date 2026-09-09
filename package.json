@@ -26,7 +26,8 @@
     "package:all": "pwsh scripts/build-installers.ps1",
     "test": "vitest run",
     "test:watch": "vitest",
-    "harness": "npm run -w @rev-graph/graph-webview harness"
+    "harness": "npm run -w @rev-graph/graph-webview harness",
+    "translate:i18n": "bash scripts/translate-i18n.sh"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

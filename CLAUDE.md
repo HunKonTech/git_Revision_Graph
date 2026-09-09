@@ -40,7 +40,13 @@ npm install          # install all workspace dependencies
 npm test             # run all unit tests (vitest, graph-core only)
 npm run build        # build everything: protocol → graph-core → webview → vscode extension → VS assets → JetBrains assets → Eclipse assets → NetBeans assets
 npm run harness      # browser dev harness with mock data at http://localhost:5599
+npm run translate:i18n         # fill in i18n.ts translations locally (en+hu always excluded); add -- --force to redo all
 ```
+
+`npm run translate:i18n` wraps `scripts/translate-i18n.sh`, which runs
+`KO_language_translator/main.py` against `packages/graph-webview/src/i18n.ts` —
+the same call the **Translate i18n** workflow makes. `en` and `hu` are never
+translated; `-- -x fr,de` skips more.
 
 Run a single test file:
 ```bash
