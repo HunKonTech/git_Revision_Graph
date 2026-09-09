@@ -33185,19 +33185,38 @@ const DICTS: Record<string, Partial<Dict>> & { en: Dict } = {
 export type MsgKey = keyof Dict;
 
 /**
- * Git-jargon overrides. The "keep Git terms in English" setting decides whether
- * words like *pull*, *push*, *commit*, *branch*, *merge*, *stash*, *checkout* are
- * translated (the default) or kept in English while the rest of the sentence
- * stays in the active language.
+ * Keys whose text carries Git jargon (*pull*, *push*, *commit*, *branch*,
+ * *merge*, *stash*, *checkout*, *fetch*, *sync*, …). When the "keep Git terms in
+ * English" setting is ON, {@link t} renders these keys straight from the English
+ * base dictionary instead of the active language — so the whole line reads in
+ * English, and no per-language upkeep (or translator awareness) is needed. The
+ * setting is meaningless for English itself and is hidden from its settings.
  *
- * Rather than tokenize every string (which breaks on the inflection of Slavic /
- * agglutinative languages), each affected key carries up to two hand-authored
- * renderings:
- *   - `tr` — the fully translated form (used when the setting is OFF).
- *   - `en` — the same sentence with the Git term(s) left in English (used ON).
- * Whichever side is omitted falls back to the base string in {@link DICTS}, so a
- * key only lists the variant that differs from its base. English needs no
- * overrides — its base is already all-English.
+ * This list is the single source of truth; keep it in sync when adding a
+ * jargon-bearing key. The {@link JARGON} map below is now only an *optional*
+ * quality refinement for the OFF (translated) direction in hand-maintained
+ * languages — it never affects the ON direction.
+ */
+const JARGON_KEYS: ReadonlySet<MsgKey> = new Set<MsgKey>([
+  "toolbar.fetch", "toolbar.pull", "toolbar.push", "toolbar.commit", "toolbar.sync",
+  "toolbar.jumpHead", "details.header", "legend.head", "legend.local", "legend.remote",
+  "legend.remoteOnly", "legend.stash", "legend.edgeMerge", "legend.edgeBranch",
+  "legend.edgeStash", "legend.edgeMergedChain", "legend.edgeMergedTie", "menu.checkout",
+  "menu.copySha", "menu.pushBranch", "menu.renameBranch", "menu.deleteBranch",
+  "menu.renameCommit", "menu.undoCommit", "menu.mergeBranch", "menu.stashApply",
+  "menu.stashPop", "menu.stashDrop", "changes.changed", "commit.title", "commit.message",
+  "commit.commit", "merge.title", "merge.route", "merge.merge", "newBranch.checkout",
+  "status.fetching", "status.pulling", "status.pushing", "status.committing",
+  "status.commitCreated", "status.syncing", "status.commitUndone", "status.stashApplying",
+  "status.stashPopping", "status.stashDropping", "status.stashApplied", "status.stashPopped",
+  "status.stashDropped", "status.merging", "status.merged", "status.mergeConflict",
+]);
+
+/**
+ * Optional per-language refinement of the *translated* (setting-OFF) rendering
+ * for {@link JARGON_KEYS}, for the hand-maintained languages. Only `tr` is read;
+ * anything omitted falls back to the auto-translated base string in
+ * {@link DICTS}. The ON direction never consults this — see {@link JARGON_KEYS}.
  */
 type JargonEntry = { en?: string; tr?: string };
 
@@ -33471,12 +33490,17 @@ export function onLangChange(cb: () => void): () => void {
 /** Translate a key in the active language, interpolating `{placeholders}`. */
 export function t(key: MsgKey, params?: Record<string, string | number>): string {
   let s = DICTS[current]?.[key] ?? DICTS[DEFAULT_LANG][key] ?? key;
-  // Apply the Git-jargon override for this key/mode, if one exists. A missing
-  // side (en when translating, tr when keeping English) falls back to `s`.
-  const jo = JARGON[current]?.[key];
-  if (jo) {
-    const alt = keepJargonEnglish ? jo.en : jo.tr;
-    if (alt != null) s = alt;
+  // Git-jargon handling (no-op for English, whose base is already all-English).
+  if (current !== DEFAULT_LANG && JARGON_KEYS.has(key)) {
+    if (keepJargonEnglish) {
+      // ON: render the whole line from the English base — language-neutral,
+      // needs no per-language upkeep and no translator awareness.
+      s = DICTS[DEFAULT_LANG][key] ?? s;
+    } else {
+      // OFF: prefer a hand-tuned translated form where one exists.
+      const tr = JARGON[current]?.[key]?.tr;
+      if (tr != null) s = tr;
+    }
   }
   if (params) {
     for (const [k, v] of Object.entries(params)) {

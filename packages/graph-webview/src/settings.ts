@@ -116,7 +116,8 @@ export function toggleSettings(ctx: SettingsContext): void {
     // General section: language + colour theme + SVN-style branch dialog.
     const general = section(t("settings.sectionGeneral"));
     general.appendChild(languageRow());
-    general.appendChild(jargonRow());
+    // "Keep Git terms in English" is meaningless when the interface is English.
+    if (getLang() !== "en") general.appendChild(jargonRow());
     general.appendChild(themeRow());
     general.appendChild(branchDialogRow());
     body.appendChild(general);
