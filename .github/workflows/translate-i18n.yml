@@ -1,0 +1,98 @@
+# Auto-translates the shared webview i18n dictionary on every push.
+#
+# The KO_language_translator Python script (KO_language_translator/main.py) reads
+# the `const DICTS` object in packages/graph-webview/src/i18n.ts, takes `en` as
+# the source of truth, fills in every other language via Google Translate and
+# rewrites only that object. `en` and `hu` are hand-maintained, so `en` is the
+# source (never touched) and `hu` is excluded here.
+#
+# After the run, any change to i18n.ts is committed straight back to the branch
+# that was pushed. The auto-commit carries `[skip ci]` so it cannot retrigger
+# this workflow (or any other) — no infinite loop.
+#
+# Runner selection follows the same "declared, not detected" pattern as
+# release.yml / deploy-demo.yml: the script is fully platform-independent, so
+# point the RUNNER_TRANSLATE repository variable at whatever self-hosted fleet is
+# up (Linux, Windows or macOS) and it runs there; leave it empty (the default)
+# and it runs on a GitHub-hosted runner so nothing can ever get stuck queued.
+#   gh variable set RUNNER_TRANSLATE --body '["self-hosted","macOS"]'
+#   gh variable delete RUNNER_TRANSLATE   # back to GitHub-hosted
+name: Translate i18n
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "packages/graph-webview/src/i18n.ts"
+      - "KO_language_translator/**"
+      - ".github/workflows/translate-i18n.yml"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Translation mode"
+        type: choice
+        default: new-only
+        options: [new-only, force]
+
+permissions:
+  contents: write
+
+# One translation run per branch at a time; a newer push supersedes an
+# in-flight run so the branch ends up translated against its latest i18n.ts.
+concurrency:
+  group: translate-i18n-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  runners:
+    runs-on: ubuntu-latest
+    outputs:
+      target: ${{ steps.pick.outputs.target }}
+    steps:
+      - id: pick
+        env:
+          RUNNER_TRANSLATE: ${{ vars.RUNNER_TRANSLATE }}
+        run: |
+          set -euo pipefail
+          target="${RUNNER_TRANSLATE:-}"
+          [ -n "$target" ] || target='["ubuntu-latest"]'
+          echo "target=$target" >> "$GITHUB_OUTPUT"
+          echo "Translate job -> $target"
+
+  translate:
+    needs: runners
+    runs-on: ${{ fromJSON(needs.runners.outputs.target) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Need a real ref (not detached HEAD) so we can commit + push back.
+          ref: ${{ github.ref_name }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade deep-translator
+
+      - name: Translate i18n.ts
+        env:
+          MODE: ${{ github.event.inputs.mode || 'new-only' }}
+        run: |
+          python KO_language_translator/main.py \
+            "--${MODE}" \
+            --i18n-file "${{ github.workspace }}/packages/graph-webview/src/i18n.ts" \
+            --exclude-languages "hu"
+
+      - name: Commit & push updated translations
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- packages/graph-webview/src/i18n.ts; then
+            echo "No translation changes."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/graph-webview/src/i18n.ts
+          git commit -m "Auto-translate i18n dictionary [skip ci]"
+          git push origin HEAD:${{ github.ref_name }}
