@@ -33185,17 +33185,32 @@ const DICTS: Record<string, Partial<Dict>> & { en: Dict } = {
 export type MsgKey = keyof Dict;
 
 /**
+ * Languages whose base {@link DICTS} entries are hand-written (never fed through
+ * the auto-translator). Their base text is authored in the *keep-Git-terms-in-
+ * English* style — a translated sentence with words like *branch* / *commit* /
+ * *merge* / *stash* / *pull* left in English — so for these the "keep in English"
+ * setting simply shows the base string, and the fully-translated rendering comes
+ * from the `tr` side of {@link JARGON}. `en` is trivially in this set.
+ */
+const HAND_MAINTAINED_LANGS: ReadonlySet<Lang> = new Set<Lang>(["en", "hu"]);
+
+/**
  * Keys whose text carries Git jargon (*pull*, *push*, *commit*, *branch*,
- * *merge*, *stash*, *checkout*, *fetch*, *sync*, …). When the "keep Git terms in
- * English" setting is ON, {@link t} renders these keys straight from the English
- * base dictionary instead of the active language — so the whole line reads in
- * English, and no per-language upkeep (or translator awareness) is needed. The
- * setting is meaningless for English itself and is hidden from its settings.
+ * *merge*, *stash*, *checkout*, *fetch*, *sync*, …), grouping the Legend, the
+ * toolbar, context menus and status lines.
+ *
+ * With "keep Git terms in English" ON, {@link t} renders these keys so that only
+ * the Git terms stay English and the rest of the line is in the active language:
+ *   - hand-maintained languages ({@link HAND_MAINTAINED_LANGS}) — the base string
+ *     is already authored that way, so it is used as-is;
+ *   - auto-translated languages — term-level substitution isn't feasible, so the
+ *     whole line falls back to the English base (no per-language upkeep, no
+ *     translator awareness).
+ * With the setting OFF, the fully-translated `tr` side of {@link JARGON} is used
+ * where present, otherwise the (fully-translated) base string.
  *
  * This list is the single source of truth; keep it in sync when adding a
- * jargon-bearing key. The {@link JARGON} map below is now only an *optional*
- * quality refinement for the OFF (translated) direction in hand-maintained
- * languages — it never affects the ON direction.
+ * jargon-bearing key.
  */
 const JARGON_KEYS: ReadonlySet<MsgKey> = new Set<MsgKey>([
   "toolbar.fetch", "toolbar.pull", "toolbar.push", "toolbar.commit", "toolbar.sync",
@@ -33493,11 +33508,12 @@ export function t(key: MsgKey, params?: Record<string, string | number>): string
   // Git-jargon handling (no-op for English, whose base is already all-English).
   if (current !== DEFAULT_LANG && JARGON_KEYS.has(key)) {
     if (keepJargonEnglish) {
-      // ON: render the whole line from the English base — language-neutral,
-      // needs no per-language upkeep and no translator awareness.
-      s = DICTS[DEFAULT_LANG][key] ?? s;
+      // ON: keep only the Git terms in English. Hand-maintained languages
+      // already author their base string that way, so leave `s` alone; for
+      // auto-translated languages fall back to the full English base.
+      if (!HAND_MAINTAINED_LANGS.has(current)) s = DICTS[DEFAULT_LANG][key] ?? s;
     } else {
-      // OFF: prefer a hand-tuned translated form where one exists.
+      // OFF: use the fully-translated form; prefer the hand-tuned `tr` variant.
       const tr = JARGON[current]?.[key]?.tr;
       if (tr != null) s = tr;
     }
