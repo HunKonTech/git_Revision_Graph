@@ -3,8 +3,8 @@
 # The KO_language_translator Python script (KO_language_translator/main.py) reads
 # the `const DICTS` object in packages/graph-webview/src/i18n.ts, takes `en` as
 # the source of truth, fills in every other language via Google Translate and
-# rewrites only that object. `en` and `hu` are hand-maintained, so `en` is the
-# source (never touched) and `hu` is excluded here.
+# rewrites only that object. `en` and `hu` are hand-maintained, so both are
+# excluded here (`en` is also the translation source).
 #
 # After the run, any change to i18n.ts is committed straight back to the branch
 # that was pushed. The auto-commit carries `[skip ci]` so it cannot retrigger
@@ -17,6 +17,9 @@
 # and it runs on a GitHub-hosted runner so nothing can ever get stuck queued.
 #   gh variable set RUNNER_TRANSLATE --body '["self-hosted","macOS"]'
 #   gh variable delete RUNNER_TRANSLATE   # back to GitHub-hosted
+# A self-hosted runner used here needs `python3` (>=3.9) and `bash` on PATH;
+# GitHub-hosted runners have both. `en` and `hu` are hand-maintained and are
+# always excluded from translation.
 name: Translate i18n
 
 on:
@@ -62,27 +65,50 @@ jobs:
   translate:
     needs: runners
     runs-on: ${{ fromJSON(needs.runners.outputs.target) }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
         with:
           # Need a real ref (not detached HEAD) so we can commit + push back.
           ref: ${{ github.ref_name }}
 
+      # Prefer the Python already on the runner (self-hosted fleets have it, and
+      # actions/setup-python's binary install is flaky on some self-hosted
+      # Windows runners). Only fall back to setup-python when none is present.
+      - name: Locate Python
+        id: py
+        run: |
+          for c in python3 python; do
+            if command -v "$c" >/dev/null 2>&1; then
+              echo "bin=$c" >> "$GITHUB_OUTPUT"; echo "Using $($c --version) at $(command -v $c)"; exit 0
+            fi
+          done
+          echo "bin=" >> "$GITHUB_OUTPUT"; echo "No Python on runner; will set one up."
       - uses: actions/setup-python@v5
+        if: steps.py.outputs.bin == ''
         with:
-          python-version: "3.x"
+          python-version: "3.12"
+      - name: Resolve interpreter
+        id: interp
+        run: echo "bin=${{ steps.py.outputs.bin || 'python' }}" >> "$GITHUB_OUTPUT"
 
       - name: Install dependencies
-        run: python -m pip install --upgrade deep-translator
+        run: |
+          PY='${{ steps.interp.outputs.bin }}'
+          "$PY" -m pip install --upgrade deep-translator \
+            || "$PY" -m pip install --upgrade --break-system-packages deep-translator
 
       - name: Translate i18n.ts
         env:
           MODE: ${{ github.event.inputs.mode || 'new-only' }}
+          PY: ${{ steps.interp.outputs.bin }}
         run: |
-          python KO_language_translator/main.py \
+          "$PY" KO_language_translator/main.py \
             "--${MODE}" \
             --i18n-file "${{ github.workspace }}/packages/graph-webview/src/i18n.ts" \
-            --exclude-languages "hu"
+            --exclude-languages "hu,en"
 
       - name: Commit & push updated translations
         run: |

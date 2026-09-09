@@ -91,19 +91,35 @@ jobs:
       #     kiadott csomagokba mindig a friss, teljes szótár kerül. `en`/`hu`
       #     kézzel készül: `en` a forrás, `hu` kizárva.
       # -----------------------------------------------------------------------
-      - name: Setup Python (for i18n translation)
+      # Best-effort: only needed if the self-hosted runner ships no Python. Its
+      # own binary install is flaky (hence continue-on-error) — the next step
+      # still prefers a pre-installed interpreter and only errors if there is
+      # truly none.
+      - name: Ensure Python is available
         uses: actions/setup-python@v5
+        continue-on-error: true
         with:
-          python-version: '3.x'
+          python-version: '3.12'
 
       - name: Translate i18n dictionary
         id: translate
         shell: powershell
         run: |
-          python -m pip install --upgrade deep-translator
-          python KO_language_translator/main.py --new-only `
+          # Prefer the Python already on the (self-hosted) runner; setup-python's
+          # binary install is flaky here. Fall back to `py` launcher / setup.
+          $py = $null
+          foreach ($c in @('python','python3','py')) {
+            if (Get-Command $c -ErrorAction SilentlyContinue) { $py = $c; break }
+          }
+          if (-not $py) { throw "No Python on the runner - install Python 3 on the self-hosted runner." }
+          Write-Host "Using $(& $py --version)"
+
+          & $py -m pip install --upgrade deep-translator
+          if ($LASTEXITCODE -ne 0) { & $py -m pip install --upgrade --break-system-packages deep-translator }
+
+          & $py KO_language_translator/main.py --new-only `
             --i18n-file "$env:GITHUB_WORKSPACE/packages/graph-webview/src/i18n.ts" `
-            --exclude-languages "hu"
+            --exclude-languages "hu,en"
 
           $sha = "${{ github.sha }}"
           if (git status --porcelain -- packages/graph-webview/src/i18n.ts) {

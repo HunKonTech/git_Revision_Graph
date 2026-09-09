@@ -7,17 +7,168 @@
  * survives reloads without involving the host.
  */
 
-export type Lang = "en" | "hu" | "zh" | "ru";
+/**
+ * A language key inside {@link DICTS}. `en` and `hu` are hand-maintained; every
+ * other key is filled in automatically by `KO_language_translator/main.py`
+ * (Google Translate) — see the "Translate i18n" workflow. Any key present in
+ * {@link LANGUAGES} is valid; unknown keys fall back to English via {@link t}.
+ */
+export type Lang = string;
 
-export const DEFAULT_LANG: Lang = "en";
+/** Literal `"en"` so `DICTS[DEFAULT_LANG]` narrows to the complete dictionary. */
+export const DEFAULT_LANG = "en";
 
-/** Languages offered in the settings dropdown, in display order. */
+/** Keys that need a right-to-left interface. */
+const RTL_LANGS = new Set(["ar", "he", "fa", "ur", "ps", "sd", "ug", "ckb", "yi", "dv"]);
+
+/** Whether `lang` is written right-to-left. */
+export function isRTL(lang: Lang): boolean {
+  return RTL_LANGS.has(lang);
+}
+
+/**
+ * Languages offered in the settings dropdown, in display order: the two
+ * hand-maintained languages first, then every language the translator supports,
+ * sorted by native name. Labels are endonyms (the language's own name).
+ */
 export const LANGUAGES: { code: Lang; label: string }[] = [
   { code: "en", label: "English" },
   { code: "hu", label: "Magyar" },
-  { code: "zh", label: "中文" },
+  { code: "om", label: "Afaan Oromoo" },
+  { code: "af", label: "Afrikaans" },
+  { code: "gn", label: "Avañe'ẽ" },
+  { code: "ay", label: "Aymar aru" },
+  { code: "az", label: "Azərbaycanca" },
+  { code: "id", label: "Bahasa Indonesia" },
+  { code: "ms", label: "Bahasa Melayu" },
+  { code: "bm", label: "Bamanankan" },
+  { code: "jv", label: "Basa Jawa" },
+  { code: "su", label: "Basa Sunda" },
+  { code: "bs", label: "Bosanski" },
+  { code: "ca", label: "Català" },
+  { code: "ceb", label: "Cebuano" },
+  { code: "ny", label: "Chichewa" },
+  { code: "sn", label: "ChiShona" },
+  { code: "co", label: "Corsu" },
+  { code: "cy", label: "Cymraeg" },
+  { code: "da", label: "Dansk" },
+  { code: "de", label: "Deutsch" },
+  { code: "et", label: "Eesti" },
+  { code: "es", label: "Español" },
+  { code: "eo", label: "Esperanto" },
+  { code: "eu", label: "Euskara" },
+  { code: "ee", label: "Eʋegbe" },
+  { code: "tl", label: "Filipino" },
+  { code: "fr", label: "Français" },
+  { code: "fy", label: "Frysk" },
+  { code: "ga", label: "Gaeilge" },
+  { code: "sm", label: "Gagana Samoa" },
+  { code: "gl", label: "Galego" },
+  { code: "gd", label: "Gàidhlig" },
+  { code: "ha", label: "Hausa" },
+  { code: "hmn", label: "Hmoob" },
+  { code: "hr", label: "Hrvatski" },
+  { code: "ig", label: "Igbo" },
+  { code: "rw", label: "Ikinyarwanda" },
+  { code: "ilo", label: "Ilokano" },
+  { code: "xh", label: "isiXhosa" },
+  { code: "zu", label: "isiZulu" },
+  { code: "it", label: "Italiano" },
+  { code: "sw", label: "Kiswahili" },
+  { code: "ht", label: "Kreyòl ayisyen" },
+  { code: "kri", label: "Krio" },
+  { code: "ku", label: "Kurdî" },
+  { code: "la", label: "Latina" },
+  { code: "lv", label: "Latviešu" },
+  { code: "lt", label: "Lietuvių" },
+  { code: "ln", label: "Lingála" },
+  { code: "lg", label: "Luganda" },
+  { code: "lb", label: "Lëtzebuergesch" },
+  { code: "mg", label: "Malagasy" },
+  { code: "mt", label: "Malti" },
+  { code: "lus", label: "Mizo ṭawng" },
+  { code: "mi", label: "Māori" },
+  { code: "nl", label: "Nederlands" },
+  { code: "no", label: "Norsk" },
+  { code: "uz", label: "Oʻzbekcha" },
+  { code: "pl", label: "Polski" },
+  { code: "pt", label: "Português" },
+  { code: "ro", label: "Română" },
+  { code: "qu", label: "Runa Simi" },
+  { code: "nso", label: "Sepedi" },
+  { code: "st", label: "Sesotho" },
+  { code: "sq", label: "Shqip" },
+  { code: "sk", label: "Slovenčina" },
+  { code: "sl", label: "Slovenščina" },
+  { code: "so", label: "Soomaali" },
+  { code: "fi", label: "Suomi" },
+  { code: "sv", label: "Svenska" },
+  { code: "vi", label: "Tiếng Việt" },
+  { code: "ak", label: "Twi" },
+  { code: "tk", label: "Türkmençe" },
+  { code: "tr", label: "Türkçe" },
+  { code: "ts", label: "Xitsonga" },
+  { code: "yo", label: "Yorùbá" },
+  { code: "is", label: "Íslenska" },
+  { code: "cs", label: "Čeština" },
+  { code: "haw", label: "ʻŌlelo Hawaiʻi" },
+  { code: "el", label: "Ελληνικά" },
+  { code: "be", label: "Беларуская" },
+  { code: "bg", label: "Български" },
+  { code: "ky", label: "Кыргызча" },
+  { code: "mk", label: "Македонски" },
+  { code: "mn", label: "Монгол" },
   { code: "ru", label: "Русский" },
+  { code: "sr", label: "Српски" },
+  { code: "tt", label: "Татарча" },
+  { code: "tg", label: "Тоҷикӣ" },
+  { code: "uk", label: "Українська" },
+  { code: "kk", label: "Қазақ тілі" },
+  { code: "hy", label: "Հայերեն" },
+  { code: "yi", label: "ייִדיש" },
+  { code: "he", label: "עברית" },
+  { code: "ug", label: "ئۇيغۇرچە" },
+  { code: "ur", label: "اردو" },
+  { code: "ar", label: "العربية" },
+  { code: "sd", label: "سنڌي" },
+  { code: "fa", label: "فارسی" },
+  { code: "ps", label: "پښتو" },
+  { code: "ckb", label: "کوردیی ناوەندی" },
+  { code: "dv", label: "ދިވެހި" },
+  { code: "gom", label: "कोंकणी" },
+  { code: "doi", label: "डोगरी" },
+  { code: "ne", label: "नेपाली" },
+  { code: "bho", label: "भोजपुरी" },
+  { code: "mr", label: "मराठी" },
+  { code: "mai", label: "मैथिली" },
+  { code: "sa", label: "संस्कृतम्" },
+  { code: "hi", label: "हिन्दी" },
+  { code: "as", label: "অসমীয়া" },
+  { code: "bn", label: "বাংলা" },
+  { code: "pa", label: "ਪੰਜਾਬੀ" },
+  { code: "gu", label: "ગુજરાતી" },
+  { code: "or", label: "ଓଡ଼ିଆ" },
+  { code: "ta", label: "தமிழ்" },
+  { code: "te", label: "తెలుగు" },
+  { code: "kn", label: "ಕನ್ನಡ" },
+  { code: "ml", label: "മലയാളം" },
+  { code: "si", label: "සිංහල" },
+  { code: "th", label: "ไทย" },
+  { code: "lo", label: "ລາວ" },
+  { code: "my", label: "မြန်မာ" },
+  { code: "ka", label: "ქართული" },
+  { code: "ti", label: "ትግርኛ" },
+  { code: "am", label: "አማርኛ" },
+  { code: "km", label: "ខ្មែរ" },
+  { code: "zh", label: "中文（简体）" },
+  { code: "zh-tw", label: "中文（繁體）" },
+  { code: "ja", label: "日本語" },
+  { code: "mni-mtei", label: "ꯃꯤꯇꯩ ꯂꯣꯟ" },
+  { code: "ko", label: "한국어" },
 ];
+
+/** Fast membership test for {@link isLang}. */
+const LANG_CODES = new Set(LANGUAGES.map((l) => l.code));
 
 /** All user-facing strings. `{n}` style placeholders are filled by t(). */
 type Dict = {
@@ -271,7 +422,10 @@ type Dict = {
   "footer.github": string;
 };
 
-const DICTS: Record<Lang, Dict> = {
+// `en` is the complete reference dictionary; `hu` is hand-maintained. Every
+// other language is a (possibly empty) machine-filled partial — `t()` falls back
+// to English for any key a translation is still missing.
+const DICTS: Record<string, Partial<Dict>> & { en: Dict } = {
   en: {
     "toolbar.refresh": "⟳ Refresh",
     "toolbar.fetch": "⤓ Fetch",
@@ -1300,6 +1454,29 @@ const DICTS: Record<Lang, Dict> = {
     "search.visibilityHint": "Показывать поиск кнопкой на панели или постоянной строкой сверху.",
     "footer.github": "GitHub",
   },
+
+  // ---------------------------------------------------------------------------
+  // Machine-translated languages. Each starts empty and is filled in by
+  // KO_language_translator/main.py on push (see the "Translate i18n" workflow);
+  // until then `t()` serves the English string. Order matches LANGUAGES.
+  // ---------------------------------------------------------------------------
+  "om": {}, "af": {}, "gn": {}, "ay": {}, "az": {}, "id": {}, "ms": {}, "bm": {},
+  "jv": {}, "su": {}, "bs": {}, "ca": {}, "ceb": {}, "ny": {}, "sn": {}, "co": {},
+  "cy": {}, "da": {}, "de": {}, "et": {}, "es": {}, "eo": {}, "eu": {}, "ee": {},
+  "tl": {}, "fr": {}, "fy": {}, "ga": {}, "sm": {}, "gl": {}, "gd": {}, "ha": {},
+  "hmn": {}, "hr": {}, "ig": {}, "rw": {}, "ilo": {}, "xh": {}, "zu": {}, "it": {},
+  "sw": {}, "ht": {}, "kri": {}, "ku": {}, "la": {}, "lv": {}, "lt": {}, "ln": {},
+  "lg": {}, "lb": {}, "mg": {}, "mt": {}, "lus": {}, "mi": {}, "nl": {}, "no": {},
+  "uz": {}, "pl": {}, "pt": {}, "ro": {}, "qu": {}, "nso": {}, "st": {}, "sq": {},
+  "sk": {}, "sl": {}, "so": {}, "fi": {}, "sv": {}, "vi": {}, "ak": {}, "tk": {},
+  "tr": {}, "ts": {}, "yo": {}, "is": {}, "cs": {}, "haw": {}, "el": {}, "be": {},
+  "bg": {}, "ky": {}, "mk": {}, "mn": {}, "sr": {}, "tt": {}, "tg": {}, "uk": {},
+  "kk": {}, "hy": {}, "yi": {}, "he": {}, "ug": {}, "ur": {}, "ar": {}, "sd": {},
+  "fa": {}, "ps": {}, "ckb": {}, "dv": {}, "gom": {}, "doi": {}, "ne": {},
+  "bho": {}, "mr": {}, "mai": {}, "sa": {}, "hi": {}, "as": {}, "bn": {}, "pa": {},
+  "gu": {}, "or": {}, "ta": {}, "te": {}, "kn": {}, "ml": {}, "si": {}, "th": {},
+  "lo": {}, "my": {}, "ka": {}, "ti": {}, "am": {}, "km": {}, "zh-tw": {},
+  "ja": {}, "mni-mtei": {}, "ko": {},
 };
 
 export type MsgKey = keyof Dict;
@@ -1489,7 +1666,7 @@ const JARGON: Partial<Record<Lang, Partial<Record<MsgKey, JargonEntry>>>> = {
 const STORAGE_KEY = "revGraph.lang";
 
 function isLang(v: unknown): v is Lang {
-  return v === "en" || v === "hu" || v === "zh" || v === "ru";
+  return typeof v === "string" && LANG_CODES.has(v);
 }
 
 /**
@@ -1520,6 +1697,16 @@ function load(): Lang {
 
 let current: Lang = load();
 const listeners = new Set<() => void>();
+
+/** Reflect the active language's writing direction on the document root. */
+function applyDir(lang: Lang): void {
+  try {
+    document.documentElement.setAttribute("dir", isRTL(lang) ? "rtl" : "ltr");
+  } catch {
+    /* no document (e.g. unit tests) */
+  }
+}
+applyDir(current);
 
 // ---- Keep-Git-terms-in-English setting ------------------------------------
 // A separate localStorage-backed toggle (like the display-mode / theme settings)
@@ -1568,6 +1755,7 @@ export function setLang(lang: Lang): void {
   } catch {
     /* ignore persistence failures */
   }
+  applyDir(current);
   listeners.forEach((l) => l());
 }
 
@@ -1579,7 +1767,7 @@ export function onLangChange(cb: () => void): () => void {
 
 /** Translate a key in the active language, interpolating `{placeholders}`. */
 export function t(key: MsgKey, params?: Record<string, string | number>): string {
-  let s = DICTS[current][key] ?? DICTS[DEFAULT_LANG][key] ?? key;
+  let s = DICTS[current]?.[key] ?? DICTS[DEFAULT_LANG][key] ?? key;
   // Apply the Git-jargon override for this key/mode, if one exists. A missing
   // side (en when translating, tr when keeping English) falls back to `s`.
   const jo = JARGON[current]?.[key];

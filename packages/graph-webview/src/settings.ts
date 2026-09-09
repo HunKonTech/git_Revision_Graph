@@ -204,7 +204,7 @@ function languageRow(): HTMLElement {
     if (code === getLang()) opt.selected = true;
     select.appendChild(opt);
   }
-  select.addEventListener("change", () => setLang(select.value as never));
+  select.addEventListener("change", () => setLang(select.value));
   control.appendChild(select);
   return row;
 }

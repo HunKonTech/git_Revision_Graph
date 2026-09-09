@@ -16,6 +16,9 @@ LANG_ALIASES = {
     "zh-hans": "zh-CN",
     "zh-hant": "zh-TW",
     "he": "iw",
+    "iw": "iw",
+    "jv": "jw",
+    "mni-mtei": "mni-Mtei",
     "pt-br": "pt",
     "nb": "no",
 }
@@ -192,7 +195,7 @@ def _parse_string_entries(body):
         # --- value ---
         if body[i] in "\"'`":
             raw, i = read_string(i)
-            value = raw.encode().decode("unicode_escape") if "\\" in raw else raw
+            value = _unescape_js_string(raw) if "\\" in raw else raw
             entries.append((key, value))
         else:
             # Non-string value (nested object, number, etc.) - skip it.
@@ -201,8 +204,55 @@ def _parse_string_entries(body):
     return entries
 
 
+_JS_ESCAPES = {"n": "\n", "t": "\t", "r": "\r", "b": "\b", "f": "\f", "v": "\v", "0": "\0"}
+
+
+def _unescape_js_string(raw):
+    """Turn a JS/TS string body's escape sequences into their characters.
+
+    Only the escapes JS actually defines are interpreted; every other character
+    (crucially all non-ASCII text) is passed through untouched. The old
+    ``raw.encode().decode("unicode_escape")`` mangled UTF-8 (é, …, — and friends)
+    because it reinterpreted each byte as a code point.
+    """
+    out = []
+    i = 0
+    n = len(raw)
+    while i < n:
+        ch = raw[i]
+        if ch != "\\" or i + 1 >= n:
+            out.append(ch)
+            i += 1
+            continue
+        nxt = raw[i + 1]
+        if nxt == "u":
+            m = re.match(r"\\u\{([0-9a-fA-F]+)\}", raw[i:]) or re.match(r"\\u([0-9a-fA-F]{4})", raw[i:])
+            if m:
+                out.append(chr(int(m.group(1), 16)))
+                i += m.end()
+                continue
+        if nxt == "x":
+            m = re.match(r"\\x([0-9a-fA-F]{2})", raw[i:])
+            if m:
+                out.append(chr(int(m.group(1), 16)))
+                i += m.end()
+                continue
+        if nxt in ("\n", "\r"):  # line continuation
+            i += 2
+            continue
+        out.append(_JS_ESCAPES.get(nxt, nxt))
+        i += 2
+    return "".join(out)
+
+
 def _escape_ts_string(value):
-    return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+    return (
+        value.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+    )
 
 
 def process_i18n_ts(file_path, force_translate, exclude_languages, source_lang):
@@ -265,7 +315,10 @@ def process_i18n_ts(file_path, force_translate, exclude_languages, source_lang):
         values = lang_map[name]
         ordered_keys = [k for k, _ in source_entries]
         ordered_keys += [k for k in values if k not in ordered_keys]
-        lines = [f"{indent}{name}: {{"]
+        # A language key that isn't a bare JS identifier (e.g. "zh-tw") must be
+        # quoted, or the rewritten DICTS object won't parse.
+        name_repr = name if re.match(r"^[A-Za-z_$][A-Za-z0-9_$]*$", name) else f'"{name}"'
+        lines = [f"{indent}{name_repr}: {{"]
         for key in ordered_keys:
             if key not in values:
                 continue
