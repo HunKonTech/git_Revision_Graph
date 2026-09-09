@@ -62,12 +62,12 @@ jobs:
 
     outputs:
       new_version: ${{ steps.ver.outputs.NEW_VERSION }}
-      # SHA every downstream build job checks out. Normally the commit this run
-      # made with the freshly generated translations; the pushed HEAD when the
-      # i18n dictionary was already complete; or, only if the translation commit
-      # could not be pushed back, the triggering SHA (that run's bundles then
-      # lack any brand-new keys until the next push).
-      build_sha: ${{ steps.translate.outputs.sha }}
+      # SHA every downstream build job checks out: the tip of main after the
+      # separate "Translate i18n" workflow has finished and pushed its
+      # auto-translate commit (that commit carries [skip ci], so it does not
+      # start another release). If i18n.ts was not part of this push, no
+      # translation run happens and this is just the triggering commit.
+      build_sha: ${{ steps.sync.outputs.sha }}
 
     env:
       CURRENT_VERSION: ${{ vars.EXTENSION_VERSION }}
@@ -79,82 +79,78 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          # Need history + push-back creds so the translation commit below can
-          # land on main. Falls back to the default GITHUB_TOKEN when GH_PAT is
-          # unset (push may then fail on a protected branch — handled below).
+          # Full history so the sync step below can fast-forward to the tip of
+          # main after the separate "Translate i18n" workflow has pushed its
+          # auto-translate commit.
           fetch-depth: 0
           token: ${{ secrets.GH_PAT || github.token }}
 
       # -----------------------------------------------------------------------
-      # 1b. i18n fordítások frissítése a release ELŐTT.
-      #     Minden build job ezt a commitot (build_sha) checkoutolja, így a
-      #     kiadott csomagokba mindig a friss, teljes szótár kerül. `en`/`hu`
-      #     kézzel készül: `en` a forrás, `hu` kizárva.
+      # 1b. i18n fordítások: NEM itt készülnek. A külön "Translate i18n"
+      #     workflow (translate-i18n.yml) fordít és commitol vissza a main-re
+      #     minden i18n.ts-t érintő push után. Ez a lépés csak MEGVÁRJA, amíg
+      #     az a futás befejeződik, majd a main friss csúcsára ugrik, hogy a
+      #     buildbe már a teljes szótár kerüljön. A fordító commit [skip ci],
+      #     így nem indít újabb release-t.
       # -----------------------------------------------------------------------
-      # Best-effort: only needed if the self-hosted runner ships no Python. Its
-      # own binary install is flaky (hence continue-on-error) — the next step
-      # still prefers a pre-installed interpreter and only errors if there is
-      # truly none.
-      - name: Ensure Python is available
-        uses: actions/setup-python@v5
-        continue-on-error: true
-        with:
-          python-version: '3.12'
-
-      - name: Translate i18n dictionary
-        id: translate
+      - name: Wait for i18n auto-translation, then sync to latest main
+        id: sync
         shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          # Prefer the Python already on the (self-hosted) runner; setup-python's
-          # binary install is flaky here. Fall back to `py` launcher / setup.
-          # setup-python can leave a broken uv shim first on PATH (a
-          # cpython-*/python.exe that no longer exists), so don't just trust
-          # Get-Command — verify the interpreter actually runs.
-          $sha = "${{ github.sha }}"
-
-          $py = $null
-          foreach ($c in @('python','python3','py')) {
-            if (-not (Get-Command $c -ErrorAction SilentlyContinue)) { continue }
-            try { & $c --version *> $null } catch { continue }
-            if ($LASTEXITCODE -eq 0) { $py = $c; break }
+          $headers = @{
+            Authorization = "Bearer $env:GH_TOKEN"
+            Accept        = "application/vnd.github+json"
           }
+          $sha = "$env:GITHUB_SHA"
+          $api = "https://api.github.com/repos/$env:GITHUB_REPOSITORY/actions/workflows/translate-i18n.yml/runs?per_page=30"
 
-          if (-not $py) {
-            # Best-effort step: never fail the release over translations. If the
-            # runner has no working Python (and setup-python's install failed),
-            # build from the current SHA - brand-new keys get filled on the next
-            # run where Python is available, or by the translate-i18n workflow.
-            Write-Warning "No working Python on the runner - skipping i18n auto-translation. Building from $sha."
-            "sha=$sha" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-            exit 0
-          }
+          # If no Translate i18n run appears for this commit within this window,
+          # the push didn't touch i18n.ts and there is nothing to wait for.
+          $appearBy = (Get-Date).AddMinutes(2)
+          # Hard cap so a stuck/queued translation run can't block a release.
+          $giveUpBy = (Get-Date).AddMinutes(20)
 
-          Write-Host "Using $(& $py --version)"
+          while ($true) {
+            Start-Sleep -Seconds 10
+            try { $runs = (Invoke-RestMethod -Headers $headers -Uri $api).workflow_runs } catch { $runs = @() }
+            $mine = @($runs | Where-Object { $_.head_sha -eq $sha })
 
-          & $py -m pip install --upgrade deep-translator
-          if ($LASTEXITCODE -ne 0) { & $py -m pip install --upgrade --break-system-packages deep-translator }
-
-          & $py KO_language_translator/main.py --new-only `
-            --i18n-file "$env:GITHUB_WORKSPACE/packages/graph-webview/src/i18n.ts" `
-            --exclude-languages "hu,en"
-
-          if (git status --porcelain -- packages/graph-webview/src/i18n.ts) {
-            git config user.name  "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add packages/graph-webview/src/i18n.ts
-            git commit -m "Auto-translate i18n dictionary for release [skip ci]"
-            git push origin "HEAD:${{ github.ref_name }}"
-            if ($LASTEXITCODE -eq 0) {
-              $sha = (git rev-parse HEAD).Trim()
-              Write-Host "Translations committed: $sha"
-            } else {
-              Write-Warning "Could not push the translation commit (protected branch / missing GH_PAT)."
-              Write-Warning "Building from $sha; brand-new keys will be filled on the next successful run."
+            if ($mine.Count -eq 0) {
+              if ((Get-Date) -gt $appearBy) {
+                Write-Host "No 'Translate i18n' run for $sha - i18n dictionary unchanged by this push."
+                break
+              }
+              Write-Host "Waiting for the 'Translate i18n' run to appear..."
+              continue
             }
-          } else {
-            Write-Host "i18n dictionary already complete - nothing to translate."
+
+            $pending = @($mine | Where-Object { $_.status -ne 'completed' })
+            if ($pending.Count -eq 0) {
+              $bad = @($mine | Where-Object { $_.conclusion -notin @('success','skipped') })
+              if ($bad.Count) {
+                Write-Warning "'Translate i18n' finished with '$($bad[0].conclusion)'; building with whatever is on main."
+              } else {
+                Write-Host "'Translate i18n' finished."
+              }
+              break
+            }
+
+            if ((Get-Date) -gt $giveUpBy) {
+              Write-Warning "'Translate i18n' still running after 20 min; proceeding with the current tip of main."
+              break
+            }
+            Write-Host "'Translate i18n' still running - waiting..."
           }
-          "sha=$sha" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+          # Jump to the tip of main (which now includes the [skip ci]
+          # auto-translate commit, if any) and build from there.
+          git fetch origin main --quiet
+          git reset --hard origin/main
+          $new = (git rev-parse HEAD).Trim()
+          Write-Host "Building from $new"
+          "sha=$new" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       # -----------------------------------------------------------------------
       # 2. Verzió kiszámítása
