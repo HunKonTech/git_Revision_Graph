@@ -62,6 +62,12 @@ jobs:
 
     outputs:
       new_version: ${{ steps.ver.outputs.NEW_VERSION }}
+      # SHA every downstream build job checks out. Normally the commit this run
+      # made with the freshly generated translations; the pushed HEAD when the
+      # i18n dictionary was already complete; or, only if the translation commit
+      # could not be pushed back, the triggering SHA (that run's bundles then
+      # lack any brand-new keys until the next push).
+      build_sha: ${{ steps.translate.outputs.sha }}
 
     env:
       CURRENT_VERSION: ${{ vars.EXTENSION_VERSION }}
@@ -72,6 +78,51 @@ jobs:
       # -----------------------------------------------------------------------
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Need history + push-back creds so the translation commit below can
+          # land on main. Falls back to the default GITHUB_TOKEN when GH_PAT is
+          # unset (push may then fail on a protected branch — handled below).
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT || github.token }}
+
+      # -----------------------------------------------------------------------
+      # 1b. i18n fordítások frissítése a release ELŐTT.
+      #     Minden build job ezt a commitot (build_sha) checkoutolja, így a
+      #     kiadott csomagokba mindig a friss, teljes szótár kerül. `en`/`hu`
+      #     kézzel készül: `en` a forrás, `hu` kizárva.
+      # -----------------------------------------------------------------------
+      - name: Setup Python (for i18n translation)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Translate i18n dictionary
+        id: translate
+        shell: powershell
+        run: |
+          python -m pip install --upgrade deep-translator
+          python KO_language_translator/main.py --new-only `
+            --i18n-file "$env:GITHUB_WORKSPACE/packages/graph-webview/src/i18n.ts" `
+            --exclude-languages "hu"
+
+          $sha = "${{ github.sha }}"
+          if (git status --porcelain -- packages/graph-webview/src/i18n.ts) {
+            git config user.name  "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add packages/graph-webview/src/i18n.ts
+            git commit -m "Auto-translate i18n dictionary for release [skip ci]"
+            git push origin "HEAD:${{ github.ref_name }}"
+            if ($LASTEXITCODE -eq 0) {
+              $sha = (git rev-parse HEAD).Trim()
+              Write-Host "Translations committed: $sha"
+            } else {
+              Write-Warning "Could not push the translation commit (protected branch / missing GH_PAT)."
+              Write-Warning "Building from $sha; brand-new keys will be filled on the next successful run."
+            }
+          } else {
+            Write-Host "i18n dictionary already complete - nothing to translate."
+          }
+          "sha=$sha" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       # -----------------------------------------------------------------------
       # 2. Verzió kiszámítása
@@ -418,6 +469,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.build_sha }}
 
       # -----------------------------------------------------------------------
       # 1. Verzio beírása a VS manifestbe
@@ -640,6 +693,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.build_sha }}
 
       - name: Patch version in jetbrains/gradle.properties
         shell: powershell
@@ -800,6 +855,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.build_sha }}
 
       - name: Setup JDK 17
         uses: actions/setup-java@v4
@@ -955,6 +1012,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.build_sha }}
 
       - name: Setup JDK 17
         uses: actions/setup-java@v4
