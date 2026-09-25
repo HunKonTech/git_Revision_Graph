@@ -143,6 +143,8 @@ class WebviewMessage {
     var gitPath: String? = null
     /** Target URL for openExternal. */
     var url: String? = null
+    /** Search term for requestTreeContentSearch. */
+    var query: String? = null
     /** Selected file paths for commitWorkingTreeChanges. */
     var files: List<String>? = null
 }

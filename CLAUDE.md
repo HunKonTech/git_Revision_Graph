@@ -108,8 +108,8 @@ netbeans/              — Apache NetBeans plugin (Kotlin, NetBeans module, Java
 `packages/protocol/src/index.ts` defines all message shapes. The C# Visual Studio host mirrors these by hand — **any change here must be reflected in `vs/` too**.
 
 Key message types:
-- `HostToWebview`: `setData` | `setTheme` | `branchCreated` | `opResult` | `commitChanges` | `commitTree` | `fileDiff` | `fileContent` | `workingTreeChanges` | `workingTreeFileDiff` | `commitCreated` | `mergePreview` | `mergeFileDiff` | `searchResults` | `searchError` | `gitPathSelected` | `error`
-- `WebviewToHost`: `ready` | `requestRefresh` | `createBranch` | `deleteBranch` | `renameCommit` | `requestCommitChanges` | `requestCommitTree` | `requestFileDiff` | `requestFileContent` | `requestWorkingTreeChanges` | `requestWorkingTreeFileDiff` | `commitWorkingTreeChanges` | `checkout` | `copySha` | `fetch` | `pull` | `push` | `sync`
+- `HostToWebview`: `setData` | `setTheme` | `branchCreated` | `opResult` | `commitChanges` | `commitTree` | `treeContentSearchResults` | `fileDiff` | `fileContent` | `workingTreeChanges` | `workingTreeFileDiff` | `commitCreated` | `mergePreview` | `mergeFileDiff` | `searchResults` | `searchError` | `gitPathSelected` | `error`
+- `WebviewToHost`: `ready` | `requestRefresh` | `createBranch` | `deleteBranch` | `renameCommit` | `requestCommitChanges` | `requestCommitTree` | `requestTreeContentSearch` | `requestFileDiff` | `requestFileContent` | `requestWorkingTreeChanges` | `requestWorkingTreeFileDiff` | `commitWorkingTreeChanges` | `checkout` | `copySha` | `fetch` | `pull` | `push` | `sync`
 
 ### Webview internals
 

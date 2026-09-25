@@ -8,6 +8,7 @@ import {
   closeChangesDialog,
   setChangesFiles,
   setCommitTree,
+  setTreeContentSearchResults,
   setFileDiff,
   setFileContent,
 } from "./changesDialog.js";
@@ -370,6 +371,9 @@ function boot(): void {
       case "commitTree":
         setCommitTree(msg.sha, msg.paths);
         break;
+      case "treeContentSearchResults":
+        setTreeContentSearchResults(msg.sha, msg.query, msg.paths);
+        break;
       case "fileDiff":
         setFileDiff(msg.diff);
         break;
@@ -419,6 +423,8 @@ function boot(): void {
         }),
       onRequestFileContent: (path) =>
         bridge.post({ type: "requestFileContent", sha, path }),
+      onSearchTreeContent: (query) =>
+        bridge.post({ type: "requestTreeContentSearch", sha, query }),
     });
     bridge.post({ type: "requestCommitChanges", sha });
     bridge.post({ type: "requestCommitTree", sha });

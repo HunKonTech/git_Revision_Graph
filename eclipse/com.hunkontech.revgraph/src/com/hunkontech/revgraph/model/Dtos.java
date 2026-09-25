@@ -204,6 +204,8 @@ public final class Dtos {
         public String gitPath;
         /** Target URL for openExternal. */
         public String url;
+        /** Search term for requestTreeContentSearch. */
+        public String query;
         /** Selected file paths for commitWorkingTreeChanges. */
         public List<String> files = Collections.emptyList();
 
@@ -236,6 +238,7 @@ public final class Dtos {
             msg.status = str(m, "status");
             msg.gitPath = str(m, "gitPath");
             msg.url = str(m, "url");
+            msg.query = str(m, "query");
             msg.files = stringList(m, "files");
             return msg;
         }

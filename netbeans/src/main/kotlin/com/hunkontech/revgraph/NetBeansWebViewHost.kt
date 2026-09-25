@@ -245,6 +245,7 @@ class NetBeansWebViewHost {
                 "copySha" -> msg.sha?.let { Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(it), null) }
                 "requestCommitChanges" -> handleCommitChanges(msg.sha)
                 "requestCommitTree" -> handleCommitTree(msg.sha)
+                "requestTreeContentSearch" -> handleTreeContentSearch(msg.sha, msg.query)
                 "requestFileDiff" -> handleFileDiff(msg.sha, msg.path, msg.status, msg.oldPath)
                 "requestFileContent" -> handleFileContent(msg.sha, msg.path)
                 "requestWorkingTreeChanges" -> handleWorkingTreeChanges()
@@ -373,6 +374,14 @@ class NetBeansWebViewHost {
         } catch (e: Exception) {
             postToWebview(mapOf("type" to "error", "message" to "Failed to read commit tree: ${e.message}"))
         }
+    }
+
+    private fun handleTreeContentSearch(sha: String?, query: String?) {
+        val g = git ?: return
+        if (sha.isNullOrEmpty() || query.isNullOrEmpty()) return
+        postToWebview(
+            mapOf("type" to "treeContentSearchResults", "sha" to sha, "query" to query, "paths" to g.searchTreeContent(sha, query)),
+        )
     }
 
     private fun handleFileContent(sha: String?, path: String?) {

@@ -394,6 +394,25 @@
       send({ type: "commitTree", sha: msg.sha, paths });
     },
 
+    // Simulate `git grep -l -i -F`: every mock file whose content (the same text
+    // requestFileContent would serve) contains the query, case-insensitively.
+    requestTreeContentSearch(msg) {
+      const allChanges = window.__MOCK_CHANGES__ || {};
+      const q = String(msg.query || "").toLowerCase();
+      const textByPath = new Map();
+      for (const sha of Object.keys(allChanges)) {
+        for (const f of allChanges[sha] || []) {
+          if (textByPath.has(f.path) || f.binary) continue;
+          const text = f.newText || f.oldText;
+          if (text) textByPath.set(f.path, text);
+        }
+      }
+      const paths = q
+        ? Array.from(textByPath.keys()).filter((p) => textByPath.get(p).toLowerCase().includes(q)).sort()
+        : [];
+      send({ type: "treeContentSearchResults", sha: msg.sha, query: msg.query, paths });
+    },
+
     // Return mock file content for unchanged files in the "All Files" tab.
     requestFileContent(msg) {
       const allChanges = window.__MOCK_CHANGES__ || {};

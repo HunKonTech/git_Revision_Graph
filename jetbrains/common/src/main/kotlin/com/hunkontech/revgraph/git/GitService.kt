@@ -424,6 +424,21 @@ class GitService(private val repoRoot: String) {
     fun readCommitTree(sha: String): List<String> =
         splitLines(tryRun("ls-tree", "-r", "--name-only", sha))
 
+    /**
+     * Paths in a commit's tree whose content contains [query] (case-insensitive
+     * literal `git grep -l`, binaries skipped). Mirrors searchTreeContent in
+     * gitData.ts; git's exit 1 ("no match") yields an empty list.
+     */
+    fun searchTreeContent(sha: String, query: String): List<String> {
+        if (query.isEmpty()) return emptyList()
+        val prefix = "$sha:"
+        return tryRun("grep", "-l", "-z", "-I", "-i", "-F", "-e", query, sha, "--")
+            .split(NUL)
+            .map { it.trim('\r', '\n') }
+            .filter { it.isNotEmpty() }
+            .map { it.removePrefix(prefix) }
+    }
+
     private fun blobSize(rev: String, path: String): Long =
         tryRun("cat-file", "-s", "$rev:$path").trim().toLongOrNull() ?: -1
 

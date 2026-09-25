@@ -170,6 +170,8 @@ export type HostToWebview =
   | { type: "commitChanges"; sha: string; files: CommitChangeFile[] }
   // All file paths present in the commit's tree (answers `requestCommitTree`).
   | { type: "commitTree"; sha: string; paths: string[] }
+  // Paths in the commit's tree whose content contains `query` (answers `requestTreeContentSearch`).
+  | { type: "treeContentSearchResults"; sha: string; query: string; paths: string[] }
   // The before/after content of one file (answers `requestFileDiff`).
   | { type: "fileDiff"; diff: FileDiff }
   // Current working-tree files available for the SVN-style commit dialog.
@@ -212,6 +214,9 @@ export type WebviewToHost =
   | { type: "requestCommitChanges"; sha: string }
   // Ask the host for all file paths present in the commit's tree.
   | { type: "requestCommitTree"; sha: string }
+  // Ask the host which files in the commit's tree contain `query` (case-insensitive
+  // literal; `git grep -l`) — lets the changes dialog find the file a method lives in.
+  | { type: "requestTreeContentSearch"; sha: string; query: string }
   // Ask the host for the before/after content of one changed file.
   | { type: "requestFileDiff"; sha: string; path: string; status: DiffFileStatus; oldPath?: string }
   // Ask the host for the raw content of one file at a commit (for unchanged files).

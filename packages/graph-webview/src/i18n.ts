@@ -306,6 +306,8 @@ type Dict = {
   "changes.collapseAll": string;
   "changes.expandAll": string;
   "changes.searchPlaceholder": string;
+  "changes.contentSearchOn": string;
+  "changes.contentSearchOff": string;
   "changes.noSearchResults": string;
   "changes.maximize": string;
   "changes.restore": string;
@@ -561,6 +563,8 @@ const DICTS: Record<string, Partial<Dict>> & { en: Dict } = {
     "changes.collapseAll": "Collapse all folders",
     "changes.expandAll": "Expand all folders",
     "changes.searchPlaceholder": "Search files…",
+    "changes.contentSearchOn": "Search in file contents too (methods, identifiers): on",
+    "changes.contentSearchOff": "Search in file contents too (methods, identifiers): off",
     "changes.noSearchResults": "No files match your search.",
     "changes.maximize": "Maximize",
     "changes.restore": "Restore size",
@@ -811,6 +815,8 @@ const DICTS: Record<string, Partial<Dict>> & { en: Dict } = {
     "changes.collapseAll": "Minden mappa becsukása",
     "changes.expandAll": "Minden mappa kinyitása",
     "changes.searchPlaceholder": "Fájlok keresése…",
+    "changes.contentSearchOn": "Keresés a fájlok tartalmában is (metódusok, azonosítók): be",
+    "changes.contentSearchOff": "Keresés a fájlok tartalmában is (metódusok, azonosítók): ki",
     "changes.noSearchResults": "Nincs a keresésnek megfelelő fájl.",
     "changes.maximize": "Nagyítás",
     "changes.restore": "Eredeti méret",

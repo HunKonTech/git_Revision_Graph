@@ -2,6 +2,7 @@ import { t, onLangChange } from "./i18n.js";
 import { getDiffMinimap, onDiffMinimapChange } from "./diffMinimap.js";
 import { buildDiffView, buildContentView, attachMinimaps, buildChangeNav, MM_W } from "./diffView.js";
 import { attachDiffFind, resetDiffFind } from "./diffFind.js";
+import { getContentSearch, setContentSearch } from "./contentSearchSetting.js";
 import type { CommitChangeFile, DiffFileStatus, FileDiff } from "@rev-graph/protocol";
 
 /**
@@ -16,7 +17,9 @@ import type { CommitChangeFile, DiffFileStatus, FileDiff } from "@rev-graph/prot
  *  - `commitChanges`   → setChangesFiles() fills the changed-files list,
  *  - `commitTree`      → setCommitTree() fills the all-files list,
  *  - `fileDiff`        → setFileDiff() fills the right pane for a changed file,
- *  - `fileContent`     → setFileContent() fills the right pane for an unchanged file.
+ *  - `fileContent`     → setFileContent() fills the right pane for an unchanged file,
+ *  - `treeContentSearchResults` → setTreeContentSearchResults() adds the files whose
+ *    content contains the search term (content search, toggleable).
  * Selecting a changed file calls back into main.ts (onRequestFile).
  * Selecting an unchanged file calls back (onRequestFileContent).
  */
@@ -24,7 +27,12 @@ export interface ChangesDialogContext {
   sha: string;
   onRequestFile: (file: CommitChangeFile) => void;
   onRequestFileContent: (path: string) => void;
+  /** Ask the host which files in the commit's tree contain `query` (git grep). */
+  onSearchTreeContent: (query: string) => void;
 }
+
+/** Shortest query that triggers a host-side content search (1 char would match nearly everything). */
+const MIN_CONTENT_QUERY = 2;
 
 /** Status priority used to pick the auto-selected first file. */
 const STATUS_ORDER: DiffFileStatus[] = ["added", "modified", "renamed", "deleted"];
@@ -172,6 +180,11 @@ const COLLAPSE_ALL_SVG =
   '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">' +
   '<path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="M4 7.5 8 4l4 3.5M4 12l4-3.5 4 3.5"/></svg>';
 /** "Expand all folders" toolbar icon — a double chevron pointing down (fold open). */
+/** "Search in file contents" toggle icon — curly braces (code). */
+const CONTENT_SEARCH_SVG =
+  '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">' +
+  '<path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" ' +
+  'd="M5.5 2.5c-1.5 0-2 .6-2 2v1.6c0 .9-.5 1.4-1.5 1.9 1 .5 1.5 1 1.5 1.9v1.6c0 1.4.5 2 2 2M10.5 2.5c1.5 0 2 .6 2 2v1.6c0 .9.5 1.4 1.5 1.9-1 .5-1.5 1-1.5 1.9v1.6c0 1.4-.5 2-2 2"/></svg>';
 const EXPAND_ALL_SVG =
   '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">' +
   '<path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="M4 4.5 8 8l4-3.5M4 9l4 3.5 4-3.5"/></svg>';
@@ -239,6 +252,8 @@ const diffCache = new Map<string, FileDiff>();
 /** Paths we've already asked the host for a diff of, to avoid duplicate requests while searching. */
 const requestedDiffPaths = new Set<string>();
 let searchDebounce: ReturnType<typeof setTimeout> | undefined;
+/** Host `git grep` hits for the current query: files in the commit's tree whose content matches. */
+let treeContentMatches: { query: string; paths: Set<string> } | null = null;
 
 export function closeChangesDialog(): void {
   if (openOverlay) {
@@ -267,6 +282,7 @@ export function closeChangesDialog(): void {
   listWidth = null;
   maximized = false;
   searchQuery = "";
+  treeContentMatches = null;
   diffCache.clear();
   requestedDiffPaths.clear();
 }
@@ -336,7 +352,7 @@ export function openChangesDialog(context: ChangesDialogContext): void {
         renderList();
         renderDiff();
         renderTabs();
-        if (normalizeQuery(searchQuery)) fetchMissingDiffs();
+        runContentSearch(false);
       },
     );
     const tabAll = button(
@@ -350,7 +366,7 @@ export function openChangesDialog(context: ChangesDialogContext): void {
         renderList();
         renderDiff();
         renderTabs();
-        if (normalizeQuery(searchQuery)) fetchMissingDiffs();
+        runContentSearch(false);
       },
     );
     tabs.append(tabChanged, tabAll);
@@ -369,11 +385,8 @@ export function openChangesDialog(context: ChangesDialogContext): void {
       searchDebounce = setTimeout(() => {
         searchQuery = value;
         renderList();
-        // Content/method search matches against changed files' diff text, so pull any
-        // not-yet-fetched diffs — on both tabs (the "All Files" tab still lists changed
-        // files, and their bodies should be searchable there too).
-        if (normalizeQuery(searchQuery)) fetchMissingDiffs();
-      }, 120);
+        runContentSearch(true);
+      }, 180);
     });
     searchInput.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
@@ -383,6 +396,7 @@ export function openChangesDialog(context: ChangesDialogContext): void {
           searchInput.value = "";
           clearTimeout(searchDebounce);
           searchQuery = "";
+          treeContentMatches = null;
           renderList();
         } else {
           searchInput.blur();
@@ -390,6 +404,23 @@ export function openChangesDialog(context: ChangesDialogContext): void {
       }
     });
     toolbar.appendChild(searchInput);
+    // Toggle: also match file contents (methods, identifiers), not just names.
+    const contentOn = getContentSearch();
+    const contentBtn = button(
+      "changes-toolbar-btn changes-content-toggle" + (contentOn ? " active" : ""),
+      "",
+      () => {
+        setContentSearch(!getContentSearch());
+        render();
+        runContentSearch(true);
+      },
+    );
+    contentBtn.innerHTML = CONTENT_SEARCH_SVG;
+    const contentLabel = contentOn ? t("changes.contentSearchOn") : t("changes.contentSearchOff");
+    contentBtn.title = contentLabel;
+    contentBtn.setAttribute("aria-label", contentLabel);
+    contentBtn.setAttribute("aria-pressed", String(contentOn));
+    toolbar.appendChild(contentBtn);
     // Dedicated folder controls — always present, regardless of whether the tree
     // has any folders (they simply no-op on a flat file list).
     const collapseBtn = button("changes-toolbar-btn", "", collapseAllFolders);
@@ -456,30 +487,52 @@ export function openChangesDialog(context: ChangesDialogContext): void {
     }
   }
 
-  /** Changed files matching the current search — by filename, or (once fetched) diff content. */
+  /**
+   * True when `path` matches the current (normalized) query: by filename always;
+   * with content search on, also when its cached diff text (old or new side — so
+   * removed code is found too) or the host's `git grep` over the commit's tree hits.
+   */
+  function pathMatches(path: string, query: string): boolean {
+    if (pathMatchesQuery(path, query)) return true;
+    if (!getContentSearch()) return false;
+    if (diffMatchesQuery(path, query, diffCache)) return true;
+    return treeContentMatches?.query === query && treeContentMatches.paths.has(path);
+  }
+
+  /** Changed files matching the current search — by filename, or (content search) file content. */
   function visibleChangedFiles(): CommitChangeFile[] {
     if (!files) return [];
     const query = normalizeQuery(searchQuery);
     if (!query) return files;
-    return files.filter(
-      (f) => pathMatchesQuery(f.path, query) || diffMatchesQuery(f.path, query, diffCache),
-    );
+    return files.filter((f) => pathMatches(f.path, query));
   }
 
   /**
    * All-tree paths matching the current search. Every file matches by filename;
-   * additionally, a file the commit *changed* matches when its (already-fetched)
-   * diff text contains the query — so a method/identifier search finds it on this
-   * tab too, not just the "Changed" tab. Unchanged files stay filename-only: their
-   * full content isn't fetched up front (a repo tree can be enormous).
+   * with content search on, any file whose content contains the query matches too
+   * (the host greps the whole commit tree, so a method search reveals which file
+   * defines it), plus changed files whose cached diff contains it.
    */
   function visibleAllPaths(): string[] {
     if (!allPaths) return [];
     const query = normalizeQuery(searchQuery);
     if (!query) return allPaths;
-    return allPaths.filter(
-      (p) => pathMatchesQuery(p, query) || diffMatchesQuery(p, query, diffCache),
-    );
+    return allPaths.filter((p) => pathMatches(p, query));
+  }
+
+  /**
+   * Kick off the content part of the search (when enabled): pull any not-yet-fetched
+   * diffs of changed files, and — when `grep` is set — ask the host to grep the
+   * commit's tree for the query. Tab switches pass `grep=false`: the grep result
+   * is tab-independent and already cached for the current query.
+   */
+  function runContentSearch(grep: boolean): void {
+    const query = normalizeQuery(searchQuery);
+    if (!query || !getContentSearch()) return;
+    fetchMissingDiffs();
+    if (grep && query.length >= MIN_CONTENT_QUERY && treeContentMatches?.query !== query) {
+      ctx?.onSearchTreeContent(searchQuery.trim());
+    }
   }
 
   function renderChangedTab(): void {
@@ -692,7 +745,7 @@ export function openChangesDialog(context: ChangesDialogContext): void {
   /** Mark the active search term in the just-rendered diff/content and reveal the first hit. */
   function applySearchHighlight(scroll: HTMLElement): void {
     const q = normalizeQuery(searchQuery);
-    if (!q) return;
+    if (!q || !getContentSearch()) return;
     const firstHit = highlightSearchHits(scroll, q);
     if (firstHit) firstHit.scrollIntoView({ block: "center", inline: "nearest" });
   }
@@ -760,6 +813,15 @@ export function setCommitTree(sha: string, paths: string[]): void {
   if (!ctx || ctx.sha !== sha) return;
   allPaths = paths;
   if (activeTab === "all") pendingRenderList?.();
+}
+
+export function setTreeContentSearchResults(sha: string, query: string, paths: string[]): void {
+  if (!ctx || ctx.sha !== sha) return;
+  const q = normalizeQuery(query);
+  // Drop stale answers — the user has typed on since this grep was issued.
+  if (q !== normalizeQuery(searchQuery)) return;
+  treeContentMatches = { query: q, paths: new Set(paths) };
+  pendingRenderList?.();
 }
 
 export function setFileDiff(incoming: FileDiff): void {

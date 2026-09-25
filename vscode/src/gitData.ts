@@ -849,6 +849,22 @@ export async function readCommitTree(repoRoot: string, sha: string): Promise<str
 }
 
 /**
+ * Paths in a commit's tree whose content contains `query` — a case-insensitive
+ * literal `git grep -l` (binaries skipped). Lets the changes dialog's content
+ * search reveal which file defines a method/identifier. git exits 1 on "no
+ * match", which (like any failure) yields an empty list.
+ */
+export async function searchTreeContent(repoRoot: string, sha: string, query: string): Promise<string[]> {
+  if (!query) return [];
+  const out = await git(repoRoot, ["grep", "-l", "-z", "-I", "-i", "-F", "-e", query, sha, "--"]).catch(() => "");
+  const prefix = `${sha}:`;
+  return out
+    .split("\0")
+    .filter(Boolean)
+    .map((p) => (p.startsWith(prefix) ? p.slice(prefix.length) : p));
+}
+
+/**
  * Raw text content of one file at a commit, for viewing unchanged files.
  * Binary or oversized files are flagged rather than streamed.
  */

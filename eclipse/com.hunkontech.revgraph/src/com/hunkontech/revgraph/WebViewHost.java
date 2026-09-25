@@ -350,6 +350,9 @@ public final class WebViewHost {
                 case "requestCommitTree":
                     handleCommitTree(msg.sha);
                     break;
+                case "requestTreeContentSearch":
+                    handleTreeContentSearch(msg.sha, msg.query);
+                    break;
                 case "requestFileDiff":
                     handleFileDiff(msg.sha, msg.path, msg.status, msg.oldPath);
                     break;
@@ -547,6 +550,19 @@ public final class WebViewHost {
         } catch (Exception e) {
             postToWebview(errorMap("Failed to read commit tree: " + e.getMessage()));
         }
+    }
+
+    private void handleTreeContentSearch(String sha, String query) {
+        GitService g = git;
+        if (g == null || sha == null || sha.isEmpty() || query == null || query.isEmpty()) {
+            return;
+        }
+        Map<String, Object> msg = new LinkedHashMap<>();
+        msg.put("type", "treeContentSearchResults");
+        msg.put("sha", sha);
+        msg.put("query", query);
+        msg.put("paths", g.searchTreeContent(sha, query));
+        postToWebview(msg);
     }
 
     private void handleFileContent(String sha, String path) {

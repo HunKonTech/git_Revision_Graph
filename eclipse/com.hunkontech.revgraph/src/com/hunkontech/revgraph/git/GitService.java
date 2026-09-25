@@ -588,6 +588,28 @@ public final class GitService {
         return splitLines(tryRun("ls-tree", "-r", "--name-only", sha));
     }
 
+    /**
+     * Paths in a commit's tree whose content contains {@code query} (case-insensitive
+     * literal {@code git grep -l}, binaries skipped). Mirrors searchTreeContent in
+     * gitData.ts; git's exit 1 ("no match") yields an empty list.
+     */
+    public List<String> searchTreeContent(String sha, String query) {
+        List<String> paths = new ArrayList<>();
+        if (query == null || query.isEmpty()) {
+            return paths;
+        }
+        String prefix = sha + ":";
+        String out = tryRun("grep", "-l", "-z", "-I", "-i", "-F", "-e", query, sha, "--");
+        for (String raw : out.split(String.valueOf(NUL), -1)) {
+            String p = raw.replace("\r", "").replace("\n", "");
+            if (p.isEmpty()) {
+                continue;
+            }
+            paths.add(p.startsWith(prefix) ? p.substring(prefix.length()) : p);
+        }
+        return paths;
+    }
+
     private long blobSize(String rev, String path) {
         String s = tryRun("cat-file", "-s", rev + ":" + path).trim();
         try {

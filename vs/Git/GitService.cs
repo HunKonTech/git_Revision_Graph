@@ -505,6 +505,27 @@ namespace RevisionGraph.Git
         }
 
         /// <summary>
+        /// Paths in a commit's tree whose content contains <paramref name="query"/>
+        /// (case-insensitive literal <c>git grep -l</c>, binaries skipped). Mirrors
+        /// searchTreeContent in vscode/src/gitData.ts; git's exit 1 ("no match")
+        /// yields an empty list.
+        /// </summary>
+        public async Task<List<string>> SearchTreeContentAsync(string sha, string query)
+        {
+            var paths = new List<string>();
+            if (string.IsNullOrEmpty(query)) return paths;
+            var outp = await TryRunAsync("grep", "-l", "-z", "-I", "-i", "-F", "-e", query, sha, "--").ConfigureAwait(false);
+            var prefix = sha + ":";
+            foreach (var raw in (outp ?? string.Empty).Split('\0'))
+            {
+                var p = raw.Trim('\r', '\n');
+                if (string.IsNullOrEmpty(p)) continue;
+                paths.Add(p.StartsWith(prefix, StringComparison.Ordinal) ? p.Substring(prefix.Length) : p);
+            }
+            return paths;
+        }
+
+        /// <summary>
         /// Raw text content of one file at a commit, for viewing unchanged files.
         /// Mirrors readFileContent in vscode/src/gitData.ts.
         /// </summary>
@@ -1204,6 +1225,39 @@ namespace RevisionGraph.Git
             return tcs.Task;
         }
 
+        /// <summary>
+        /// Quote one argument for the Windows command line (CommandLineToArgvW
+        /// rules): tokens without whitespace or quotes pass through unchanged;
+        /// others are wrapped in quotes, with embedded quotes and the backslashes
+        /// preceding them (or the closing quote) doubled/escaped. Needed because
+        /// free text such as a search query can contain any character.
+        /// </summary>
+        private static string QuoteArg(string a)
+        {
+            if (a == null) a = string.Empty;
+            if (a.Length > 0 && a.IndexOfAny(new[] { ' ', '\t', '\n', '"' }) < 0) return a;
+            var sb = new StringBuilder("\"");
+            var backslashes = 0;
+            foreach (var c in a)
+            {
+                if (c == '\\') { backslashes++; continue; }
+                if (c == '"')
+                {
+                    sb.Append('\\', backslashes * 2 + 1);
+                    sb.Append('"');
+                }
+                else
+                {
+                    sb.Append('\\', backslashes);
+                    sb.Append(c);
+                }
+                backslashes = 0;
+            }
+            sb.Append('\\', backslashes * 2);
+            sb.Append('"');
+            return sb.ToString();
+        }
+
         private static Task<string> RunCoreAsync(
             string cwd, IDictionary<string, string> env, string[] args)
         {
@@ -1223,9 +1277,8 @@ namespace RevisionGraph.Git
                 foreach (var kv in env) psi.EnvironmentVariables[kv.Key] = kv.Value;
             }
             // ArgumentList is .NET 5+ only; on .NET Framework 4.7.2 build the
-            // Arguments string manually, quoting tokens that contain spaces.
-            psi.Arguments = string.Join(" ", System.Array.ConvertAll(
-                args, a => a.Contains(" ") ? "\"" + a.Replace("\"", "\\\"") + "\"" : a));
+            // Arguments string manually (see QuoteArg).
+            psi.Arguments = string.Join(" ", System.Array.ConvertAll(args, QuoteArg));
 
             var proc = new Process { StartInfo = psi, EnableRaisingEvents = true };
             var stdout = new StringBuilder();

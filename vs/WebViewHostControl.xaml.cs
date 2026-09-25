@@ -193,6 +193,9 @@ namespace RevisionGraph
                 case "requestCommitTree":
                     await HandleCommitTreeAsync(msg.Sha).ConfigureAwait(true);
                     break;
+                case "requestTreeContentSearch":
+                    await HandleTreeContentSearchAsync(msg.Sha, msg.Query).ConfigureAwait(true);
+                    break;
                 case "requestFileDiff":
                     await HandleFileDiffAsync(msg.Sha, msg.Path, msg.Status, msg.OldPath).ConfigureAwait(true);
                     break;
@@ -613,6 +616,14 @@ namespace RevisionGraph
             {
                 PostToWebview(new { type = "error", message = "Failed to read commit tree: " + ex.Message });
             }
+        }
+
+        /// <summary>Send the webview the files in a commit's tree whose content contains the query.</summary>
+        private async Task HandleTreeContentSearchAsync(string sha, string query)
+        {
+            if (_git == null || string.IsNullOrEmpty(sha) || string.IsNullOrEmpty(query)) return;
+            var paths = await _git.SearchTreeContentAsync(sha, query).ConfigureAwait(true);
+            PostToWebview(new { type = "treeContentSearchResults", sha, query, paths });
         }
 
         /// <summary>Send the webview the raw content of one file at a commit.</summary>

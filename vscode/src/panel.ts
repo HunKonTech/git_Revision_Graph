@@ -22,6 +22,7 @@ import {
   stashDropCli,
   readCommitChanges,
   readCommitTree,
+  searchTreeContent,
   readFileContent,
   readFileDiff,
   readWorkingTreeChanges,
@@ -161,6 +162,9 @@ export class GraphPanel {
         break;
       case "requestCommitTree":
         await this.handleCommitTree(msg.sha);
+        break;
+      case "requestTreeContentSearch":
+        await this.handleTreeContentSearch(msg.sha, msg.query);
         break;
       case "requestFileDiff":
         await this.handleFileDiff(msg.sha, msg.path, msg.status, msg.oldPath);
@@ -501,6 +505,15 @@ export class GraphPanel {
     } catch (err) {
       this.post({ type: "error", message: `Failed to read commit tree: ${String(err)}` });
     }
+  }
+
+  /** Send the webview the files in a commit's tree whose content contains `query`. */
+  private async handleTreeContentSearch(sha: string, query: string): Promise<void> {
+    if (!sha || !query) return;
+    const repo = await resolveRepository();
+    if (!repo) return;
+    const paths = await searchTreeContent(repo.rootUri.fsPath, sha, query);
+    this.post({ type: "treeContentSearchResults", sha, query, paths });
   }
 
   /** Send the webview the raw content of one file at a commit. */

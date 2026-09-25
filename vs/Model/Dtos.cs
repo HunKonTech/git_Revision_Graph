@@ -147,6 +147,8 @@ namespace RevisionGraph.Model
         public string GitPath { get; set; }
         /// <summary>Target URL for openExternal.</summary>
         public string Url { get; set; }
+        /// <summary>Search term for requestTreeContentSearch.</summary>
+        public string Query { get; set; }
         /// <summary>Selected file paths for commitWorkingTreeChanges.</summary>
         public List<string> Files { get; set; } = new List<string>();
     }
