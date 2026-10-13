@@ -21,6 +21,9 @@ LANG_ALIASES = {
     "zh-hans": "zh-CN",
     "zh-hant": "zh-TW",
     "he": "iw",
+    "iw": "iw",
+    "jv": "jw",
+    "mni-mtei": "mni-Mtei",
     "pt-br": "pt",
     "nb": "no",
 }
@@ -30,9 +33,27 @@ def normalize_lang(lang):
     key = lang.strip().lower()
     if key in LANG_ALIASES:
         return LANG_ALIASES[key]
-    if key in ("zh-cn", "zh-tw"):
-        return LANG_ALIASES[key]
     return key.split("-")[0]
+
+
+_SUPPORTED_CODES = None
+
+
+def is_supported(lang):
+    """True if Google Translate (via deep_translator) knows the target code."""
+    global _SUPPORTED_CODES
+    if _SUPPORTED_CODES is None:
+        _SUPPORTED_CODES = set(GoogleTranslator().get_supported_languages(as_dict=True).values())
+    return normalize_lang(lang) in _SUPPORTED_CODES
+
+
+class RateLimited(Exception):
+    """Google keeps answering HTTP 429: the IP is blocked for a while."""
+
+    def __init__(self):
+        super().__init__(
+            "Google Translate is rate-limiting this IP (HTTP 429). Wait a few hours "
+            "and run again, or let the GitHub workflow translate on its runner.")
 
 
 class ProgressPrinter:
@@ -95,20 +116,29 @@ _RATE_LIMITER = _RateLimiter()
 # Retry on transient rate-limit / network errors before giving up on an item.
 _MAX_RETRIES = 6
 
+# Set once an item exhausts its retries on 429: every later call fails at once
+# instead of hammering Google (and extending the block) for each remaining key.
+_BLOCKED = threading.Event()
+
 
 def translate_text(text, target_lang):
     if text is None or str(text).strip() == "":
         return text
     translator = GoogleTranslator(source='auto', target=normalize_lang(target_lang))
     for attempt in range(_MAX_RETRIES):
+        if _BLOCKED.is_set():
+            raise RateLimited()
         _RATE_LIMITER.wait()
         try:
             return translator.translate(text)
         except (TooManyRequests, RequestError) as exc:
             if attempt == _MAX_RETRIES - 1:
+                if isinstance(exc, TooManyRequests):
+                    _BLOCKED.set()
+                    raise RateLimited() from exc
                 raise
             # Exponential backoff with jitter; also pushes back the shared limiter.
-            delay = min(2 ** attempt, 30) + random.uniform(0, 1)
+            delay = min(2 ** (attempt + 1), 60) + random.uniform(0, 1)
             _RATE_LIMITER._next_allowed = time.monotonic() + delay
             time.sleep(delay)
     # Unreachable, but keeps linters happy.
@@ -157,15 +187,24 @@ def run_translations(worklist, translate_fn, workers, progress=None, describe=No
         except Exception as exc:  # keep going so partial results are still written
             return (item, None), exc
 
+    def _one_line(error):
+        return " ".join(str(error).split())[:160]
+
     workers = max(1, min(workers, len(worklist)))
     with ThreadPoolExecutor(max_workers=workers) as executor:
         for (item, translated), error in executor.map(_safe, worklist):
+            if isinstance(error, RateLimited):
+                # Blocked: drop the queue instead of reporting every key as failed.
+                executor.shutdown(wait=False, cancel_futures=True)
+                print(f"\nStopped: {error}")
+                print(f"{len(results)} of {len(worklist)} item(s) were translated before the block.")
+                return results
             if error is not None:
                 failures.append((item, error))
             else:
                 results.append((item, translated))
             if progress is not None:
-                shown = f"FAILED: {error}" if error else (
+                shown = f"FAILED: {_one_line(error)}" if error else (
                     describe(item, translated) if describe else str(translated))
                 progress.step(shown)
             elif describe is not None and not error:
@@ -174,7 +213,7 @@ def run_translations(worklist, translate_fn, workers, progress=None, describe=No
     if failures:
         print(f"\n{len(failures)} item(s) could not be translated and were left unchanged:")
         for item, error in failures[:20]:
-            print(f"  {item}: {error}")
+            print(f"  {item}: {_one_line(error)}")
         if len(failures) > 20:
             print(f"  ... and {len(failures) - 20} more")
     return results
@@ -273,7 +312,7 @@ def _parse_string_entries(body):
         # --- value ---
         if body[i] in "\"'`":
             raw, i = read_string(i)
-            value = raw.encode().decode("unicode_escape") if "\\" in raw else raw
+            value = _unescape_js_string(raw)
             entries.append((key, value))
         else:
             # Non-string value (nested object, number, etc.) - skip it.
@@ -282,8 +321,55 @@ def _parse_string_entries(body):
     return entries
 
 
+_JS_ESCAPES = {"n": "\n", "t": "\t", "r": "\r", "b": "\b", "f": "\f", "v": "\v", "0": "\0"}
+
+
+def _unescape_js_string(raw):
+    """Turn a JS/TS string body's escape sequences into their characters.
+
+    Only the escapes JS actually defines are interpreted; every other character
+    (crucially all non-ASCII text) is passed through untouched. Do NOT use
+    ``raw.encode().decode("unicode_escape")`` here: it reinterprets each UTF-8
+    byte as a code point, so every run turns "…" into "â\x80¦" and doubles the
+    damage on the next run.
+    """
+    out = []
+    i = 0
+    n = len(raw)
+    while i < n:
+        ch = raw[i]
+        if ch != "\\" or i + 1 >= n:
+            out.append(ch)
+            i += 1
+            continue
+        nxt = raw[i + 1]
+        if nxt == "u":
+            m = re.match(r"\\u\{([0-9a-fA-F]+)\}", raw[i:]) or re.match(r"\\u([0-9a-fA-F]{4})", raw[i:])
+            if m:
+                out.append(chr(int(m.group(1), 16)))
+                i += m.end()
+                continue
+        if nxt == "x":
+            m = re.match(r"\\x([0-9a-fA-F]{2})", raw[i:])
+            if m:
+                out.append(chr(int(m.group(1), 16)))
+                i += m.end()
+                continue
+        if nxt in ("\n", "\r"):  # line continuation
+            i += 2
+            continue
+        out.append(_JS_ESCAPES.get(nxt, nxt))
+        i += 2
+    return "".join(out)
+
+
 def _escape_ts_string(value):
-    return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+    return (
+        value.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+    )
 
 
 def process_i18n_ts(file_path, force_translate, exclude_languages, source_lang, workers=8):
@@ -323,14 +409,21 @@ def process_i18n_ts(file_path, force_translate, exclude_languages, source_lang, 
 
     # Build the full worklist first so progress can be shown as a percentage.
     worklist = []
+    unsupported = []
     for name, _ in langs:
         if name == source_lang or name in exclude_languages:
+            continue
+        if not is_supported(name):
+            unsupported.append(name)
             continue
         existing = lang_map[name]
         for key, src_value in source_entries:
             if not force_translate and key in existing and existing[key].strip() != "":
                 continue
             worklist.append((name, key, src_value))
+
+    if unsupported:
+        print(f"Skipping languages Google Translate does not support: {', '.join(unsupported)}")
 
     progress = ProgressPrinter(len(worklist), recent=4)
     results = run_translations(
@@ -343,6 +436,10 @@ def process_i18n_ts(file_path, force_translate, exclude_languages, source_lang, 
     for (name, key, _src), translated in results:
         lang_map[name][key] = translated
     progress.done()
+
+    if worklist and not results:
+        print("\nNothing was translated; i18n file left untouched.")
+        return
 
     # Rebuild the DICTS object using the source key order for every language.
     indent = "  "
