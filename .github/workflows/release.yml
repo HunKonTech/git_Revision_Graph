@@ -884,17 +884,25 @@ jobs:
 
       # The self-hosted Linux runner (unlike the retired GitHub-hosted
       # ubuntu-latest) ships no Maven, so `mvn` would be "command not found".
-      # Provide it in-workflow: if the runner already has mvn on PATH (e.g. a
-      # future `apt-get install maven`), use that; otherwise download the
-      # official Apache Maven binary into the runner's temp and export it onto
-      # PATH for later steps. No sudo, self-contained, arch-independent.
+      # Provide it in-workflow: if the runner already has the pinned
+      # MAVEN_VERSION on PATH, use that; otherwise (no mvn, or a different
+      # version such as the hosted image's 3.10.0) download the official Apache
+      # Maven binary into the runner's temp and export it onto PATH for later
+      # steps. No sudo, self-contained, arch-independent.
       - name: Set up Apache Maven
         env:
           MAVEN_VERSION: '3.9.9'
         run: |
           set -euo pipefail
-          if command -v mvn >/dev/null 2>&1; then
-            echo "Maven already on PATH: $(mvn -v | head -n1)"
+          # Reuse a pre-installed mvn ONLY if it is exactly the pinned version:
+          # GitHub's ubuntu-24.04 image now ships Maven 3.10.0, which breaks
+          # Tycho 4.0.8 (unbound MavenTargetLocationFactory) and rejects the
+          # OpenJFX parent POM (duplicate profile activation), so the
+          # platform-specific JavaFX jars never resolve. $GITHUB_PATH entries
+          # are prepended, so the downloaded pinned Maven wins in later steps.
+          if command -v mvn >/dev/null 2>&1 \
+             && mvn -v 2>/dev/null | head -n1 | grep -q "Apache Maven ${MAVEN_VERSION} "; then
+            echo "Pinned Maven already on PATH: $(mvn -v | head -n1)"
             exit 0
           fi
           dest="${RUNNER_TEMP:-/tmp}/apache-maven"
@@ -909,6 +917,7 @@ jobs:
               break
             fi
           done
+          [ -s "$tgz" ] || { echo "::error::Could not download Maven ${MAVEN_VERSION}"; exit 1; }
           tar -xzf "$tgz" -C "$dest" --strip-components=1
           echo "$dest/bin" >> "$GITHUB_PATH"
           "$dest/bin/mvn" -v
@@ -1040,15 +1049,23 @@ jobs:
           java-version: '17'
 
       # The self-hosted Linux runner ships no Maven (see the identical step in
-      # build-eclipse-plugin). Provide `mvn` in-workflow: reuse it if already on
-      # PATH, otherwise download the official Apache Maven binary. No sudo.
+      # build-eclipse-plugin). Provide the pinned `mvn` in-workflow: reuse it
+      # only if that exact version is already on PATH, otherwise download the
+      # official Apache Maven binary. No sudo.
       - name: Set up Apache Maven
         env:
           MAVEN_VERSION: '3.9.9'
         run: |
           set -euo pipefail
-          if command -v mvn >/dev/null 2>&1; then
-            echo "Maven already on PATH: $(mvn -v | head -n1)"
+          # Reuse a pre-installed mvn ONLY if it is exactly the pinned version:
+          # GitHub's ubuntu-24.04 image now ships Maven 3.10.0, which breaks
+          # Tycho 4.0.8 (unbound MavenTargetLocationFactory) and rejects the
+          # OpenJFX parent POM (duplicate profile activation), so the
+          # platform-specific JavaFX jars never resolve. $GITHUB_PATH entries
+          # are prepended, so the downloaded pinned Maven wins in later steps.
+          if command -v mvn >/dev/null 2>&1 \
+             && mvn -v 2>/dev/null | head -n1 | grep -q "Apache Maven ${MAVEN_VERSION} "; then
+            echo "Pinned Maven already on PATH: $(mvn -v | head -n1)"
             exit 0
           fi
           dest="${RUNNER_TEMP:-/tmp}/apache-maven"
@@ -1061,6 +1078,7 @@ jobs:
               break
             fi
           done
+          [ -s "$tgz" ] || { echo "::error::Could not download Maven ${MAVEN_VERSION}"; exit 1; }
           tar -xzf "$tgz" -C "$dest" --strip-components=1
           echo "$dest/bin" >> "$GITHUB_PATH"
           "$dest/bin/mvn" -v
