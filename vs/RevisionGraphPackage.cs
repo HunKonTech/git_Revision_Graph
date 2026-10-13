@@ -13,6 +13,13 @@ namespace RevisionGraph
     /// </summary>
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
     [InstalledProductRegistration("Revision Graph for Git (SVN style)", "TortoiseSVN-style Git revision graph.", "0.1.0")]
+    // The menu icon is an image moniker whose manifest points at a PNG inside
+    // this assembly ("/RevisionGraph;Component/..."). VS draws View → Other
+    // Windows long before the package loads, so the image service must be able
+    // to resolve "RevisionGraph" by name on its own — adding the extension
+    // folder to the probing path does that. Without it the command showed only
+    // its text (no icon) until the package happened to be loaded.
+    [ProvideBindingPath]
     [ProvideMenuResource("Menus.ctmenu", 1)]
     [ProvideToolWindow(typeof(RevisionGraphToolWindow), Style = VsDockStyle.Tabbed, Window = "DocumentWell")]
     [Guid(PackageGuidString)]
