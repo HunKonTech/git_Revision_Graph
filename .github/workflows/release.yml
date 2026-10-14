@@ -456,11 +456,18 @@ jobs:
           }
           Write-Host "Publishing VS extension: $($vsix.Name)"
 
+          # The runner prepends $ErrorActionPreference='Stop'; under Windows
+          # PowerShell 5.1, `2>&1` wraps each native stderr line in an
+          # ErrorRecord, so the first one would abort the script (NativeCommandError)
+          # before the exit-code handling below runs. Relax it for this call and
+          # stringify the records.
+          $ErrorActionPreference = 'Continue'
           & $vsixPublisher publish `
             -payload       "$($vsix.FullName)" `
             -publishManifest 'vs/publishManifest.json' `
-            -personalAccessToken "$env:VS_PAT" 2>&1 | Tee-Object -Variable pubOut | Out-Host
+            -personalAccessToken "$env:VS_PAT" 2>&1 | ForEach-Object { "$_" } | Tee-Object -Variable pubOut | Out-Host
           $pubCode = $LASTEXITCODE
+          $ErrorActionPreference = 'Stop'
           # VsixPublisher's telemetry can crash (FileLoadException System.Memory)
           # AFTER the upload succeeded -> non-zero exit although VsixPub0038
           # ("Uploaded ... to the marketplace") was reported. Treat that as success.
@@ -686,11 +693,18 @@ jobs:
             exit 0
           }
           Write-Host "VsixPublisher: $vsixPublisher"
+          # The runner prepends $ErrorActionPreference='Stop'; under Windows
+          # PowerShell 5.1, `2>&1` wraps each native stderr line in an
+          # ErrorRecord, so the first one would abort the script (NativeCommandError)
+          # before the exit-code handling below runs. Relax it for this call and
+          # stringify the records.
+          $ErrorActionPreference = 'Continue'
           & $vsixPublisher publish `
             -payload       (Resolve-Path $vsixPath).Path `
             -publishManifest (Resolve-Path 'vs\publishManifest.json').Path `
-            -personalAccessToken "$env:VS_PAT" 2>&1 | Tee-Object -Variable pubOut | Out-Host
+            -personalAccessToken "$env:VS_PAT" 2>&1 | ForEach-Object { "$_" } | Tee-Object -Variable pubOut | Out-Host
           $pubCode = $LASTEXITCODE
+          $ErrorActionPreference = 'Stop'
           # Telemetry crash after a confirmed upload (VsixPub0038) = success.
           if ($pubCode -ne 0 -and ($pubOut -join "`n") -match 'VsixPub0038') {
             Write-Host "VsixPublisher exit code $pubCode, but the upload was confirmed (VsixPub0038) - treating as success."
@@ -861,14 +875,19 @@ jobs:
           PRIVATE_KEY: ${{ secrets.JETBRAINS_PRIVATE_KEY }}
           PRIVATE_KEY_PASSWORD: ${{ secrets.JETBRAINS_PRIVATE_KEY_PASSWORD }}
         run: |
-          gradle :intellij:publishPlugin --no-daemon 2>&1 | Tee-Object -Variable captured | ForEach-Object { Write-Host $_ }
-          if ($LASTEXITCODE -ne 0) {
+          # Same NativeCommandError trap as the VsixPublisher steps: don't let
+          # gradle's stderr abort the script before the exit-code handling.
+          $ErrorActionPreference = 'Continue'
+          gradle :intellij:publishPlugin --no-daemon 2>&1 | ForEach-Object { "$_" } | Tee-Object -Variable captured | ForEach-Object { Write-Host $_ }
+          $gradleCode = $LASTEXITCODE
+          $ErrorActionPreference = 'Stop'
+          if ($gradleCode -ne 0) {
             if ($captured -match 'Cannot find plugin') {
               Write-Warning "Plugin is not on the JetBrains Marketplace yet. Upload the first com.hunkontech.revgraph build manually via https://plugins.jetbrains.com/ and let it clear moderation; CI will publish updates automatically after that. Treating this one-time bootstrap failure as non-fatal."
             } elseif ($captured -match 'already contains version .* in channel') {
               Write-Warning "This version is already published (likely a retry of this job at the same NEW_VERSION). Nothing to do."
             } else {
-              throw "Gradle publishPlugin failed ($LASTEXITCODE)"
+              throw "Gradle publishPlugin failed ($gradleCode)"
             }
           } else {
             Write-Host "Published to the JetBrains Marketplace."
