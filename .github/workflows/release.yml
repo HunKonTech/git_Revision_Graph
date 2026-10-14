@@ -459,17 +459,29 @@ jobs:
           & $vsixPublisher publish `
             -payload       "$($vsix.FullName)" `
             -publishManifest 'vs/publishManifest.json' `
-            -personalAccessToken "$env:VS_PAT"
+            -personalAccessToken "$env:VS_PAT" 2>&1 | Tee-Object -Variable pubOut | Out-Host
+          $pubCode = $LASTEXITCODE
+          # VsixPublisher's telemetry can crash (FileLoadException System.Memory)
+          # AFTER the upload succeeded -> non-zero exit although VsixPub0038
+          # ("Uploaded ... to the marketplace") was reported. Treat that as success.
+          if ($pubCode -ne 0 -and ($pubOut -join "`n") -match 'VsixPub0038') {
+            Write-Host "VsixPublisher exit code $pubCode, but the upload was confirmed (VsixPub0038) - treating as success."
+            $pubCode = 0
+          }
 
-          if ($LASTEXITCODE -ne 0) {
+          if ($pubCode -ne 0) {
             # Best-effort, like the JetBrains and Maven Central publishes: the
             # VSIX is already built and attached to the GitHub Release, so a
             # Marketplace hiccup (e.g. VsixPublisher's ~100s HTTP timeout to the
             # Marketplace) must not fail the release. Warn and continue.
-            Write-Warning "VsixPublisher.exe exited with code $LASTEXITCODE (commonly a transient Marketplace HTTP timeout). The VSIX already shipped on the GitHub Release; continuing."
+            Write-Warning "VsixPublisher.exe exited with code $pubCode (commonly a transient Marketplace HTTP timeout). The VSIX already shipped on the GitHub Release; continuing."
           } else {
             Write-Host "Successfully published to Visual Studio Marketplace."
           }
+          # The runner's PowerShell wrapper exits with $LASTEXITCODE; don't let
+          # the publisher's code fail this best-effort step.
+          $global:LASTEXITCODE = 0
+          exit 0
 
   # -------------------------------------------------------------------------
   # Second job: build VS 2022 VSIX on the self-hosted Windows runner.
@@ -677,15 +689,25 @@ jobs:
           & $vsixPublisher publish `
             -payload       (Resolve-Path $vsixPath).Path `
             -publishManifest (Resolve-Path 'vs\publishManifest.json').Path `
-            -personalAccessToken "$env:VS_PAT"
-          if ($LASTEXITCODE -ne 0) {
+            -personalAccessToken "$env:VS_PAT" 2>&1 | Tee-Object -Variable pubOut | Out-Host
+          $pubCode = $LASTEXITCODE
+          # Telemetry crash after a confirmed upload (VsixPub0038) = success.
+          if ($pubCode -ne 0 -and ($pubOut -join "`n") -match 'VsixPub0038') {
+            Write-Host "VsixPublisher exit code $pubCode, but the upload was confirmed (VsixPub0038) - treating as success."
+            $pubCode = 0
+          }
+          if ($pubCode -ne 0) {
             # Best-effort (see the same note in the release job's publish step):
             # the vs2022 VSIX is already attached to the GitHub Release above, so
             # a transient Marketplace timeout must not fail the job.
-            Write-Warning "VsixPublisher.exe exited with code $LASTEXITCODE (commonly a transient Marketplace HTTP timeout). The VSIX already shipped on the GitHub Release; continuing."
+            Write-Warning "VsixPublisher.exe exited with code $pubCode (commonly a transient Marketplace HTTP timeout). The VSIX already shipped on the GitHub Release; continuing."
           } else {
             Write-Host "Successfully published to Visual Studio Marketplace."
           }
+          # The runner's PowerShell wrapper exits with $LASTEXITCODE; don't let
+          # the publisher's code fail this best-effort step.
+          $global:LASTEXITCODE = 0
+          exit 0
 
   # -------------------------------------------------------------------------
   # Third job: build the JetBrains-family plugin (IntelliJ Platform / Gradle).
